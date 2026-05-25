@@ -1,0 +1,6 @@
+
+# Cursor beforeShellExecution hook (append-only debug log)
+.cursor/hooks/beforeShellExecution.log
+
+# Local Rosey stack (secrets and runtime logs)
+/.env
