@@ -2,7 +2,7 @@
 
 This is a standalone, portable Agentic Environment for Cursor, containing rules, skills, and MCP configurations.
 
-It's designed to be injected into target "unirepos" so they gain the intelligence of the Rosey agents without needing to clone a massive meta-repository.
+It's designed to be injected directly into target application repositories so they gain the intelligence of the Rosey agents, with the agentic environment and application code sharing the same workspace root.
 
 ## Installation into a target repository
 

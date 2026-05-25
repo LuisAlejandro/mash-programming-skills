@@ -60,22 +60,17 @@ Before calling tools, read MCP tool descriptors under the `sentrux` server folde
 
 If the binary or MCP server is missing:
 
-- Set `status: "unavailable"` on affected repos in topology artifacts
+- Set `status: "unavailable"` in the topology artifact
 - **rosey-manager:** still writes the plan; omit numeric signals; note unavailability in the Architecture baseline section
 - **rosey-developer:** skip session gate; document reason in review brief; do **not** block QA handoff
 - **rosey-qa:** proceed without `SENTRUX_REVIEW_CONTEXT`
 
-## Repo resolution
+## Repository scope
 
-Build **affected repo paths** (workspace-relative) from PRD, design doc, and plan bullets:
+The application repository is the workspace root itself. All Sentrux commands run relative to the workspace root directory (e.g., `.`).
 
-1. **Explicit paths** in text.
-2. **Deduplicate**; use directory roots only (not individual files) as scan targets
-
-**Skip scanning** when:
-
-- Repo is pure infra with no meaningful tree-sitter graph (optional: try MCP **`scan`**; if it fails or returns trivial file count, record `status: "skipped"` with `skip_reason`)
-- Repo is not present in the workspace (do not invent paths)
+1. **Workspace root** is the single scan target.
+2. Do not attempt to resolve or scan multiple sibling or child repositories.
 
 ## MCP tools by phase
 
@@ -202,7 +197,7 @@ If unavailable, pass: `Sentrux unavailable — structural review skipped.`
 }
 ```
 
-Use for crash recovery: on resume, do not call `session_start` again for repos already marked `started`.
+Use for crash recovery: on resume, do not call `session_start` again if the session is already marked `started`.
 
 ## References
 

@@ -20,7 +20,7 @@ You are reviewing code changes for production readiness.
 
 ## Changes to Review
 
-**No Git baseline** — do not run `git diff`. Review the **current contents** of the implementation.
+**Git diff support** — Since the application code is in the workspace root, you can use `git diff` (e.g., `git diff HEAD`) as a representation of the changes to review.
 
 **Files to read (authoritative list):**
 

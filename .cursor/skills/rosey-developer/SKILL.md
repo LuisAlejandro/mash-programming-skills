@@ -19,17 +19,17 @@ You MUST complete these in order:
 
 1. **Resolve paths** — PRD, implementation plan, design doc, and **topology-path** must be known (from rosey-manager handoff, user, or glob in `docs/plans/<prd-slug>/`). Topology: `<plan-basename>.topology.json` beside the plan.
 2. **Read PRD, design doc, and topology** — read all three for context. Use topology bottlenecks and [rosey-sentrux](../rosey-sentrux/SKILL.md) execution rules during implementation.
-3. **Begin task loop** — build task-to-day map, read progress, compute next task/day, **maintain a running deduped list of every file path created or modified** (for final `FILES_CHANGED`; **all sibling repos** under the workspace — see **FILES_CHANGED (multi-repo)**; there is no Git diff), then repeat steps 4–11 until the plan is complete.
+3. **Begin task loop** — build task-to-day map, read progress, compute next task/day, **maintain a running deduped list of every file path created or modified** (for final `FILES_CHANGED`), then repeat steps 4–11 until the plan is complete.
 4. **Check tasks remain** — if the next task exceeds total task count, proceed to steps 12–13 (Sentrux gate, then rosey-qa).
 5. **Parse day's section** — extract all tasks under the chosen day's header.
 6. **Filter tasks** — exclude documentation, optional, and report/summary; keep implementation work **and** test tasks (see **Filtering Rules** and **Platform / GitOps (mandatory inclusion)**).
-7. **Target-repo pre-pass** — before executing the day, scan filtered tasks for named repos / platform work and verify sibling clones exist (see **Target-repo pre-pass (each day)**).
+7. **Path pre-pass** — before executing the day, scan filtered tasks for paths and verify they belong to the current project context (see **Path pre-pass (each day)**).
 8. **Announce and execute** — update progress: set `currentTask` to the first task index for this day (or the next task if resuming). Then briefly announce the day's tasks and immediately execute them. Do not switch to Plan Mode or wait for user approval.
 9. **Verify** — after each task, run a lightweight verification (linter errors on changed files + compile/build check). If verification fails, fix and re-check (max 3 attempts; then stop and ask the user).
 10. **Day completion gate** — before advancing the day, satisfy **Day completion gate (before next day)**.
 11. **Advance** — update progress file, then loop back to step 3 for the next day.
 12. **Sentrux handoff gate** — before rosey-qa: follow [rosey-sentrux](../rosey-sentrux/SKILL.md) and **Sentrux handoff gate (before QA)** below. If blocked, stop and do not invoke rosey-qa until sessions pass or user says **`override sentrux handoff block`**.
-13. **Hand off to rosey-qa** — invoke the **rosey-qa** skill directly. Pass **`FILES_CHANGED`**, **`WHAT_WAS_IMPLEMENTED`**, **`PLAN_OR_REQUIREMENTS`** (PRD path), **`DESCRIPTION`**, optional **`CHANGE_SUMMARY`**, and **`SENTRUX_REVIEW_CONTEXT`** (from review brief; omit only if Sentrux was unavailable). Do not use `git diff`. Do not report "Plan complete" yourself; rosey-qa will do that after the review.
+13. **Hand off to rosey-qa** — invoke the **rosey-qa** skill directly. Pass **`FILES_CHANGED`**, **`WHAT_WAS_IMPLEMENTED`**, **`PLAN_OR_REQUIREMENTS`** (PRD path), **`DESCRIPTION`**, optional **`CHANGE_SUMMARY`**, and **`SENTRUX_REVIEW_CONTEXT`** (from review brief; omit only if Sentrux was unavailable). You can also use `git diff` to provide a representation of the changes. Do not report "Plan complete" yourself; rosey-qa will do that after the review.
 
 ## Process Flow
 
@@ -185,7 +185,7 @@ Remediation loop: fix structural issues, re-run `session_end` until pass or user
 3. **Steps**: One step per filtered task. Phrase each step as a single, actionable item. All steps are **mandatory**; do not label any as optional.
 4. **No extra docs steps**; **test steps** from the plan are mandatory like any other task **unless** **Test runner prerequisite** forces a documented skip (then no test files and no item 3 verification).
 5. **No final reports or summaries**: Do not add "Write summary", "Create report", or "Retrospective".
-6. **Progress update**: The agent MUST update the progress file after each task (set `lastCompletedTask` to the global task index, remove `currentTask`). Before starting each task, set `currentTask` to its global index. After each task, **append any new paths** to the running **`FILES_CHANGED`** list (**multi-repo** — see **FILES_CHANGED (multi-repo)**) (dedupe).
+6. **Progress update**: The agent MUST update the progress file after each task (set `lastCompletedTask` to the global task index, remove `currentTask`). Before starting each task, set `currentTask` to its global index. After each task, **append any new paths** to the running **`FILES_CHANGED`** list (dedupe).
 
 ## Verification After Each Task
 
@@ -217,7 +217,7 @@ If the gate fails, fix or unblock before advancing; only then update **`lastComp
 
 ## Day Complete — Advancing to Next Day
 
-After the **Day completion gate** passes and the progress file is updated for the last task of the day, **automatically loop back**: read the progress file, compute the next day, and continue. If the next day exists, run **Target-repo pre-pass** then announce its tasks and execute immediately. If not, proceed to **Hand off to rosey-qa**.
+After the **Day completion gate** passes and the progress file is updated for the last task of the day, **automatically loop back**: read the progress file, compute the next day, and continue. If the next day exists, run **Path pre-pass** then announce its tasks and execute immediately. If not, proceed to **Hand off to rosey-qa**.
 
 Do not stop between days except when **blocked** (missing clone, gate failure). Do not ask the user whether to continue for normal progression. Do not switch to Plan Mode. The loop is fully automatic with no checkpoints except **blocked** states.
 
@@ -250,7 +250,7 @@ The progress file uses **global task numbering**. Path: same directory as the im
 
 ## Final Code Review
 
-The workspace root is **not** treated as a Git repo for this flow. There is **no** `git diff` baseline.
+The workspace root is the application repository itself. You can use `git diff` (e.g. `git diff HEAD`) as a representation of the changes.
 
 After all tasks are complete, run **Sentrux handoff gate (before QA)**. If not blocked, hand off to **rosey-qa**:
 
@@ -273,7 +273,7 @@ Do not report "Plan complete" yourself. **rosey-qa** will perform the review, fi
 
 ## Git Policy
 
-**No Git baseline** is assumed for code review; use **tracked file paths** and the **code-reviewer** template instead of `git diff`.
+**Git diff support** — Since the application code is located directly in the workspace root, you can use `git diff` (e.g., `git diff HEAD`) as a representation of the changes for code review.
 
 If a Git repo exists somewhere useful for context, read-only commands (`git status`, `git log`, etc.) are allowed. **Forbidden:** `git commit`, `git push`, `git add`, or anything that modifies repository state. Only write project files as the plan requires. The user manages commits themselves.
 
@@ -290,4 +290,4 @@ If a Git repo exists somewhere useful for context, read-only commands (`git stat
 9. After each task, verify (lint changed files + compile/build check). Fix any errors before advancing (max 3 fix attempts per task; then stop and ask the user).
 10. Update progress after each verified task: set `lastCompletedTask` to the task index, remove `currentTask`. Append paths to **`FILES_CHANGED`**.
 11. When all tasks in the day are done, run the **Day completion gate**; then loop back to step 3 for the next day.
-12. When no tasks remain, run **Sentrux handoff gate (before QA)**; if not blocked, invoke **rosey-qa** with **`FILES_CHANGED`**, optional **`CHANGE_SUMMARY`**, and **`SENTRUX_REVIEW_CONTEXT`** — not `git diff`. Do not report "Plan complete" yourself; rosey-qa will do that after the review.
+12. When no tasks remain, run **Sentrux handoff gate (before QA)**; if not blocked, invoke **rosey-qa** with **`FILES_CHANGED`**, optional **`CHANGE_SUMMARY`**, and **`SENTRUX_REVIEW_CONTEXT`** — you can also use `git diff`. Do not report "Plan complete" yourself; rosey-qa will do that after the review.

@@ -38,7 +38,7 @@ Get the list of files changed by the implementer's report. When handoff includes
 
 Use Task tool with `generalPurpose` type, fill template at `code-reviewer.md`
 
-**No Git diff** — the workspace root is not assumed to be a Git repo. Reviewers **read the listed files** from disk and use `{WHAT_WAS_IMPLEMENTED}` plus optional `{CHANGE_SUMMARY}` for context.
+**Git diff support** — Since the application code is located directly in the workspace root, you can use `git diff` (e.g. `git diff HEAD`) as a representation of the changes. The reviewer subagent will read the listed files and analyze the diff for complete context alongside `{WHAT_WAS_IMPLEMENTED}` and `{CHANGE_SUMMARY}`.
 
 **Placeholders:**
 

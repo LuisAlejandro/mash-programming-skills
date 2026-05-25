@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "od-iterator-report.schema.json",
+  "title": "OpenDesign Iterator Report",
+  "type": "object",
+  "required": ["generatedAt", "cyclesCompleted", "status", "remainingFindings", "filesChanged"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": { "type": "string" },
+    "cyclesCompleted": { "type": "number" },
+    "status": { "enum": ["aligned", "needs-manual-decision", "needs-targeted-pass", "max-cycles-reached"] },
+    "remainingFindings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "filesChanged": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "od-reviewer-report.schema.json",
+  "title": "OpenDesign Reviewer Report",
+  "type": "object",
+  "required": ["generatedAt", "baselineUrl", "targetUrl", "viewports", "findings", "controlInventoryStatus"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": { "type": "string" },
+    "baselineUrl": { "type": "string" },
+    "targetUrl": { "type": "string" },
+    "viewports": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "element", "expected", "observed", "recommendation"],
+        "additionalProperties": false,
+        "properties": {
+          "severity": { "enum": ["blocking", "major", "minor"] },
+          "element": { "type": "string" },
+          "expected": { "type": "string" },
+          "observed": { "type": "string" },
+          "sourceFile": { "type": ["string", "null"] },
+          "recommendation": { "type": "string" }
+        }
+      }
+    },
+    "controlInventoryStatus": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": ["number", "string"] },
+          "status": { "enum": ["implemented", "deferred", "missing", "not-applicable"] },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

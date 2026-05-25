@@ -4,3 +4,6 @@
 
 # Local Rosey stack (secrets and runtime logs)
 /.env
+
+# Local skill dependencies
+.cursor/skills/**/node_modules/

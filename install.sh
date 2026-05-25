@@ -3,34 +3,27 @@ set -e
 
 echo "🌹 Installing Rosey Agentic Environment..."
 
-# Update this URL to point to the actual GitHub repository where this environment is hosted
-REPO_URL="https://github.com/LuisAlejandro/rosey-agentic-env"
-TAR_URL="${REPO_URL}/archive/main.tar.gz"
+INSTALL_ROOT="$(pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_ROOT="$SCRIPT_DIR"
 
-TEMP_DIR=$(mktemp -d)
+echo "-> Installing from $SOURCE_ROOT into $INSTALL_ROOT..."
 
-echo "-> Downloading latest rules and skills from $REPO_URL..."
-if ! curl -sSL "$TAR_URL" | tar -xz -C "$TEMP_DIR" --strip-components=1; then
-    echo "❌ Error: Failed to download or extract the repository."
-    echo "   Ensure the repository is public or you have the correct access rights."
-    rm -rf "$TEMP_DIR"
-    exit 1
-fi
-
-if [ ! -d "$TEMP_DIR/.cursor" ]; then
-    echo "❌ Error: Could not find .cursor directory in the downloaded archive."
-    rm -rf "$TEMP_DIR"
+if [ ! -d "$SOURCE_ROOT/.cursor" ]; then
+    echo "❌ Error: Could not find .cursor directory in $SOURCE_ROOT"
+    echo "   Run this script from the rosey-agentic-env repository (install.sh must live beside .cursor/)."
     exit 1
 fi
 
 echo "-> Scaffolding .cursor folder..."
 mkdir -p .cursor
 
-# Safely copy rules, skills, scripts, and mcp.json
-[ -d "$TEMP_DIR/.cursor/rules" ] && cp -R "$TEMP_DIR/.cursor/rules" .cursor/
-[ -d "$TEMP_DIR/.cursor/skills" ] && cp -R "$TEMP_DIR/.cursor/skills" .cursor/
-[ -d "$TEMP_DIR/.cursor/scripts" ] && cp -R "$TEMP_DIR/.cursor/scripts" .cursor/
-[ -f "$TEMP_DIR/.cursor/mcp.json" ] && cp "$TEMP_DIR/.cursor/mcp.json" .cursor/
+# Copy rules, skills, agents, scripts, and mcp.json from this repo
+[ -d "$SOURCE_ROOT/.cursor/rules" ] && cp -R "$SOURCE_ROOT/.cursor/rules" .cursor/
+[ -d "$SOURCE_ROOT/.cursor/skills" ] && cp -R "$SOURCE_ROOT/.cursor/skills" .cursor/
+[ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
+[ -d "$SOURCE_ROOT/.cursor/scripts" ] && cp -R "$SOURCE_ROOT/.cursor/scripts" .cursor/
+[ -f "$SOURCE_ROOT/.cursor/mcp.json" ] && cp "$SOURCE_ROOT/.cursor/mcp.json" .cursor/
 
 echo "-> Updating .gitignore..."
 touch .gitignore
@@ -41,7 +34,91 @@ if ! grep -q "docs/plans" .gitignore 2>/dev/null; then
     echo "docs/memory-bank/" >> .gitignore
 fi
 
-rm -rf "$TEMP_DIR"
+# --- npm install helpers ---
 
+install_npm_deps() {
+    local dir="$1"
+    local label="$2"
+
+    if [ ! -f "$dir/package.json" ]; then
+        return 0
+    fi
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "   ⚠️  Skipping $label (npm not found on PATH)"
+        return 0
+    fi
+
+    echo "-> npm install: $label"
+    (
+        cd "$dir"
+        if [ -f pnpm-lock.yaml ] && command -v pnpm >/dev/null 2>&1; then
+            pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+        elif [ -f yarn.lock ] && command -v yarn >/dev/null 2>&1; then
+            yarn install --frozen-lockfile 2>/dev/null || yarn install
+        elif [ -f package-lock.json ]; then
+            npm ci 2>/dev/null || npm install
+        else
+            npm install
+        fi
+    ) || echo "   ⚠️  npm install failed in $label (continuing)"
+}
+
+echo "-> Installing skill dependencies (OpenDesign, etc.)..."
+if [ -d ".cursor/skills" ]; then
+    while IFS= read -r -d '' pkg; do
+        skill_dir="$(dirname "$pkg")"
+        install_npm_deps "$skill_dir" "skill $(basename "$skill_dir")"
+    done < <(find .cursor/skills -name package.json -not -path '*/node_modules/*' -print0 2>/dev/null)
+fi
+
+echo "-> Installing app dependencies..."
+if [ -f "$INSTALL_ROOT/package.json" ]; then
+    install_npm_deps "$INSTALL_ROOT" "workspace root"
+fi
+
+# --- Sentrux ---
+
+install_sentrux() {
+    if command -v sentrux >/dev/null 2>&1; then
+        echo "-> Sentrux already installed ($(sentrux --version 2>/dev/null || echo ok))"
+        return 0
+    fi
+
+    echo "-> Installing Sentrux CLI (required for rosey-manager / rosey-developer / rosey-qa)..."
+    case "$(uname -s)" in
+        Darwin)
+            if command -v brew >/dev/null 2>&1; then
+                brew install sentrux/tap/sentrux || {
+                    echo "   ⚠️  brew install sentrux failed. Try: brew install sentrux/tap/sentrux"
+                    return 1
+                }
+            else
+                echo "   ⚠️  Homebrew not found. Install Sentrux manually:"
+                echo "      brew install sentrux/tap/sentrux"
+                return 1
+            fi
+            ;;
+        Linux)
+            curl -fsSL https://sentrux.dev/install.sh | sh || {
+                echo "   ⚠️  Sentrux install script failed. See https://sentrux.dev/docs/mcp/"
+                return 1
+            }
+            ;;
+        *)
+            echo "   ⚠️  Automatic Sentrux install not supported on this OS."
+            echo "      Install manually: cargo install sentrux  (see rosey-sentrux skill)"
+            return 1
+            ;;
+    esac
+
+    if command -v sentrux >/dev/null 2>&1; then
+        echo "   Sentrux installed: $(sentrux --version 2>/dev/null || true)"
+    fi
+}
+
+install_sentrux || true
+
+echo ""
 echo "✅ Rosey Environment installed successfully!"
-echo "   Rules and Skills are now inside your local .cursor directory."
+echo "   .cursor/rules, .cursor/skills, .cursor/agents, .cursor/scripts, and mcp.json are in place."
+echo "   Next: configure MCP secrets in .cursor/mcp.json, then run rosey-init-memory if needed."
