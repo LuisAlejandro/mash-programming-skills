@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rosey-iterator-report.schema.json",
+  "title": "Rosey Iterator Report",
+  "type": "object",
+  "required": ["generatedAt", "cyclesCompleted", "status", "remainingFindings", "filesChanged", "cycleReports"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": { "type": "string" },
+    "cyclesCompleted": { "type": "number" },
+    "status": { "enum": ["aligned", "needs-manual-decision", "needs-targeted-pass", "max-cycles-reached"] },
+    "remainingFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["findingId", "severity"],
+        "additionalProperties": false,
+        "properties": {
+          "findingId": { "type": "string" },
+          "severity": { "enum": ["blocking", "major", "minor"] },
+          "summary": { "type": "string" }
+        }
+      }
+    },
+    "filesChanged": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "cycleReports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cycle", "reviewerReport"],
+        "additionalProperties": false,
+        "properties": {
+          "cycle": { "type": "number" },
+          "reviewerReport": { "type": "string" },
+          "syncReport": { "type": "string" }
+        }
+      }
+    }
+  }
+}

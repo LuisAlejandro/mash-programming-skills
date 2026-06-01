@@ -1,0 +1,14 @@
+---
+description: Use Rosey Hindsight embed memory for non-trivial Rosey planning, implementation, and QA work.
+alwaysApply: false
+---
+
+# Hindsight Memory
+
+For non-trivial Rosey work, use [`rosey-hindsight`](../skills/rosey-hindsight/SKILL.md) as the source of truth for local memory.
+
+- At the start of planning, implementation, or diff review, recall relevant context with `uvx hindsight-embed memory recall`.
+- During work, retain durable discoveries, user preferences, procedure outcomes, and project conventions with `uvx hindsight-embed memory retain`.
+- At the end of implementation work, retain a concise session summary with changed files, verification, blockers, and decisions.
+- If Hindsight is unavailable or not configured, continue the Rosey workflow and record the unavailable status where applicable.
+- Do not store secrets or sensitive data.

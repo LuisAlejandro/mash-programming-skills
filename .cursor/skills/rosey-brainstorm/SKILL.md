@@ -1,145 +1,317 @@
 ---
 name: rosey-brainstorm
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+description: 'Explore requirements and approaches through collaborative dialogue, then write a right-sized requirements document. Use when the user says "let''s brainstorm", "what should we build", or "help me think through X", presents a vague or ambitious feature request, or seems unsure about scope or direction -- even without explicitly asking to brainstorm.'
+argument-hint: "[feature idea or problem to explore] [output:html]"
 ---
+
+# Rosey Brainstorm
+
+**Note: The current year is 2026.** Use this when dating requirements documents.
 
 ## Communication while using this skill
 
-**Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors and code unchanged. Drop lite only for security warnings, irreversible confirmations, or when the user asks for normal or long-form wording.
+**Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors and code unchanged. Drop lite only for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or when the user asks for normal or long-form wording.
 
-# Brainstorming Ideas Into Designs
+Brainstorming helps answer **WHAT** to build through collaborative dialogue. It precedes `/rosey-plan`, which answers **HOW** to build it.
 
-## Overview
+The durable output of this workflow is a **requirements document**. In other workflows this might be called a lightweight PRD or feature brief. In Rosey, keep the workflow name `brainstorm`, but make the written artifact strong enough that planning does not need to invent product behavior, scope boundaries, or success criteria.
 
-Help turn ideas into fully formed designs and specs through natural collaborative dialogue.
+This skill does not implement code. It explores, clarifies, and documents decisions for later planning or execution.
 
-Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design and get user approval.
+**IMPORTANT: All file references in generated documents must use repo-relative paths (e.g., `src/models/user.rb`), never absolute paths. Absolute paths break portability across machines, worktrees, and teammates.**
 
-<HARD-GATE>
-Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it. This applies to EVERY project regardless of perceived simplicity.
-</HARD-GATE>
+## Rosey Overlay
 
-## Anti-Pattern: "This Is Too Simple To Need A Design"
+This skill follows the Rosey-native brainstorm workflow with Rosey handoffs and OpenDesign boundaries:
 
-Every project goes through this process. A todo list, a single-function utility, a config change — all of them. "Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but you MUST present it and get approval.
+- Handoff target is `/rosey-plan`, or `/rosey-work` only when the direct-to-work gate passes.
+- Do **not** create a separate PRD artifact. The requirements document is the durable product artifact for planning.
+- Do **not** create a separate design doc unless the user explicitly asks for one. The requirements document should be right-sized and can include design-relevant decisions when they matter.
+- After `rosey-implement-design` completes with visual parity aligned, use this skill for the remaining functionality only: real data sources, business logic, validation, submission, error handling, auth, routing guards, and deferred checklist items. Do not rerun `rosey-implement-design` for functionality work.
 
-## Preconditions
+## Memory (optional)
 
-### Plans Directory Excluded from Git
+Before locking scope on a non-trivial feature, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory with the feature summary, affected areas, and any known constraints. Fold useful recall into questions and requirements; do not dump raw CLI output. If Hindsight is unavailable or not configured, continue without blocking.
 
-Check that `docs/plans/` is excluded from version control. Run `grep -q 'docs/plans' .gitignore 2>/dev/null` (or read `.gitignore`). If no matching entry exists, append `docs/plans/` to `.gitignore` and inform the user:
+## Core Principles
 
-**"Added `docs/plans/` to `.gitignore`. Plan artifacts (design docs, PRDs, implementation plans, progress files) are kept out of version control so that `git diff HEAD` in the final code review only shows implementation changes."**
+1. **Assess scope first** - Match the amount of ceremony to the size and ambiguity of the work.
+2. **Be a thinking partner** - Suggest alternatives, challenge assumptions, and explore what-ifs instead of only extracting requirements.
+3. **Resolve product decisions here** - User-facing behavior, scope boundaries, and success criteria belong in this workflow. Detailed implementation belongs in planning.
+4. **Keep implementation out of the requirements doc by default** - Do not include libraries, schemas, endpoints, file layouts, or code-level design unless the brainstorm itself is inherently about a technical or architectural change.
+5. **Right-size the artifact** - Simple work gets a compact brief; larger work gets more structure. No ceremony that does not help planning.
+6. **Apply YAGNI to carrying cost, not coding effort** - Prefer simple value. Avoid speculative complexity; include low-cost polish only when easy to maintain.
 
-Do NOT proceed past this check until `docs/plans/` is in `.gitignore`.
+## Interaction Rules
 
-## Checklist
+These rules apply to every brainstorm, including the universal (non-software) flow routed to `references/universal-brainstorming.md`.
 
-You MUST create a task for each of these items and complete them in order:
+1. **Ask one question at a time** - Pick the single most useful question each turn.
+2. **Prefer single-select multiple choice** - Use single-select when choosing one direction, one priority, or one next step.
+3. **Use multi-select rarely and intentionally** - Use it only for compatible sets that can coexist. If priority matters, follow up for the primary choice.
+4. **Default to the platform's blocking question tool** - Use `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension). These tools include a free-text fallback (e.g., "Other" in Claude Code), so options scaffold the answer without confining it — well-chosen options surface dimensions the user may not have separated, and pick-plus-optional-note is lower activation energy than composing prose from scratch. This default holds for opening and elicitation questions too, not only narrowing. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
+5. **Use an open-ended question only when the question is genuinely open** - Drop the blocking tool only when (a) the answer is inherently narrative ("walk me through how you got here"), (b) the question is diagnostic or introspective and presented options would unintentionally influence the user's answer (e.g., "what concerns you most?" — a 4-option menu would nudge them toward those axes rather than the ones actually on their mind), or (c) you cannot write 3-4 genuinely distinct, plausibly-correct options that cover the space without padding or strawmen. The test: if you'd be straining to fill the option slots, the question is open — ask it open-ended. Rule 1 still applies: still one question per turn.
+6. **Open-ended questions earn their place only when they're specific enough to elicit a substantive answer** - Apply Rule 5 silently: just ask the question, do not narrate the form choice. The question itself must give the user something concrete to anchor on. Good: *"What's the most concrete thing someone's already done about this — paid for it, built a workaround, quit a tool over it?"* (this is one of Phase 1.2's rigor probes — it earns its open-endedness by naming what counts as an answer). Too thin: *"What's your take?"* (nothing to bite into; user defaults to a one-liner that wastes the open question). Avoid (a) narrating the form choice ("the most useful question I can ask here is..."), (b) framings that imply a short answer ("briefly", "in one sentence"), (c) yes/no traps, and (d) AI-slop warmth wrappers ("take it wherever feels relevant").
 
-0. **Ensure docs/plans/ is gitignored** — check `.gitignore` for a `docs/plans/` entry; if missing, add it
-1. **Explore project context** — check files, docs, recent commits
-2. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria (see **AskQuestion** below)
-3. **Determine prd-slug** — use the user-provided slug if given; otherwise auto-generate one (see slug rules below)
-4. **Propose 2-3 approaches** — with trade-offs and your recommendation
-5. **Present design** — in sections scaled to their complexity, get user approval after each section
-6. **Write design doc** — capture the approved design in clear, direct prose; save to `docs/plans/<prd-slug>/YYYY-MM-DD-<prd-slug>-design.md`
-7. **Transition to implementation** — invoke rosey-product skill to create PRD
+## Output Guidance
 
-## Process Flow
+- **Keep outputs concise** - Prefer short sections, brief bullets, and only enough detail to support the next decision.
+- **Use repo-relative paths** - When referencing files, use paths relative to the repo root (e.g., `src/models/user.rb`), never absolute paths. Absolute paths make documents non-portable across machines and teammates.
+- **Artifact boundary** - Caveman lite applies to chat and status prose, not to requirements documents by default. Requirements remain clear enough for humans to review.
+- **Compact non-interactive artifacts** - When `mode:non-interactive` is active, keep the markdown requirements lean: preserve actors, flows, acceptance examples, requirements, scope boundaries, IDs, assumptions, and blockers; trim explanatory prose, duplicate rationale, and narrative setup that downstream automation does not need.
 
-```dot
-digraph brainstorming {
-    "Ensure docs/plans/ gitignored" [shape=box];
-    "Gitignored?" [shape=diamond];
-    "Add to .gitignore" [shape=box];
-    "Explore project context" [shape=box];
-    "Ask clarifying questions" [shape=box];
-    "Determine prd-slug" [shape=box];
-    "Propose 2-3 approaches" [shape=box];
-    "Present design sections" [shape=box];
-    "User approves design?" [shape=diamond];
-    "Write design doc" [shape=box];
-    "Invoke rosey-product skill" [shape=doublecircle];
+## Feature Description
 
-    "Ensure docs/plans/ gitignored" -> "Gitignored?";
-    "Gitignored?" -> "Add to .gitignore" [label="no"];
-    "Gitignored?" -> "Explore project context" [label="yes"];
-    "Add to .gitignore" -> "Explore project context";
-    "Explore project context" -> "Ask clarifying questions";
-    "Ask clarifying questions" -> "Determine prd-slug";
-    "Determine prd-slug" -> "Propose 2-3 approaches";
-    "Propose 2-3 approaches" -> "Present design sections";
-    "Present design sections" -> "User approves design?";
-    "User approves design?" -> "Present design sections" [label="no, revise"];
-    "User approves design?" -> "Write design doc" [label="yes"];
-    "Write design doc" -> "Invoke rosey-product skill";
-}
-```
+<feature_description> #$ARGUMENTS </feature_description>
 
-**The terminal state is invoking rosey-product.** Do NOT invoke frontend-design, mcp-builder, or any other implementation skill. After design approval, write the design doc, then invoke **rosey-product** as the only follow-on skill.
+## Interaction Mode
 
-## The Process
+Parse `$ARGUMENTS` for at most one interaction mode token:
 
-**Understanding the idea:**
+- `mode:interactive` — default for direct chat invocation. Use the collaborative dialogue and question flow.
+- `mode:non-interactive` — scripted or skill-to-skill execution. Do not ask blocking questions or wait for confirmation.
 
-- Check out the current project state first (files, docs, recent commits)
-- Ask questions one at a time to refine the idea
-- Prefer multiple choice questions when possible, but open-ended is fine too
-- **Cursor `AskQuestion` tool:** When a clarifier is naturally multiple choice, you may use the **AskQuestion** tool so the user gets a structured form in the UI. Use **one question per tool call** (one entry in the `questions` array) to match “one question at a time.” For open-ended or nuanced probes, ask in normal chat instead
-- Only one question per message - if a topic needs more exploration, break it into multiple questions
-- Focus on understanding: purpose, constraints, success criteria
-- **Determine prd-slug**: If the user provided a slug, use it. Otherwise, auto-generate one after the clarifying questions are done, following the slug rules below. Do NOT stop to ask the user for the slug — just pick one and proceed. Mention it briefly when presenting the design so the user can override if desired.
+Strip the interaction mode token before treating the remainder as the feature description. If no interaction mode token is present, set `INTERACTION_MODE=interactive`.
 
-### Slug Rules
+If multiple interaction mode tokens appear, stop and report the conflict.
 
-The prd-slug must satisfy ALL of these:
+When `INTERACTION_MODE=non-interactive`:
 
-1. **Alphanumeric only** — lowercase letters and digits, no special characters
-2. **Maximum two words** separated by a single hyphen (e.g. `shop-pos`, `fingerprint`)
-3. **Unique** — must not already exist as a directory under `docs/plans/` (run `ls docs/plans/` to check)
-4. **Descriptive** — clearly conveys the feature or topic from the conversation
+- Do not use blocking question tools or prompt for clarification.
+- Infer conservatively from the prompt, repo scan, and issue context supplied by the caller.
+- Record material assumptions in the requirements document.
+- Skip Phase 1.3 dialogue, Phase 2 approach menus, Phase 2.5 confirmation, and Phase 4 handoff menus.
+- If a concrete requirements document cannot be written safely, stop with a concise blocker.
 
-**Exploring approaches:**
+**If the feature description above is empty:** In interactive mode, ask the user: "What would you like to explore? Please describe the feature, problem, or improvement you're thinking about." In non-interactive mode, stop with a blocker.
 
-- Propose 2-3 different approaches with trade-offs
-- Present options conversationally with your recommendation and reasoning
-- Lead with your recommended option and explain why
-- **CRITICAL:** You MUST wait for the user to explicitly select or approve an approach before moving on. Do NOT present approaches and design sections in the same message.
+Do not proceed until you have a feature description from the user.
 
-**Presenting the design:**
+## Execution Flow
 
-- Once you believe you understand what you're building, present the design
-- Scale each section to its complexity: a few sentences if straightforward, up to 200-300 words if nuanced
-- Ask after each section whether it looks right so far
-- Cover: architecture, components, data flow, error handling
-- Be ready to go back and clarify when something doesn't make sense
+### Phase 0: Resume, Assess, and Route
 
-**Scope boundary with rosey-product:** rosey-brainstorm focuses on the _what_ and _how_ at an architectural level — approach, components, data flow. rosey-product focuses on the _what exactly_ at a requirements level — user stories, functional requirements, edge cases, acceptance criteria. Do not try to produce detailed requirements here; that is rosey-product's job.
+#### 0.0 Resolve Output Mode
 
-## After the Design
+Determine `OUTPUT_FORMAT` before any other phase fires. Output mode is **exclusive** — the requirements doc is written as either markdown (`.md`) OR HTML (`.html`), never both. Precedence: CLI arg > config > default (`md`), with a hard non-interactive override.
 
-**Documentation:**
+**Read config (pre-resolved at skill load):**
+!`cat "$(git rev-parse --show-toplevel 2>/dev/null)/.rosey/config.local.yaml" 2>/dev/null || echo '__NO_CONFIG__'`
 
-- Write the validated design to `docs/plans/<prd-slug>/YYYY-MM-DD-<prd-slug>-design.md` in clear, direct prose that matches what the user approved.
+Resolution steps:
 
-**Implementation:**
+1. **CLI arg.** Scan `$ARGUMENTS` for a token starting with the literal prefix `output:`. If found, strip it from arguments before treating the remainder as the feature description, and match its value case-insensitively against `md` and `html`.
+   - `output:` alone (no value) → no-op, fall through to step 2.
+   - `output:<unknown>` (e.g., `output:pdf`) → drop the token, fall through to step 2, and remember to emit a one-line note above the post-generation menu after final resolution: `Ignored unknown output: value '<value>' — using <resolved_format> instead.` where `<resolved_format>` is the value `OUTPUT_FORMAT` actually resolved to after steps 2-4. Do not hardcode `md` in the note — that misleads users when config has set HTML.
+2. **Config.** If step 1 did not resolve and the pre-resolved YAML above has an **active (non-commented)** `brainstorm_output:` key whose value matches `md` or `html` (case-insensitive), use it. Missing, invalid, or commented values fall through silently. Critical: lines starting with `#` are YAML comments and must be ignored — the shipped config template includes commented examples like `# brainstorm_output: html` to document the option, and matching those as active settings would silently force HTML mode on every run without the user having opted in.
+3. **Default.** Otherwise `OUTPUT_FORMAT=md`.
+4. **Non-interactive override.** When `mode:non-interactive` is active, force `OUTPUT_FORMAT=md` regardless of steps 1-3. Downstream consumers (`rosey-plan`, `rosey-work`) parse markdown reliably; HTML in non-interactive runs is unnecessary friction. Also apply Compact non-interactive artifacts from Output Guidance: preserve IDs and decision-bearing content, trim narrative.
 
-- Invoke the rosey-product skill to create a detailed PRD. Pass these values:
-  - **prd-slug** (agreed earlier)
-  - **design-doc-path**: the path to the design doc just written (e.g. `docs/plans/<prd-slug>/YYYY-MM-DD-<prd-slug>-design.md`)
-- Do NOT invoke any other skill. rosey-product is the next step.
+**Token-parsing convention:** only literal-prefix flag tokens (`output:`, `mode:`, `delegate:` where applicable) are consumed and stripped. Other `<word>:<word>` tokens — including conventional commit prefixes like `feat:`, `fix:`, `chore:` that may appear inside a feature description — pass through verbatim.
 
-## Git Policy
+**Load the format-rendering reference based on the resolved value.** Section content is the same in either format; presentation differs. Both rendering references are paired with `references/brainstorm-sections.md`, which describes what the brainstorm contains regardless of format.
 
-**Allowed:** read-only git operations (`git status`, `git diff`, `git log`) for context and review.
-**Forbidden:** `git commit`, `git push`, `git add`, or any command that modifies the repository. Only write files to disk. The user manages commits themselves.
+- When `OUTPUT_FORMAT=md`, read `references/markdown-rendering.md` for format principles.
+- When `OUTPUT_FORMAT=html`, read `references/html-rendering.md` for format principles.
 
-## Key Principles
+The `output:` preference does NOT auto-propagate to `rosey-plan` on handoff — rosey-plan re-resolves its own `plan_output` config independently. Asymmetric output (`requirements.html` + `plan.md`) is acceptable; users who want HTML for both set both keys in `.rosey/config.local.yaml`.
 
-- **One question at a time** - Don't overwhelm with multiple questions
-- **Multiple choice preferred** - Easier to answer than open-ended when possible
-- **YAGNI ruthlessly** - Remove unnecessary features from all designs
-- **Explore alternatives** - Always propose 2-3 approaches before settling
-- **Incremental validation** - Present design, get approval before moving on
-- **Be flexible** - Go back and clarify when something doesn't make sense
+#### 0.1 Resume Existing Work When Appropriate
+
+If the user references an existing brainstorm topic or document, or there is an obvious recent matching `*-requirements.{md,html}` file in `docs/brainstorms/`:
+- Read the document
+- Confirm with the user before resuming: "Found an existing requirements doc for [topic]. Should I continue from this, or start fresh?"
+- If resuming, summarize the current state briefly, continue from its existing decisions and outstanding questions, and update the existing document instead of creating a duplicate
+- **Resume preserves the existing artifact's format, except non-interactive mode.** Write back in whatever format the existing artifact uses — markdown if the existing file is `.md`, HTML if it is `.html`. Explicit `output:` arguments on this run override (e.g., resuming an `.html` doc with `output:md` switches the artifact to markdown). Non-interactive mode always wins per Phase 0.0: even when resuming an existing `.html` brainstorm, non-interactive runs force `OUTPUT_FORMAT=md` so downstream automation receives the markdown shape it expects. The resume rewrites the markdown file at the parallel path and the original `.html` is left in place untouched.
+
+#### 0.1b Classify Task Domain
+
+Before proceeding to Phase 0.2, classify whether this is a software task. The key question is: **does the task involve building, modifying, or architecting software?** -- not whether the task *mentions* software topics.
+
+**Software** (continue to Phase 0.2) -- the task references code, repositories, APIs, databases, or asks to build/modify/debug/deploy software.
+
+**Non-software brainstorming** (route to universal brainstorming) -- BOTH conditions must be true:
+- None of the software signals above are present
+- The task describes something the user wants to explore, decide, or think through in a non-software domain
+
+**Neither** (respond directly, skip all brainstorming phases) -- the input is a quick-help request, error message, factual question, or single-step task that doesn't need a brainstorm.
+
+**If non-software brainstorming is detected:** Read `references/universal-brainstorming.md` and use those facilitation principles. Skip Phases 0.2–4 below — the **Core Principles and Interaction Rules above still apply unchanged**, including one-question-per-turn and the default to the platform's blocking question tool.
+
+#### 0.2 Assess Whether Brainstorming Is Needed
+
+**Clear requirements indicators:**
+- Specific acceptance criteria provided
+- Referenced existing patterns to follow
+- Described exact expected behavior
+- Constrained, well-defined scope
+
+**If requirements are already clear:**
+Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Only write a short requirements document when a durable handoff to planning or later review would be valuable. Skip Phase 1.1 and 1.2 entirely — go straight to Phase 1.3 or Phase 2.5 in announce-mode (synthesis emitted for visibility, no blocking confirmation), then to Phase 3.
+
+#### 0.3 Assess Scope
+
+Use the feature description plus a light repo scan to classify the work:
+- **Lightweight** - small, well-bounded, low ambiguity
+- **Standard** - normal feature or bounded refactor with some decisions to make
+- **Deep** - cross-cutting, strategic, or highly ambiguous
+
+If the scope is unclear, ask one targeted question to disambiguate and then proceed.
+
+In non-interactive mode, do not ask. Classify conservatively from the supplied feature description and record the classification as an assumption when it materially affects the document.
+
+**Deep sub-mode: feature vs product.** For Deep scope, also classify whether the brainstorm must establish product shape or inherit it:
+
+- **Deep — feature** (default): existing product shape anchors decisions. Primary actors, core outcome, positioning, and primary flows are already established in the product or repo. The brainstorm extends or refines within that shape.
+- **Deep — product**: the brainstorm must establish product shape rather than inherit it. Primary actors, core outcome, positioning against adjacent products, or primary end-to-end flows are materially unresolved. Existing code lowers the odds of product-tier but does not by itself rule it out — a half-built tool with ambiguous shape is still product-tier.
+
+Product-tier triggers additional Phase 1.2 questions and additional sections in the requirements document. Feature-tier uses the current Deep behavior unchanged.
+
+### Phase 1: Understand the Idea
+
+If `INTERACTION_MODE=non-interactive`, skip collaborative dialogue. Use the feature description, repo scan, and any caller-provided issue context as the source material for Phase 2. Record any unvalidated product bets under assumptions or blockers in the requirements document.
+
+#### 1.1 Existing Context Scan
+
+Scan the repo before substantive brainstorming. Match depth to scope:
+
+**Lightweight** — Search for the topic, check if something similar already exists, and move on.
+
+**Standard and Deep** — Two passes:
+
+*Constraint Check* — Check project instruction files (`AGENTS.md`, and `CLAUDE.md` only if retained as compatibility context) for workflow, product, or scope constraints that affect the brainstorm. Also read `STRATEGY.md` if it exists — the product's target problem, approach, persona, and active tracks are direct input to what this brainstorm should deliver and should shape scope, success criteria, and which approaches are aligned vs out-of-scope. If these add nothing, move on.
+
+*Topic Scan* — Search for relevant terms. Read the most relevant existing artifact if one exists (brainstorm, plan, spec, skill, feature doc). Skim adjacent examples covering similar behavior.
+
+If nothing obvious appears after a short scan, say so and continue. Two rules govern technical depth during the scan:
+
+1. **Verify before claiming** — When the brainstorm touches checkable infrastructure (database tables, routes, config files, dependencies, model definitions), read the relevant source files to confirm what actually exists. Any claim that something is absent — a missing table, an endpoint that doesn't exist, a dependency not in the Gemfile, a config option with no current support — must be verified against the codebase first; if not verified, label it as an unverified assumption. This applies to every brainstorm regardless of topic.
+
+2. **Defer design decisions to planning** — Implementation details like schemas, migration strategies, endpoint structure, or deployment topology belong in planning, not here — unless the brainstorm is itself about a technical or architectural decision, in which case those details are the subject of the brainstorm and should be explored.
+
+**Slack context** (opt-in, Standard and Deep only) — never auto-dispatch. Route by condition:
+
+- **Tools available + user asked**: Dispatch `rosey-slack-researcher` with a brief summary of the brainstorm topic alongside Phase 1.1 work. Incorporate findings into constraint and context awareness.
+- **Tools available + user didn't ask**: Note in output: "Slack tools detected. Ask me to search Slack for organizational context at any point, or include it in your next prompt."
+- **No tools + user asked**: Note in output: "Slack context was requested but no Slack tools are available. Install and authenticate the Slack plugin to enable organizational context search."
+
+#### 1.2 Product Pressure Test
+
+Before generating approaches, scan the user's opening for rigor gaps. Match depth to scope.
+
+This is agent-internal analysis, not a user-facing checklist. Read the opening, note which gaps actually exist, and raise only those as questions during Phase 1.3 — folded into the normal flow of dialogue, not fired as a pre-flight gauntlet. A fuzzy opening may earn three or four probes; a concrete, well-framed one may earn zero because no scope-appropriate gaps were found.
+
+**Lightweight:**
+- Is this solving the real user problem?
+- Are we duplicating something that already covers this?
+- Is there a clearly better framing with near-zero extra cost?
+
+**Standard — scan for these gaps:**
+
+- **Evidence gap.** The opening asserts want or need, but doesn't point to anything the would-be user has already done — time spent, money paid, workarounds built — that would make the want observable. When present, ask for the most concrete thing someone has already done about this.
+
+- **Specificity gap.** The opening describes the beneficiary at a level of abstraction where the agent couldn't design without silently inventing who they are and what changes for them. When present, ask the user to name a specific person or narrow segment, and what changes for that person when this ships.
+
+- **Counterfactual gap.** The opening doesn't make visible what users do today when this problem arises, nor what changes if nothing ships. When present, ask what the current workaround is, even if it's messy — and what it costs them.
+
+- **Attachment gap.** The opening treats a particular solution shape as the thing being built, rather than the value that shape is supposed to deliver, and hasn't been examined against smaller forms that might deliver the same value. When present, ask what the smallest version that still delivers real value would look like.
+
+Plus these synthesis questions — not gap lenses, product-judgment the agent weighs in its own reasoning:
+- Is there a nearby framing that creates more user value without more carrying cost? If so, what complexity does it add?
+- Given the current project state, user goal, and constraints, what is the single highest-leverage move right now: the request as framed, a reframing, one adjacent addition, a simplification, or doing nothing?
+
+Favor moves that compound value, reduce future carrying cost, or make the product meaningfully more useful or compelling. Use the result to sharpen the conversation, not to bulldoze the user's intent.
+
+**Deep** — Standard lenses and synthesis questions plus:
+- Is this a local patch, or does it move the broader system toward where it wants to be?
+
+**Deep — product** — Deep plus:
+
+- **Durability gap.** The opening's value proposition rests on a current state of the world that may shift in predictable ways within the horizon the user cares about. When present, ask how the idea fares under the most plausible near-term shifts — and push past rising-tide answers every competitor could make.
+
+- What adjacent product could we accidentally build instead, and why is that the wrong one?
+- What would have to be true in the world for this to fail?
+
+These questions force an explicit product thesis and feed the Scope Boundaries subsections ("Deferred for later" and "Outside this product's identity") and Dependencies / Assumptions in the requirements document.
+
+#### 1.3 Collaborative Dialogue
+
+Follow the Interaction Rules above. Use the platform's blocking question tool when available.
+
+**Guidelines:**
+- Ask what the user is already thinking before offering your own ideas. This surfaces hidden context and prevents fixation on AI-generated framings.
+- Start broad (problem, users, value) then narrow (constraints, exclusions, edge cases)
+- **Rigor probes fire before Phase 2 and are open-ended, not menus.** Narrowing is legitimate, but Phase 1 cannot end with un-probed rigor gaps. Each scope-appropriate gap from Phase 1.2 fires as a **separate** direct open-ended probe — one probe satisfies one gap, not multiple. Standard brainstorms scan four gap lenses (evidence, specificity, counterfactual, attachment); Deep-product adds durability (five total), but only the gaps actually present in the opening must be probed. Surface those probes progressively across the conversation — interleaving with narrowing moves is fine, as long as every scope-appropriate gap that was found in Phase 1.2 has been probed open-ended before Phase 2. Rigor probes map to Interaction Rule 5(b): a 4-option menu signals which kinds of evidence count and lets the user pick rather than produce. Open-ended questions force them to produce real observation or surface their uncertainty. Examples (one per gap): *evidence — "What's the most concrete thing someone's already done about this — paid, built a workaround, quit a tool over it?"* / *specificity — "Can you name a team you've actually watched hit this, or are you reasoning?"* / *counterfactual — "What do teams do today when this breaks — who reconciles?"* / *attachment — "Before we move to shapes or approaches — what's the smallest version that would still prove the bet right, and what's excluded?"* — **attachment is the final rigor probe before Phase 2 when the attachment gap is present. Fire it regardless of whether a specific shape has emerged through narrowing; its job is to pressure-test the user's implicit framing of the product before Phase 2 inherits it** / *durability — "Under the most plausible near-term shifts, how does this bet hold?"* If the answer reveals genuine uncertainty, record it as an explicit assumption in the requirements document rather than skipping the probe.
+- Clarify the problem frame, validate assumptions, and ask about success criteria
+- Make requirements concrete enough that planning will not need to invent behavior
+- Surface dependencies or prerequisites only when they materially affect scope
+- Resolve product decisions here; leave technical implementation choices for planning
+- Bring ideas, alternatives, and challenges instead of only interviewing
+
+**Before exiting Phase 1.3: integration check.** Mentally combine what the user has said so far and surface any non-obvious consequences the dialogue hasn't probed. If user-stated X plus user-stated Y plus your-default-Z produces a downstream effect the user is unlikely to have tracked through one-question-at-a-time dialogue ("if mute lives on the rule AND we don't warn on delete, then rule-delete silently loses pause state"), probe it now while you're still in dialogue. One probe per genuine combination effect, asked open-ended, same discipline as rigor probes. Phase 2.5's call-outs are a safety net for residuals (silent agent inferences, pre-loaded contexts with no dialogue) — NOT a punt list for consequences you could have asked about now.
+
+**Exit condition:** Continue until the idea is clear AND no integration-check questions are pending, OR the user explicitly wants to proceed.
+
+### Phase 2: Explore Approaches
+
+If multiple plausible directions remain, propose **2-3 concrete approaches** based on research and conversation. Otherwise state the recommended direction directly.
+
+Use at least one non-obvious angle — inversion (what if we did the opposite?), constraint removal (what if X weren't a limitation?), or analogy from how another domain solves this. The first approaches that come to mind are usually variations on the same axis.
+
+Present approaches first, then evaluate. Let the user see all options before hearing which one is recommended — leading with a recommendation before the user has seen alternatives anchors the conversation prematurely.
+
+When useful, include one deliberately higher-upside alternative:
+- Identify what adjacent addition or reframing would most increase usefulness, compounding value, or durability without disproportionate carrying cost. Present it as a challenger option alongside the baseline, not as the default. Omit it when the work is already obviously over-scoped or the baseline request is clearly the right move.
+
+At product tier, alternatives should differ on *what* is built (product shape, actor set, positioning), not *how* it is built. Implementation-variant alternatives belong at feature tier.
+
+For each approach, provide:
+- Brief description (2-3 sentences)
+- Pros and cons
+- Key risks or unknowns
+- When it's best suited
+
+**Approach granularity: mechanism / product shape, not architecture.** Approach descriptions name mechanism-level distinctions ("pause as a rule property" vs "pause as an event filter" vs "pause as a separate entity") and product-relevant trade-offs (plan-tier coupling, complexity surface, migration difficulty). They do NOT name implementation specifics — column names, table names, file paths, service classes, JSON shapes, exact method names. Those are rosey-plan's job. Bringing architecture forward at brainstorm time forces the user to make architectural decisions on rosey-brainstorm's intentionally-shallow research, and the synthesis at Phase 2.5 then has to filter out the leak.
+
+After presenting all approaches, state your recommendation and explain why. Prefer simpler solutions when added complexity creates real carrying cost, but do not reject low-cost, high-value polish just because it is not strictly necessary.
+
+If one approach is clearly best and alternatives are not meaningful, skip the menu and state the recommendation directly.
+
+If relevant, call out whether the choice is:
+- Reuse an existing pattern
+- Extend an existing capability
+- Build something net new
+
+### Phase 2.5: Synthesis Summary
+
+**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The two-stage shape (internal three-bucket draft → chat-time scoping synthesis), the Path A / Path B gate, the four scoping synthesis sections with their keep tests, the tier-aware bullet budget with re-cut rule, anti-pattern guidance, soft-cut behavior, self-redirect support, and internal-draft routing into doc body sections all live there. Composing a synthesis without these rules loaded reliably produces malformed output — pasting the full internal three-bucket draft verbatim into chat, implementation-detail leakage into the scoping synthesis, the proposal-pitch anti-pattern. **Each scoping synthesis bullet must pass the affirmability test (can the user evaluate this without reading code?) AND the detail test (1–2 lines max, conversational not documentary); over-share and over-detail are the failure modes to avoid.** This is not optional supplementary reading; it is the source of truth for how the phase behaves.
+
+Surface a scoping synthesis to the user before Phase 3 writes the requirements doc — the user's last opportunity to correct scope before the artifact lands. The scoping synthesis is shaped like what two product collaborators would confirm before writing a PRD, not like a comprehensive audit or a one-line preview.
+
+Fires for **all tiers** including Lightweight. Skip Phase 2.5 entirely on the Phase 0.1b non-software (universal-brainstorming) route.
+
+In non-interactive mode, compose the internal draft and route it directly into the requirements document. Do not emit the chat-time synthesis, ask for confirmation, or wait for revisions.
+
+**Path A vs Path B:** the scoping synthesis shape depends on TWO signals — whether any blocking question fired AND what tier Phase 0.3 classified the scope as.
+
+- **Path A — no blocking questions fired AND tier is Lightweight**: announce-mode. Emit "What we're building" prose only (1–3 sentences), then proceed to Phase 3 doc-write in the same turn. No other sections, no confirmation question. Do NOT end the turn waiting for acknowledgment. The user can revise after the doc lands if the shape is wrong — Lightweight Path A docs are short, post-hoc revision is cheap.
+- **Path B — at least one blocking question fired, OR tier is Standard / Deep-feature / Deep-product**: full tier-aware scoping synthesis with confirmation gate. Two scenarios fire Path B: (a) the user invested answer-time during dialogue, or (b) the user pre-loaded substantive scope content (Phase 0.2 fast-path with a richly-specified opening prompt). Either way, the substance earns a real checkpoint. Confirmation is unconditional even when zero call-outs survive the keep test.
+
+**Why the tier guard on Path A**: Phase 0.2's fast path serves two very different cases — a tight one-liner that needs no dialogue ("fix the typo on line 47") and a richly pre-loaded brainstorm context that ALSO needs no dialogue because the user pre-stated everything. Without the tier guard, both route to Path A and the pre-loaded case gets a 1-sentence checkpoint for what may be 20+ items worth of scope. Tier-classifying Phase 0.3 distinguishes the two — pre-loaded substance makes the tier Standard or Deep, which then routes to Path B.
+
+### Phase 3: Capture the Requirements
+
+Write or update a requirements document only when the conversation produced durable decisions worth preserving — see `references/brainstorm-sections.md` "Decide whether a doc is warranted at all" for the criteria and the bug-fix stress test. Skip document creation when the user only needs brief alignment and the decisions can flow downstream (rosey-plan, commit message, docs/solutions/) without a brainstorm artifact in the middle.
+
+When a doc is warranted, compose it using:
+
+- `references/brainstorm-sections.md` — section contract (outcomes, hard floor, include-when-material catalog, agency rules, ID conventions).
+- The format-specific rendering reference loaded at Phase 0.0 (`markdown-rendering.md` OR `html-rendering.md`) — how the resolved format presents the sections.
+
+Write to `docs/brainstorms/YYYY-MM-DD-<topic>-requirements.<md|html>` — extension follows `OUTPUT_FORMAT`. Confirm with the absolute path so the reference is clickable.
+
+### Phase 4: Handoff
+
+Present next-step options and execute the user's selection. Read `references/handoff.md` for the option logic, dispatch instructions, and closing summary format.
+
+In non-interactive mode, skip the handoff menu and return the requirements document path plus any blockers to the caller.

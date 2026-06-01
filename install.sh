@@ -18,11 +18,10 @@ fi
 echo "-> Scaffolding .cursor folder..."
 mkdir -p .cursor
 
-# Copy rules, skills, agents, scripts, and mcp.json from this repo
+# Copy rules, skills, agents, and mcp.json from this repo
 [ -d "$SOURCE_ROOT/.cursor/rules" ] && cp -R "$SOURCE_ROOT/.cursor/rules" .cursor/
 [ -d "$SOURCE_ROOT/.cursor/skills" ] && cp -R "$SOURCE_ROOT/.cursor/skills" .cursor/
 [ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
-[ -d "$SOURCE_ROOT/.cursor/scripts" ] && cp -R "$SOURCE_ROOT/.cursor/scripts" .cursor/
 [ -f "$SOURCE_ROOT/.cursor/mcp.json" ] && cp "$SOURCE_ROOT/.cursor/mcp.json" .cursor/
 
 echo "-> Updating .gitignore..."
@@ -31,7 +30,6 @@ if ! grep -q "docs/plans" .gitignore 2>/dev/null; then
     echo -e "\n# Rosey Agentic Environment" >> .gitignore
     echo "docs/plans/" >> .gitignore
     echo "docs/designs/" >> .gitignore
-    echo "docs/memory-bank/" >> .gitignore
 fi
 
 # --- npm install helpers ---
@@ -118,7 +116,30 @@ install_sentrux() {
 
 install_sentrux || true
 
+# --- Hindsight embed ---
+
+check_hindsight_embed() {
+    echo "-> Checking optional Hindsight embed CLI..."
+
+    if ! command -v uvx >/dev/null 2>&1; then
+        echo "   ⚠️  Hindsight embed requires uv/uvx for local memory."
+        echo "      Install uv: https://docs.astral.sh/uv/"
+        echo "      Then run: uvx hindsight-embed configure"
+        return 0
+    fi
+
+    if uvx hindsight-embed daemon status >/dev/null 2>&1; then
+        echo "   Hindsight embed is configured."
+    else
+        echo "   ⚠️  Hindsight embed is optional and not configured yet."
+        echo "      Run once when you want local memory: uvx hindsight-embed configure"
+    fi
+}
+
+check_hindsight_embed || true
+
 echo ""
 echo "✅ Rosey Environment installed successfully!"
-echo "   .cursor/rules, .cursor/skills, .cursor/agents, .cursor/scripts, and mcp.json are in place."
-echo "   Next: configure MCP secrets in .cursor/mcp.json, then run rosey-init-memory if needed."
+echo "   .cursor/rules, .cursor/skills, .cursor/agents, and mcp.json are in place."
+echo "   Next: configure MCP secrets in .cursor/mcp.json."
+echo "   Optional local memory: configure Hindsight with 'uvx hindsight-embed configure'."

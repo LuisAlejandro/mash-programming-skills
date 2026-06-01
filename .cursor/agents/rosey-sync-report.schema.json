@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rosey-sync-report.schema.json",
+  "title": "Rosey Sync Report",
+  "type": "object",
+  "required": ["generatedAt", "fixedFindings", "deferredFindings", "filesChanged", "ruleGaps"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": { "type": "string" },
+    "fixedFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["findingId"],
+        "additionalProperties": false,
+        "properties": {
+          "findingId": { "type": "string" },
+          "summary": { "type": "string" }
+        }
+      }
+    },
+    "deferredFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["findingId", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "findingId": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "filesChanged": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "ruleGaps": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

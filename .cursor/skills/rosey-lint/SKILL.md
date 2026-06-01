@@ -6,9 +6,22 @@ disable-model-invocation: true
 
 ## Communication while using this skill
 
-**Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors and code unchanged. Drop lite only for security warnings, irreversible confirmations, or when the user asks for normal or long-form wording.
+**Caveman ultra** for assistant status prose while this skill runs: abbreviate routine workflow words, strip conjunctions where safe, use arrows for causality, and keep one word when one word is enough. Technical accuracy unchanged; command names, code symbols, quoted errors, and command output unchanged. Drop ultra for security warnings, irreversible confirmations, complex failure explanations, user confusion, or when the user asks for normal or long-form wording.
+
+**Output boundary:** Caveman ultra applies to chat/status prose, not raw lint output, build logs, structured failure reports, or code fixes.
 
 # Rosey Lint & Build
+
+## Interaction Mode
+
+Parse `$ARGUMENTS` for at most one interaction mode token:
+
+- `mode:interactive` — default for direct chat invocation.
+- `mode:non-interactive` — scripted or skill-to-skill execution. Do not ask the user how to proceed.
+
+Strip the interaction mode token before interpreting any remaining arguments. If no interaction mode token is present, set `INTERACTION_MODE=interactive`.
+
+If multiple interaction mode tokens appear, stop and report the conflict.
 
 ## Purpose
 
@@ -58,7 +71,7 @@ Do **not** install missing CLIs globally or attempt to guess commands that aren'
 If a command fails:
 1. Attempt to fix the code automatically if the errors are obvious (e.g., fixing a typo, removing an unused import).
 2. Run the command again to verify.
-3. If the errors are complex or require architectural decisions, stop and ask the user how to proceed, providing the error output.
+3. If the errors are complex or require architectural decisions, stop and provide the error output. In interactive mode, ask the user how to proceed. In non-interactive mode, return a structured failure and do not prompt.
 
 ## Example Workflow
 

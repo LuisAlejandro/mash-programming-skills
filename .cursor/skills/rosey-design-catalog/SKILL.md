@@ -1,0 +1,86 @@
+---
+name: rosey-design-catalog
+description: Generates custom design system rules from OpenDesign exported HTML/CSS artifacts. Use when setting up OpenDesign-to-code workflows or mapping OpenDesign output to a project component system.
+---
+
+# Create OpenDesign Design System Rules
+
+## Communication while using this skill
+
+**Caveman full** for assistant status prose while this skill runs: drop articles, use fragments when clear, prefer short synonyms, and keep technical terms exact. Technical accuracy unchanged; quoted errors, code, and command output unchanged. Drop full for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, required input questions, or when the user asks for normal or long-form wording.
+
+**Artifact boundary:** Caveman full applies to chat and status prose, not generated rules, catalog JSON, design context JSON, manifests, or validation output.
+
+## Overview
+
+First skill in the OpenDesign-to-code flow. After completing, offer to invoke **rosey-implement-design**.
+
+Generates design system rules mapping OpenDesign HTML/CSS into the app's framework, components, and tokens.
+
+### Outputs
+
+- `.cursor/rules/rosey-design-system.mdc` — project conventions (includes active `pageSlug`; re-run when switching pages)
+- `docs/designs/component-catalog.json`
+- `docs/designs/<page-slug>/design-context.json`
+- `docs/designs/latest.json` — multi-page index (`pages`, `activePageSlug`)
+
+## Prerequisites
+
+```bash
+npm install --prefix .cursor/skills/rosey-design-catalog
+npm install --prefix .cursor/skills/rosey-implement-design
+```
+
+## Workflow
+
+### Step 1: Accept Artifact Inputs
+
+- `htmlPath`: required exported OpenDesign HTML
+- `pageSlug`: optional; derive from title or filename if absent
+- `DESIGN.md`: required unless `--allow-missing-design` (debug). Auto-discover beside HTML, project root, or `docs/design-system/DESIGN.md`
+- `assetsDir`: optional; directory containing exported image/font assets (if not colocated with HTML)
+
+If `docs/designs/design-system.json` exists (from **rosey-design-system**), catalog warns when `DESIGN.md` changed since copy.
+
+Do not call OpenDesign MCP tools unless descriptors are verified.
+
+### Step 2: Analyze the Codebase
+
+```bash
+node .cursor/skills/rosey-design-catalog/scripts/scan-project-architecture.js --root <projectRoot>
+```
+
+### Step 3: Inspect OpenDesign Artifact
+
+The generator runs token resolution, HTML serialization, and catalog building in one step. For debugging only:
+
+- `rosey-token-resolution` with `--design`
+- `rosey-implement-design/scripts/serialize-html.js --html <htmlPath>`
+
+Serialized DOM lives in `design-context.json`; page-specific details live there, not in a page-specific rule file. Do not re-serialize unless HTML changed (checksum in context).
+
+### Step 4: Generate Files
+
+```bash
+node .cursor/skills/rosey-design-catalog/scripts/generate-design-system.js \
+  --html <htmlPath> --project-root <projectRoot> --page-slug <pageSlug> [--design <designPath>]
+```
+
+Optional: `--css <path[,path]>`, `--allow-missing-design`, `--assets-dir <assetsDir>`
+
+Validate:
+
+```bash
+node .cursor/skills/rosey-design-catalog/scripts/validate-generated-files.js \
+  --project-root <projectRoot> --page-slug <pageSlug>
+```
+
+Uses JSON schemas in `templates/rosey-*.schema.json`.
+
+### Step 5: Component Catalog Contract
+
+Catalog must follow `templates/rosey-component-catalog.schema.json`: path, exported name, `matches`, `props`. It is project-level at `docs/designs/component-catalog.json`; per-page matching output is generated later by `rosey-implement-design`.
+
+### Step 6: Offer rosey-implement-design
+
+Ask whether to implement now. Pass `pageSlug`, `htmlPath`, and `assetsDir` (if applicable) to implement skill.

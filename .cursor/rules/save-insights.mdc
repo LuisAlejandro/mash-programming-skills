@@ -1,16 +1,73 @@
 ---
+description: Save durable Rosey repo insights to docs/insights after non-trivial discovery.
 alwaysApply: true
 ---
-# Saving Architectural Insights
 
-When you (the AI) spend significant time exploring the codebase to solve a problem, and you discover a non-obvious architectural rule, dependency, or troubleshooting step, you MUST document this insight for future agents.
+# Saving Durable Insights
 
-## How to save insights
+After significant codebase exploration, debugging, planning, QA, or workflow work, pause and ask:
 
-1. Ensure the directory exists by running `mkdir -p docs/memory-bank`.
-2. Open or create `docs/memory-bank/systemPatterns.md`.
-3. If a section named `## Architectural Insights & Troubleshooting` does not exist, create it at the bottom of the file.
-4. If you are documenting a failed approach or what *not* to do, ensure a section named `## Anti-Patterns & Deprecated Approaches` exists and add it there.
-5. Add a concise, bulleted explanation of the problem and the required solution/pattern (or anti-pattern).
+> Did this task reveal a durable insight future agents would otherwise rediscover?
 
-By actively saving these durable facts, you prevent future agents from wasting time rediscovering the same solutions.
+Save an insight only when the answer is clearly yes. Good candidates include non-obvious architecture rules, workflow constraints, tool gotchas, cross-file dependencies, recurring failure modes, and "do not do this" lessons.
+
+Do not save routine task summaries, obvious facts, temporary state, secrets, credentials, private data, or anything already captured clearly in `docs/solutions/` or a nearby plan.
+
+## How To Save
+
+1. Create `docs/insights/` if it does not exist.
+2. Choose a concise lowercase filename: `docs/insights/<topic-slug>.md`.
+3. If a closely related insight file already exists, update it instead of creating a duplicate.
+4. Add YAML frontmatter so `rosey-learnings-researcher` can find it by metadata:
+   - `title`: human-readable insight title
+   - `module`: repo area or workflow, e.g. `rosey-memory`
+   - `problem_type`: use `durable_insight` by default, or a more specific knowledge-track value when it fits (`architecture_pattern`, `workflow_issue`, `tooling_decision`, `convention`, `best_practice`)
+   - `component`: specific skill, agent, script, command, or subsystem when known
+   - `tags`: searchable keywords
+   - `applies_when`: conditions where future agents should recall this
+   - `severity`: `low`, `medium`, or `high`
+5. Write a short markdown body with:
+   - `## Insight`
+   - `## When It Applies`
+   - `## What To Do`
+   - `## Evidence`
+6. Keep the entry actionable and brief. Prefer bullets over narrative.
+
+## Anti-Patterns
+
+If the lesson is about a failed or deprecated approach, include a `## Avoid` section explaining what not to do and why.
+
+## Example
+
+```markdown
+---
+title: Hindsight uses embed CLI, not MCP
+module: rosey-memory
+problem_type: durable_insight
+component: rosey-hindsight
+tags:
+  - hindsight
+  - memory
+  - cursor
+  - workflow
+applies_when:
+  - Adding or modifying Rosey memory behavior
+severity: medium
+---
+
+## Insight
+
+- Rosey skills use Hindsight via `uvx hindsight-embed`, not `.cursor/mcp.json`.
+
+## When It Applies
+
+- Adding or modifying Rosey memory behavior.
+
+## What To Do
+
+- Update `rosey-hindsight` and workflow skill references instead of adding a Hindsight MCP server.
+
+## Evidence
+
+- `.cursor/skills/rosey-hindsight/SKILL.md`
+```

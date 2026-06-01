@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rosey-artifact.schema.json",
+  "title": "Rosey OpenDesign Artifact",
+  "type": "object",
+  "required": ["name", "source", "htmlPath"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "source": { "const": "opendesign-export" },
+    "htmlPath": { "type": "string", "minLength": 1 },
+    "previewUrl": { "type": ["string", "null"] },
+    "assetsDir": { "type": ["string", "null"] },
+    "manifestPath": { "type": ["string", "null"] }
+  }
+}

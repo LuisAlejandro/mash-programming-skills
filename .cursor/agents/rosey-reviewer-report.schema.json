@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rosey-reviewer-report.schema.json",
+  "title": "Rosey Reviewer Report",
+  "type": "object",
+  "required": [
+    "generatedAt",
+    "comparisonMethod",
+    "baselineUrl",
+    "targetUrl",
+    "viewports",
+    "findings",
+    "controlInventoryStatus"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": { "type": "string" },
+    "comparisonMethod": { "enum": ["dom-css", "dom-css-screenshots"] },
+    "baselineUrl": { "type": "string" },
+    "targetUrl": { "type": "string" },
+    "viewports": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "element", "expected", "observed", "recommendation"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "severity": { "enum": ["blocking", "major", "minor"] },
+          "element": { "type": "string" },
+          "expected": { "type": "string" },
+          "observed": { "type": "string" },
+          "sourceFile": { "type": ["string", "null"] },
+          "recommendation": { "type": "string" }
+        }
+      }
+    },
+    "controlInventoryStatus": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": ["number", "string"] },
+          "status": { "enum": ["implemented", "deferred", "missing", "not-applicable"] },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}
