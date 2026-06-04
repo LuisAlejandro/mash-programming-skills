@@ -56,11 +56,11 @@ Sentrux is configured in [`.cursor/mcp.json`](../../mcp.json):
 ```json
 "sentrux": {
   "command": "sentrux",
-  "args": ["--mcp"]
+  "args": ["mcp"]
 }
 ```
 
-Before calling tools, read MCP tool descriptors under the `sentrux` server folder. Invoke via `CallMcpTool` with `server: "sentrux"`.
+Before calling tools, read MCP tool descriptors under the `sentrux` server folder (often `project-0-<workspace>-sentrux` in Cursor). Invoke via `CallMcpTool` with the **enabled server id** from the MCP file system (e.g. `project-0-rosey-agentic-env-sentrux`), not only the short name `sentrux`.
 
 ### Unavailable fallback
 

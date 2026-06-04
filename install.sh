@@ -82,7 +82,7 @@ install_sentrux() {
         return 0
     fi
 
-    echo "-> Installing Sentrux CLI (required for rosey-manager / rosey-developer / rosey-qa)..."
+    echo "-> Installing Sentrux CLI (required for rosey-plan / rosey-work / rosey-qa)..."
     case "$(uname -s)" in
         Darwin)
             if command -v brew >/dev/null 2>&1; then
