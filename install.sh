@@ -26,11 +26,27 @@ mkdir -p .cursor
 
 echo "-> Updating .gitignore..."
 touch .gitignore
-if ! grep -q "docs/plans" .gitignore 2>/dev/null; then
-    echo -e "\n# Rosey Agentic Environment" >> .gitignore
-    echo "docs/plans/" >> .gitignore
-    echo "docs/designs/" >> .gitignore
-fi
+
+rosey_gitignore_ensure_header() {
+    if ! grep -q "^# Rosey Agentic Environment" .gitignore 2>/dev/null; then
+        echo -e "\n# Rosey Agentic Environment" >> .gitignore
+    fi
+}
+
+append_gitignore_if_missing() {
+    local line="$1"
+    if ! grep -qxF "$line" .gitignore 2>/dev/null; then
+        rosey_gitignore_ensure_header
+        echo "$line" >> .gitignore
+    fi
+}
+
+append_gitignore_if_missing ".cursor/"
+append_gitignore_if_missing "docs/brainstorms/"
+append_gitignore_if_missing "docs/plans/"
+append_gitignore_if_missing "docs/designs/"
+append_gitignore_if_missing "docs/solutions/"
+append_gitignore_if_missing "docs/insights/"
 
 # --- npm install helpers ---
 

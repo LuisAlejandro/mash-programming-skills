@@ -1,6 +1,6 @@
 ---
-description: Use Rosey Hindsight embed memory for non-trivial Rosey planning, implementation, and QA work.
-alwaysApply: false
+description: Mandatory Hindsight gate for Rosey planning, implementation, and QA
+alwaysApply: true
 ---
 
 # Hindsight Memory
@@ -12,3 +12,22 @@ For non-trivial Rosey work, use [`rosey-hindsight`](../skills/rosey-hindsight/SK
 - At the end of implementation work, retain a concise session summary with changed files, verification, blockers, and decisions.
 - If Hindsight is unavailable or not configured, continue the Rosey workflow and record the unavailable status where applicable.
 - Do not store secrets or sensitive data.
+
+## Mandatory gate (do not skip)
+
+When **any** of these is true:
+
+- User invokes `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa`
+- User says continue pipeline, implement plan, code review, or similar Rosey handoff
+- You are about to write a requirements doc, plan, implementation diff, or review report for non-trivial work
+
+You **must** run this sequence **before** other research or edits:
+
+1. Read `.cursor/skills/rosey-hindsight/SKILL.md`
+2. Run `uvx hindsight-embed daemon status`
+3. If status OK → run `uvx hindsight-embed memory recall <bank> "<task summary>"`
+4. If status fails → continue workflow but state `Hindsight: unavailable — <reason>` in the first status message
+
+Skipping step 2 without documenting unavailable is a workflow violation.
+
+At end of `rosey-work` (or substantive implementation): run `memory retain` with session summary **or** document why retain was skipped.

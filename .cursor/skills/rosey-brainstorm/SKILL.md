@@ -29,9 +29,14 @@ This skill follows the Rosey-native brainstorm workflow with Rosey handoffs and 
 - Do **not** create a separate design doc unless the user explicitly asks for one. The requirements document should be right-sized and can include design-relevant decisions when they matter.
 - After `rosey-implement-design` completes with visual parity aligned, use this skill for the remaining functionality only: real data sources, business logic, validation, submission, error handling, auth, routing guards, and deferred checklist items. Do not rerun `rosey-implement-design` for functionality work.
 
-## Memory (optional)
+## Memory gate (required check)
 
-Before locking scope on a non-trivial feature, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory with the feature summary, affected areas, and any known constraints. Fold useful recall into questions and requirements; do not dump raw CLI output. If Hindsight is unavailable or not configured, continue without blocking.
+Before Phase 1.2 on Standard/Deep scope (before Phase 3 write on Lightweight with material scope):
+
+1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and run `daemon status` + `memory recall` (or document `Hindsight: unavailable — <reason>`).
+2. Do not write the requirements doc until step 1 completes or is explicitly marked unavailable.
+
+"Unavailable" means CLI failed — not "I skipped it."
 
 ## Core Principles
 

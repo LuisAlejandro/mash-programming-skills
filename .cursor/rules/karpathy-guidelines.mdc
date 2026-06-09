@@ -9,6 +9,48 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
+## Mandatory brief (before first edit)
+
+**Triggers:** Rosey workflow active; user says implement, continue, or code review; multi-file or behavioral change; any non-trivial edit.
+
+Before the **first file edit**, emit a Karpathy brief (normal concise prose — not caveman):
+
+1. **Assumptions** — explicit list, or `none`
+2. **Success criteria** — at least one `step → verify` check (or cite plan unit verification)
+3. **Simpler path** — name it if one exists; say why you are not taking it
+
+**Proof line** (first status message after brief, before edits):
+
+```text
+Karpathy: assumptions: <…> | verify: <…>
+```
+
+**Forbidden:** silent interpretation; speculative extras beyond the request; declaring done with only "make it work" and no verify step.
+
+Skipping the brief without `Karpathy: trivial, skipped` (see Tiering) is a workflow violation.
+
+## Tiering (avoid ceremony overload)
+
+| Tier | Signals | Karpathy brief |
+|------|---------|----------------|
+| **Trivial** | 1–2 files, no behavior change (typo, rename, config tweak) | Skip full brief; emit `Karpathy: trivial, skipped` |
+| **Standard** | Feature, refactor, or plan unit work | Full brief + proof line required |
+| **Deep** | Cross-cutting, auth, payments, migrations, 10+ files | Full brief + explicit tradeoff if multiple valid approaches |
+
+When tier is unclear, default to **Standard**.
+
+## Conflict resolution
+
+- **User rules** ("blog-quality prose", long explanations) apply to conceptual Q&A and artifacts (requirements, plans, commits, PRs) — not to skipping assumptions before edits.
+- **Rosey plans** — plan `Verification` / test scenarios satisfy goal-driven execution; implementation must trace to those checks, not invent a parallel vague "done."
+- **"Move fast" / "just do it"** — still require assumptions + at least one verify line; brief can be shorter, not omitted (unless Trivial tier).
+- **Ask mode / read-only** — no Karpathy brief; no file edits.
+- **Caveman** — Karpathy brief uses normal concise prose; subsequent Rosey status may use caveman lite per `.cursor/rules/caveman.mdc`.
+
+## Proof of compliance
+
+No `Karpathy: assumptions: … | verify: …` (or `Karpathy: trivial, skipped`) before first edit on non-trivial work → brief not run.
+
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**

@@ -22,6 +22,7 @@ This skill follows the upstream code-review workflow, with Rosey handoff and Sen
 - When `SENTRUX_REVIEW_CONTEXT` is present, include it in reviewer context and synthesis. Structural regression is a first-class review axis alongside logic, requirements, tests, and maintainability.
 - Treat a failed Sentrux `session_end`, quality-signal drop, new import cycle, or behavior-critical `test_gaps` entry as a P1/P2 finding depending on impact. If the context documents `override sentrux handoff block`, keep the concern visible as residual risk but do not block solely because of the override.
 - When `FILES_CHANGED` is provided, use it as the authoritative file list to cross-check the computed git diff. If the computed diff misses any provided file, include that mismatch in the review scope notes.
+- Run the Hindsight gate (see `.cursor/rules/hindsight-memory.mdc`) before Stage 1 when review may be affected by prior preferences, conventions, or session context.
 - Use GitHub MCP tools for GitHub PR metadata and comments. Do not rely on the GitHub CLI.
 
 ## When to Use
@@ -203,6 +204,16 @@ The following paths are Rosey pipeline artifacts and must never be flagged for d
 If a reviewer flags any file in these directories for cleanup or removal, discard that finding during synthesis.
 
 ## How to Run
+
+### Stage 0: Hindsight gate (hard)
+
+Before computing diff scope:
+
+1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
+2. Run `daemon status` + `memory recall` with PR/plan scope OR emit `Hindsight: unavailable — <reason>`
+3. Include recalled context in reviewer prompts when material
+
+`mode:report-only`: gate still runs; no file edits.
 
 ### Stage 1: Determine scope
 

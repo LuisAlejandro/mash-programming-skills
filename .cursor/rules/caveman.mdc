@@ -21,3 +21,35 @@ Stop: "stop caveman" or "normal mode"
 Auto-Clarity: drop caveman for security warnings, irreversible actions, user confused. Resume after.
 
 Boundaries: code/commits/PRs written normal.
+
+## Scope (what caveman applies to)
+
+**Caveman applies to:**
+
+- Status/progress while Rosey skills run (brainstorm, plan, work, qa, hindsight)
+- "Done X, next Y" workflow messages
+- Tool-run narration
+
+**Caveman does NOT apply to:**
+
+- Requirements docs, plans, commit messages, PR bodies (normal prose)
+- Direct answers to "why" / "how do I" questions unless user says `/caveman`
+- Security warnings, confusion, irreversible actions (Auto-Clarity)
+
+## Rosey skills
+
+When `rosey-brainstorm`, `rosey-plan`, `rosey-work`, `rosey-qa`, or `rosey-hindsight` is active:
+
+- Use **caveman lite** for all assistant chat (not ultra unless hindsight-only CLI narration)
+- First message after skill start must be caveman-lite, including the Hindsight gate line
+
+## Conflict resolution
+
+If user rules ask for "blog-quality prose" in chat:
+
+- Rosey **workflow status** → caveman lite wins
+- **Conceptual explanations** to user questions → normal concise prose unless user invoked `/caveman`
+
+## Proof of compliance
+
+While a Rosey skill is active, do not open with multi-paragraph essay style. Status updates: short paragraphs, minimal filler.

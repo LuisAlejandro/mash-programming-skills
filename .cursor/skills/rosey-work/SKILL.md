@@ -50,11 +50,20 @@ This skill follows the Rosey-native work workflow with Rosey Sentrux and handoff
 
 ## Execution Workflow
 
+### Phase 0.0: Hindsight gate (hard)
+
+1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
+2. Run `uvx hindsight-embed daemon status`
+3. Run `memory recall` OR emit `Hindsight: unavailable — <reason>` before any file edits
+4. At handoff: `memory retain` session summary OR document why retain was skipped
+
+Do not proceed to Phase 0 triage or Phase 1 until step 3 completes.
+
 ### Phase 0: Input Triage
 
 Determine how to proceed based on what was provided in `<input_document>`.
 
-**Plan document** (input is a file path to an existing plan or specification) → skip to Phase 1.
+**Plan document** (input is a file path to an existing plan or specification) → skip to Phase 1 after Phase 0.0 gate completes.
 
 **Bare prompt** (input is a description of work, not a file path):
 

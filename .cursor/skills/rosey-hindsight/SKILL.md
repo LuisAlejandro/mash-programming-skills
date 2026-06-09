@@ -5,6 +5,15 @@ description: Shared Hindsight embed CLI contract for Rosey cross-session memory.
 
 # Rosey Hindsight
 
+## Proof of compliance
+
+First Rosey status message after the Hindsight gate MUST include exactly one of:
+
+- `Hindsight: recalled (<brief useful context>)`
+- `Hindsight: unavailable (<reason>)`
+
+No line → gate not run. "Unavailable" requires a failed `daemon status` — not silent skip.
+
 ## Communication while using this skill
 
 **Caveman ultra** for assistant status prose while this skill runs: abbreviate routine workflow words, strip conjunctions where safe, use arrows for causality, and keep one word when one word is enough. Technical accuracy unchanged; CLI commands, bank IDs, quoted errors, memory content, and command output unchanged. Drop ultra for setup instructions, security/privacy warnings, user confusion, or when the user asks for normal or long-form wording.

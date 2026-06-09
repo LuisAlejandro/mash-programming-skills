@@ -86,6 +86,10 @@ A plan is ready when an implementer can start confidently without needing the pl
 
 ### Phase 0: Resume, Source, and Scope
 
+**Hindsight gate (hard):** Before any Phase 0 subsection, run the gate in `.cursor/rules/hindsight-memory.mdc`. Emit `Hindsight: recalled` or `Hindsight: unavailable` in the first status message. Do not resolve output mode, search requirements, or dispatch research until the gate completes.
+
+Non-interactive mode: still run `daemon status`; if recall fails, record `HINDSIGHT: unavailable` in plan assumptions.
+
 #### 0.0 Resolve Output Mode
 
 Determine `OUTPUT_FORMAT` before any other phase fires. Output mode is **exclusive** — the plan is written as either markdown (`.md`) OR HTML (`.html`), never both. Precedence: CLI arg > config > default (`md`), with a hard non-interactive override.
@@ -291,7 +295,7 @@ Prepare a concise planning context summary (a paragraph or two) to pass as input
 - Otherwise use the feature description directly
 - If `STRATEGY.md` exists, read it and include the relevant pieces (target problem, approach, active tracks) in the summary so downstream research and planning decisions are anchored to product strategy
 
-Before dispatching local research agents, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory with the planning context summary. Treat useful recall output as additional planning context, alongside but separate from `docs/solutions/` institutional learnings. If Hindsight is unavailable or not configured, continue Phase 1 and note memory unavailability only when it materially affects the plan context.
+Before dispatching local research agents, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory with the planning context summary. If the Phase 0 gate already ran, fold recall into planning context; do not skip recall unless unavailable was documented. Treat useful recall output as additional planning context, alongside but separate from `docs/solutions/` institutional learnings. If Hindsight is unavailable or not configured, continue Phase 1 and note memory unavailability only when it materially affects the plan context.
 
 Run these agents in parallel:
 

@@ -17,7 +17,7 @@ curl -sSL https://raw.githubusercontent.com/LuisAlejandro/rosey-agentic-env/main
 ### What the installer does:
 1. Downloads the latest rules and skills from this repository.
 2. Creates and populates the `.cursor/rules` and `.cursor/skills` folders in your target repository.
-3. Automatically updates your `.gitignore` to keep AI plan and design artifacts (`docs/plans/` and `docs/designs/`) out of version control.
+3. Automatically updates your `.gitignore` to keep Rosey-local artifacts out of version control: `.cursor/`, `docs/brainstorms/`, `docs/plans/`, `docs/designs/`, `docs/solutions/`, and `docs/insights/`.
 
 ## Updating the environment
 To update the rules and skills in a target repository, simply run the install command again. It will overwrite the `.cursor` files with the latest versions from the remote repository.
