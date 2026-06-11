@@ -20,7 +20,7 @@ Spawned on every review regardless of diff content.
 | Agent | Focus |
 |-------|-------|
 | `rosey-agent-native-reviewer` | Verify new features are agent-accessible |
-| `rosey-learnings-researcher` | Search docs/solutions/ for past issues related to this PR's modules and patterns |
+| `rosey-learnings-researcher` | Search rosey/solutions/ for past issues related to this PR's modules and patterns |
 
 ## Conditional (7 personas)
 

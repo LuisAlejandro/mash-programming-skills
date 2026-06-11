@@ -71,7 +71,7 @@ Non-interactive mode must produce markdown requirements. If output format is con
 
 Gate before continuing:
 
-- Verify a requirements document was created under `docs/brainstorms/`.
+- Verify a requirements document was created under `rosey/brainstorms/`.
 - Record `REQUIREMENTS_PATH`.
 - If no requirements document was created, invoke `rosey-brainstorm` once more with the original feature description.
 - If it still does not create a requirements document, stop and report the failure.
@@ -83,7 +83,7 @@ Invoke `rosey-plan` with `REQUIREMENTS_PATH`. In non-interactive mode, include `
 
 Gate before continuing:
 
-- Verify a plan document was created under `docs/plans/`.
+- Verify a plan document was created under `rosey/plans/`.
 - Record `PLAN_PATH`.
 - If no plan was created, invoke `rosey-plan` once more with `REQUIREMENTS_PATH`.
 - If it still does not create a plan, stop and report the failure.

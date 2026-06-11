@@ -123,7 +123,7 @@ The `output:` preference does NOT auto-propagate to `rosey-plan` on handoff — 
 
 #### 0.1 Resume Existing Work When Appropriate
 
-If the user references an existing brainstorm topic or document, or there is an obvious recent matching `*-requirements.{md,html}` file in `docs/brainstorms/`:
+If the user references an existing brainstorm topic or document, or there is an obvious recent matching `*-requirements.{md,html}` file in `rosey/brainstorms/`:
 - Read the document
 - Confirm with the user before resuming: "Found an existing requirements doc for [topic]. Should I continue from this, or start fresh?"
 - If resuming, summarize the current state briefly, continue from its existing decisions and outstanding questions, and update the existing document instead of creating a duplicate
@@ -306,14 +306,14 @@ In non-interactive mode, compose the internal draft and route it directly into t
 
 ### Phase 3: Capture the Requirements
 
-Write or update a requirements document only when the conversation produced durable decisions worth preserving — see `references/brainstorm-sections.md` "Decide whether a doc is warranted at all" for the criteria and the bug-fix stress test. Skip document creation when the user only needs brief alignment and the decisions can flow downstream (rosey-plan, commit message, docs/solutions/) without a brainstorm artifact in the middle.
+Write or update a requirements document only when the conversation produced durable decisions worth preserving — see `references/brainstorm-sections.md` "Decide whether a doc is warranted at all" for the criteria and the bug-fix stress test. Skip document creation when the user only needs brief alignment and the decisions can flow downstream (rosey-plan, commit message, rosey/solutions/) without a brainstorm artifact in the middle.
 
 When a doc is warranted, compose it using:
 
 - `references/brainstorm-sections.md` — section contract (outcomes, hard floor, include-when-material catalog, agency rules, ID conventions).
 - The format-specific rendering reference loaded at Phase 0.0 (`markdown-rendering.md` OR `html-rendering.md`) — how the resolved format presents the sections.
 
-Write to `docs/brainstorms/YYYY-MM-DD-<topic>-requirements.<md|html>` — extension follows `OUTPUT_FORMAT`. Confirm with the absolute path so the reference is clickable.
+Write to `rosey/brainstorms/YYYY-MM-DD-<topic>-requirements.<md|html>` — extension follows `OUTPUT_FORMAT`. Confirm with the absolute path so the reference is clickable.
 
 ### Phase 4: Handoff
 

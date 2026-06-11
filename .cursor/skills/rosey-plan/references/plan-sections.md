@@ -67,7 +67,7 @@ vs. genuine skip cases:
 
 When skipping the plan doc, the work proceeds directly to `rosey-work` or to
 implementation, and any decisions made along the way land in the commit
-message or `docs/solutions/` if they're worth carrying forward.
+message or `rosey/solutions/` if they're worth carrying forward.
 
 ## Hard floor
 
@@ -193,7 +193,7 @@ These fields are not required, but when set they have fixed names and
 semantics so downstream tooling can rely on them:
 
 - **`origin`** — repo-relative path to an upstream brainstorm requirements
-  doc (e.g., `docs/brainstorms/2026-05-12-pagination-requirements.md`).
+  doc (e.g., `rosey/brainstorms/2026-05-12-pagination-requirements.md`).
   Set when planning from an upstream brainstorm; carried for traceability
   and re-resolved when `rosey-plan` re-deepens.
 - **`deepened`** — ISO 8601 date marking the first time the confidence

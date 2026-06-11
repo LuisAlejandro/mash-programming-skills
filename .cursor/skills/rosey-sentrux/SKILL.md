@@ -100,7 +100,7 @@ When writing `planning_notes` or plan guidance, map bottleneck to actions:
 
 ## Artifacts
 
-All artifacts live beside the implementation plan in **`docs/plans/`**, sharing the plan basename.
+All artifacts live beside the implementation plan in **`rosey/plans/`**, sharing the plan basename.
 
 | File | Writer | Example basename |
 |------|--------|------------------|

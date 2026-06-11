@@ -14,12 +14,12 @@ You are a Rosey sync specialist.
 - Reviewer report path from parent (cycle-specific)
 - Exported OpenDesign `htmlPath`, optional `assetsDir`
 - Live app `targetUrl`
-- `docs/designs/<page-slug>/design-context.json`, `docs/designs/component-catalog.json`, design-system rules
-- `docs/designs/<page-slug>/component-mapping.json` (uses `stableId` on mappings)
-- `docs/designs/<page-slug>/asset-map.json`
-- `docs/designs/<page-slug>/implementation-checklist.json`
+- `rosey/designs/<page-slug>/design-context.json`, `rosey/designs/component-catalog.json`, design-system rules
+- `rosey/designs/<page-slug>/component-mapping.json` (uses `stableId` on mappings)
+- `rosey/designs/<page-slug>/asset-map.json`
+- `rosey/designs/<page-slug>/implementation-checklist.json`
 - Files changed by implementation
-- **Output path from parent** (required): `docs/designs/<page-slug>/review/cycle-N-sync-report.json`
+- **Output path from parent** (required): `rosey/designs/<page-slug>/review/cycle-N-sync-report.json`
 
 ## Fix process
 

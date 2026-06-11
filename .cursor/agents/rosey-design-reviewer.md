@@ -12,14 +12,14 @@ You are a Rosey implementation reviewer.
 ## Required inputs
 
 - Exported OpenDesign `htmlPath` and optional `assetsDir`
-- `pageSlug` (or `docs/designs/latest.json` `activePageSlug`)
+- `pageSlug` (or `rosey/designs/latest.json` `activePageSlug`)
 - Live app `targetUrl`
-- `docs/designs/<page-slug>/design-context.json`
-- `docs/designs/<page-slug>/component-mapping.json` when available
-- `docs/designs/<page-slug>/asset-map.json` when available (may be `{}`)
-- `docs/designs/<page-slug>/implementation-checklist.json`
+- `rosey/designs/<page-slug>/design-context.json`
+- `rosey/designs/<page-slug>/component-mapping.json` when available
+- `rosey/designs/<page-slug>/asset-map.json` when available (may be `{}`)
+- `rosey/designs/<page-slug>/implementation-checklist.json`
 - Files changed by implementation
-- **Output path from parent** (required). When invoked by `rosey-design-iterator`, write only to the cycle-specific path (e.g. `docs/designs/<page-slug>/review/cycle-N-reviewer-report.json`).
+- **Output path from parent** (required). When invoked by `rosey-design-iterator`, write only to the cycle-specific path (e.g. `rosey/designs/<page-slug>/review/cycle-N-reviewer-report.json`).
 
 ## Parity tooling (required)
 
@@ -28,8 +28,8 @@ You are a Rosey implementation reviewer.
 ```bash
 node .cursor/skills/rosey-implement-design/scripts/serve-artifact.js \
   --html <htmlPath> [--assets-dir <assetsDir>] --port 0 --background \
-  --state-file docs/designs/<page-slug>/review/baseline-server.json \
-  --pid-file docs/designs/<page-slug>/review/baseline-server.pid
+  --state-file rosey/designs/<page-slug>/review/baseline-server.json \
+  --pid-file rosey/designs/<page-slug>/review/baseline-server.pid
 ```
 
 2. Run parity for **all** viewports in one step:
@@ -51,7 +51,7 @@ node .cursor/skills/rosey-implement-design/scripts/merge-parity-report.js \
   --page-slug <pageSlug> \
   --baseline-url <baselineUrl> \
   --target-url <targetUrl> \
-  --out docs/designs/<page-slug>/review/merged-reviewer-findings.json
+  --out rosey/designs/<page-slug>/review/merged-reviewer-findings.json
 ```
 
 Read `parity-alignment-summary.json`. **Aligned** only when summary `aligned` is true (no blocking/major across all viewports).

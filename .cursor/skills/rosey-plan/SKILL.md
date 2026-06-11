@@ -115,12 +115,12 @@ Resolution steps:
 
 #### 0.1 Resume Existing Plan Work When Appropriate
 
-If the user references an existing plan file or there is an obvious recent matching plan in `docs/plans/`:
+If the user references an existing plan file or there is an obvious recent matching plan in `rosey/plans/`:
 - Read it
 - Confirm whether to update it in place or create a new plan
 - If updating, revise only the still-relevant sections. Plans do not carry per-unit progress state — progress is derived from git by `rosey-work`, so there is no progress to preserve across edits
 
-**Deepen intent:** The word "deepen" (or "deepening") in reference to a plan is the primary trigger for the deepening fast path. When the user says "deepen the plan", "deepen my plan", "run a deepening pass", or similar, the target document is a **plan** in `docs/plans/`, not a requirements document. Use any path, keyword, or context the user provides to identify the right plan. If a path is provided, verify it is actually a plan document. If the match is not obvious, confirm with the user before proceeding.
+**Deepen intent:** The word "deepen" (or "deepening") in reference to a plan is the primary trigger for the deepening fast path. When the user says "deepen the plan", "deepen my plan", "run a deepening pass", or similar, the target document is a **plan** in `rosey/plans/`, not a requirements document. Use any path, keyword, or context the user provides to identify the right plan. If a path is provided, verify it is actually a plan document. If the match is not obvious, confirm with the user before proceeding.
 
 Words like "strengthen", "confidence", "gaps", and "rigor" are NOT sufficient on their own to trigger deepening. These words appear in normal editing requests ("strengthen that section about the diagram", "there are gaps in the test scenarios") and should not cause a holistic deepening pass. Only treat them as deepening intent when the request clearly targets the plan as a whole and does not name a specific section or content area to change — and even then, prefer to confirm with the user before entering the deepening flow.
 
@@ -148,7 +148,7 @@ Otherwise, read `references/universal-planning.md` and follow that workflow inst
 
 #### 0.2 Find Upstream Requirements Document
 
-Before asking planning questions, search `docs/brainstorms/` for files matching `*-requirements.md` or `*-requirements.html` (rosey-brainstorm emits whichever extension matches its resolved output format; both are valid upstream requirements docs and either may be carried as the plan's `origin:`).
+Before asking planning questions, search `rosey/brainstorms/` for files matching `*-requirements.md` or `*-requirements.html` (rosey-brainstorm emits whichever extension matches its resolved output format; both are valid upstream requirements docs and either may be carried as the plan's `origin:`).
 
 **Relevance criteria:** A requirements document is relevant if:
 - The topic semantically matches the feature description
@@ -201,11 +201,11 @@ If the bootstrap reveals that a different workflow would serve the user better:
 - **Bug-shaped prompt** (user describes broken behavior — "fix the bug where X", error message, regression, "doesn't work"). Surface `rosey-debug` as a route-out option alongside continuing with `rosey-plan` whenever the bug surface is reachable (in cwd OR named repo found at another local path). Stay in `rosey-plan` silently when the named code can't be found anywhere local — paper-planning is the only useful output for unreachable surfaces.
 
   **When the bug is at another local path (not cwd):**
-  - Announce the target explicitly **before** any cross-repo investigation: which path will be read AND where plan outputs will land (default: target repo's `docs/plans/`, not cwd's).
+  - Announce the target explicitly **before** any cross-repo investigation: which path will be read AND where plan outputs will land (default: target repo's `rosey/plans/`, not cwd's).
   - Default: proceed from the target repo for both investigation and plan-write. The user can interrupt to redirect (switch context, paper-plan, abandon, etc.). No location menu — the announcement makes the cross-repo nature visible, and the user can speak up if they want something unusual.
   - **After** announcing and proceeding, fire the standard rosey-debug routing menu (continue with `rosey-plan` vs switch to `rosey-debug`) — same shape as the in-cwd case. Cross-repo location and rosey-debug skill routing are orthogonal decisions; do not merge them into a single question.
 
-  Reading code at another path is fine in principle — that's just file access. The harm to avoid is silent operation on the wrong repo, especially writing the plan doc somewhere it won't be discovered (a busyblock plan landing in `cli-printing-press/docs/plans/` is a discoverability disaster). The announcement requirement makes the target visible; defaulting to the target repo for both investigation and outputs respects the user's stated intent (they named that repo); the orthogonal rosey-debug menu keeps the skill-choice question clean.
+  Reading code at another path is fine in principle — that's just file access. The harm to avoid is silent operation on the wrong repo, especially writing the plan doc somewhere it won't be discovered (a busyblock plan landing in `cli-printing-press/rosey/plans/` is a discoverability disaster). The announcement requirement makes the target visible; defaulting to the target repo for both investigation and outputs respects the user's stated intent (they named that repo); the orthogonal rosey-debug menu keeps the skill-choice question clean.
 
   The accessibility classification is conservative and may under-suggest in monorepos, dependency bugs, or after renames. Users can always invoke `/rosey-debug` manually.
 
@@ -295,7 +295,7 @@ Prepare a concise planning context summary (a paragraph or two) to pass as input
 - Otherwise use the feature description directly
 - If `STRATEGY.md` exists, read it and include the relevant pieces (target problem, approach, active tracks) in the summary so downstream research and planning decisions are anchored to product strategy
 
-Before dispatching local research agents, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory with the planning context summary. If the Phase 0 gate already ran, fold recall into planning context; do not skip recall unless unavailable was documented. Treat useful recall output as additional planning context, alongside but separate from `docs/solutions/` institutional learnings. If Hindsight is unavailable or not configured, continue Phase 1 and note memory unavailability only when it materially affects the plan context.
+Before dispatching local research agents, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory with the planning context summary. If the Phase 0 gate already ran, fold recall into planning context; do not skip recall unless unavailable was documented. Treat useful recall output as additional planning context, alongside but separate from `rosey/solutions/` institutional learnings. If Hindsight is unavailable or not configured, continue Phase 1 and note memory unavailability only when it materially affects the plan context.
 
 Run these agents in parallel:
 
@@ -306,7 +306,7 @@ Collect:
 - Architectural patterns and conventions to follow
 - Implementation patterns, relevant files, modules, and tests
 - AGENTS.md guidance that materially affects the plan, with CLAUDE.md used only as compatibility fallback when present
-- Institutional learnings from `docs/solutions/`
+- Institutional learnings from `rosey/solutions/`
 - Product strategy context when `STRATEGY.md` is present — flag any plan decisions that pull away from the active tracks or the stated approach
 
 **Slack context** (opt-in) — never auto-dispatch. Route by condition:
@@ -450,8 +450,8 @@ Ask the user only when the answer materially affects architecture, scope, sequen
 
 - Draft a clear, searchable title using conventional format such as `feat: Add user authentication` or `fix: Prevent checkout double-submit`
 - Determine the plan type: `feat`, `fix`, or `refactor`
-- Build the filename following the repository convention: `docs/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md`
-  - Create `docs/plans/` if it does not exist
+- Build the filename following the repository convention: `rosey/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md`
+  - Create `rosey/plans/` if it does not exist
   - Check existing files for today's date to determine the next sequence number (zero-padded to 3 digits, starting at 001)
   - Keep the descriptive name concise (3-5 words) and kebab-cased
   - Examples: `2026-01-15-001-feat-user-authentication-flow-plan.md`, `2026-02-03-002-fix-checkout-race-condition-plan.md`
@@ -720,17 +720,17 @@ Then continue to Phase 5.2 without a blocking question.
 Use the Write tool to save the complete plan to the resolved format's extension:
 
 ```text
-docs/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.<md|html>
+rosey/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.<md|html>
 ```
 
-Extension follows `OUTPUT_FORMAT` from Phase 0.0 — `.md` when markdown, `.html` when HTML. Sequence number `NNN` is derived from existing plan files in `docs/plans/` regardless of extension (count both `.md` and `.html`) to ensure unique daily ordering.
+Extension follows `OUTPUT_FORMAT` from Phase 0.0 — `.md` when markdown, `.html` when HTML. Sequence number `NNN` is derived from existing plan files in `rosey/plans/` regardless of extension (count both `.md` and `.html`) to ensure unique daily ordering.
 
 Compose the plan using the content from `references/plan-sections.md` and the format-specific principles from the rendering reference loaded at Phase 0.0 (`markdown-rendering.md` OR `html-rendering.md`).
 
 Write the Sentrux topology artifact beside the plan using the same basename:
 
 ```text
-docs/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.topology.json
+rosey/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.topology.json
 ```
 
 Reference this path from the plan's Architecture Baseline (Sentrux), Sources / Research, or metadata so `rosey-work` can discover it from the plan path.

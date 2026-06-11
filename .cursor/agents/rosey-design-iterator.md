@@ -15,22 +15,22 @@ You are a Rosey iteration coordinator. You **orchestrate** review and sync subag
 - Live app `targetUrl`
 - Optional `baselineUrl`; start one when absent
 - `pageSlug`
-- `docs/designs/<page-slug>/design-context.json`
-- `docs/designs/<page-slug>/component-mapping.json`
-- `docs/designs/<page-slug>/asset-map.json`
-- `docs/designs/<page-slug>/implementation-checklist.json`
+- `rosey/designs/<page-slug>/design-context.json`
+- `rosey/designs/<page-slug>/component-mapping.json`
+- `rosey/designs/<page-slug>/asset-map.json`
+- `rosey/designs/<page-slug>/implementation-checklist.json`
 - Current implementation files
 - `maxCycles` default **5**
-- Review directory: `docs/designs/<page-slug>/review/`
-- Output: `docs/designs/<page-slug>/review/iterator-report.json` (**always write**)
+- Review directory: `rosey/designs/<page-slug>/review/`
+- Output: `rosey/designs/<page-slug>/review/iterator-report.json` (**always write**)
 
 ## Baseline server (start once)
 
 ```bash
 node .cursor/skills/rosey-implement-design/scripts/serve-artifact.js \
   --html <htmlPath> [--assets-dir <assetsDir>] --port 0 --background \
-  --state-file docs/designs/<page-slug>/review/baseline-server.json \
-  --pid-file docs/designs/<page-slug>/review/baseline-server.pid
+  --state-file rosey/designs/<page-slug>/review/baseline-server.json \
+  --pid-file rosey/designs/<page-slug>/review/baseline-server.pid
 ```
 
 Use `OD_ARTIFACT_URL` as `baselineUrl` for every cycle.
@@ -39,7 +39,7 @@ Use `OD_ARTIFACT_URL` as `baselineUrl` for every cycle.
 
 For each cycle until aligned, `maxCycles`, or user input required:
 
-1. **Invoke `/rosey-design-reviewer`** with output: `docs/designs/<page-slug>/review/cycle-N-reviewer-report.json`
+1. **Invoke `/rosey-design-reviewer`** with output: `rosey/designs/<page-slug>/review/cycle-N-reviewer-report.json`
 2. **Validate cycle** (machine gate — do not skip):
 
 ```bash
@@ -48,12 +48,12 @@ node .cursor/skills/rosey-implement-design/scripts/validate-iteration-cycle.js \
 ```
 
 3. Read `parity-alignment-summary.json`. Stop early only when `aligned: true` **and** reviewer report has no blocking/major findings.
-4. If not aligned, **invoke `/rosey-design-sync`** with reviewer report path; output: `docs/designs/<page-slug>/review/cycle-N-sync-report.json`
+4. If not aligned, **invoke `/rosey-design-sync`** with reviewer report path; output: `rosey/designs/<page-slug>/review/cycle-N-sync-report.json`
 5. Validate sync report:
 
 ```bash
 node .cursor/skills/rosey-implement-design/scripts/validate-agent-report.js \
-  --type sync --report docs/designs/<page-slug>/review/cycle-N-sync-report.json
+  --type sync --report rosey/designs/<page-slug>/review/cycle-N-sync-report.json
 ```
 
 6. Track `filesChanged`; avoid undo-redo loops.
@@ -68,15 +68,15 @@ node .cursor/skills/rosey-implement-design/scripts/validate-implementation-state
   --require-aligned
 
 node .cursor/skills/rosey-implement-design/scripts/validate-agent-report.js \
-  --type iterator --report docs/designs/<page-slug>/review/iterator-report.json
+  --type iterator --report rosey/designs/<page-slug>/review/iterator-report.json
 ```
 
 Stop baseline server:
 
 ```bash
 node .cursor/skills/rosey-implement-design/scripts/stop-baseline-server.js \
-  --pid-file docs/designs/<page-slug>/review/baseline-server.pid \
-  --state-file docs/designs/<page-slug>/review/baseline-server.json
+  --pid-file rosey/designs/<page-slug>/review/baseline-server.pid \
+  --state-file rosey/designs/<page-slug>/review/baseline-server.json
 ```
 
 ## Report contract

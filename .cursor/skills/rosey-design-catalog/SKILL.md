@@ -20,9 +20,9 @@ Generates design system rules mapping OpenDesign HTML/CSS into the app's framewo
 ### Outputs
 
 - `.cursor/rules/rosey-design-system.mdc` — project conventions (includes active `pageSlug`; re-run when switching pages)
-- `docs/designs/component-catalog.json`
-- `docs/designs/<page-slug>/design-context.json`
-- `docs/designs/latest.json` — multi-page index (`pages`, `activePageSlug`)
+- `rosey/designs/component-catalog.json`
+- `rosey/designs/<page-slug>/design-context.json`
+- `rosey/designs/latest.json` — multi-page index (`pages`, `activePageSlug`)
 
 ## Prerequisites
 
@@ -37,10 +37,10 @@ npm install --prefix .cursor/skills/rosey-implement-design
 
 - `htmlPath`: required exported OpenDesign HTML
 - `pageSlug`: optional; derive from title or filename if absent
-- `DESIGN.md`: required unless `--allow-missing-design` (debug). Auto-discover beside HTML, project root, or `docs/design-system/DESIGN.md`
+- `DESIGN.md`: required unless `--allow-missing-design` (debug). Auto-discover beside HTML, project root, or `rosey/design-system/DESIGN.md`
 - `assetsDir`: optional; directory containing exported image/font assets (if not colocated with HTML)
 
-If `docs/designs/design-system.json` exists (from **rosey-design-system**), catalog warns when `DESIGN.md` changed since copy.
+If `rosey/designs/design-system.json` exists (from **rosey-design-system**), catalog warns when `DESIGN.md` changed since copy.
 
 Do not call OpenDesign MCP tools unless descriptors are verified.
 
@@ -79,7 +79,7 @@ Uses JSON schemas in `templates/rosey-*.schema.json`.
 
 ### Step 5: Component Catalog Contract
 
-Catalog must follow `templates/rosey-component-catalog.schema.json`: path, exported name, `matches`, `props`. It is project-level at `docs/designs/component-catalog.json`; per-page matching output is generated later by `rosey-implement-design`.
+Catalog must follow `templates/rosey-component-catalog.schema.json`: path, exported name, `matches`, `props`. It is project-level at `rosey/designs/component-catalog.json`; per-page matching output is generated later by `rosey-implement-design`.
 
 ### Step 6: Offer rosey-implement-design
 

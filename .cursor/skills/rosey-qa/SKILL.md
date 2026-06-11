@@ -43,7 +43,7 @@ Parse `$ARGUMENTS` for the following optional tokens. Strip each recognized toke
 | `mode:report-only` | `mode:report-only` | Select report-only mode |
 | `mode:headless` | `mode:headless` | Select headless mode for programmatic callers (see Mode Detection below) |
 | `base:<sha-or-ref>` | `base:abc1234` or `base:origin/main` | Skip scope detection — use this as the diff base directly |
-| `plan:<path>` | `plan:docs/plans/2026-03-25-001-feat-foo-plan.md` | Load this plan for requirements verification |
+| `plan:<path>` | `plan:rosey/plans/2026-03-25-001-feat-foo-plan.md` | Load this plan for requirements verification |
 
 All tokens are optional. Each one present means one less thing to infer. When absent, fall back to existing behavior for that stage.
 
@@ -85,14 +85,14 @@ Parent workflows that run in `mode:non-interactive` should choose the QA submode
 
 - **Skip all user questions.** Never pause for approval or clarification once scope has been established.
 - **Apply only `safe_auto -> review-fixer` findings.** Leave `gated_auto`, `manual`, `human`, and `release` work unresolved.
-- **Write a run artifact** under `/tmp/rosey/rosey-qa/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs. Orchestrators read this artifact to route residual `downstream-resolver` findings; the skill itself does not file tickets or prompt the user in autofix.
+- **Write a run artifact** under `rosey/qa/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs. Orchestrators read this artifact to route residual `downstream-resolver` findings; the skill itself does not file tickets or prompt the user in autofix.
 - **Emit a compact Residual Actionable Work summary in the autofix return** listing each residual `downstream-resolver` finding with only stable `#`, severity, file:line, title, autofix_class, and suggested fix when present. Structure the summary as two separate contiguous sections: applied `safe_auto` fixes first, then residual non-auto findings. Within the residual section, reuse each finding's stable `#` from Stage 5 -- never renumber. Include the run-artifact path. Callers read this summary directly without parsing the artifact. When no residuals exist, state `Residual actionable work: none.` explicitly.
 - **Never commit, push, or create a PR** from autofix mode. Parent workflows own those decisions.
 
 ### Report-only mode rules
 
 - **Skip all user questions.** Infer intent conservatively if the diff metadata is thin.
-- **Never edit files or externalize work.** Do not write `/tmp/rosey/rosey-qa/<run-id>/`, do not file tickets, and do not commit, push, or create a PR.
+- **Never edit files or externalize work.** Do not write `rosey/qa/<run-id>/`, do not file tickets, and do not commit, push, or create a PR.
 - **Safe for parallel read-only verification.** `mode:report-only` is the only mode that is safe to run concurrently with browser testing on the same checkout.
 - **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:report-only` must run in an isolated checkout/worktree or stop instead of changing branches.
 - **Do not overlap mutating review with browser testing on the same checkout.** If a future orchestrator wants fixes, run the mutating review phase after browser testing or in an isolated checkout/worktree.
@@ -103,7 +103,7 @@ Parent workflows that run in `mode:non-interactive` should choose the QA submode
 - **Require a determinable diff scope.** If headless mode cannot determine a diff scope (no branch, PR, or `base:` ref determinable without user interaction), emit `Review failed (headless mode). Reason: no diff scope detected. Re-invoke with a branch name, PR number, or base:<ref>.` and stop without dispatching agents.
 - **Apply only `safe_auto -> review-fixer` findings in a single pass.** No bounded re-review rounds. Leave `gated_auto`, `manual`, `human`, and `release` work unresolved and return them in the structured output.
 - **Return all non-auto findings as structured text output.** Use the headless output envelope format (see Stage 6 below) preserving severity, autofix_class, owner, requires_verification, confidence, pre_existing, and suggested_fix per finding. Enrich with detail-tier fields (why_it_matters, evidence[]) from the per-agent artifact files on disk (see Detail enrichment in Stage 6).
-- **Write a run artifact** under `/tmp/rosey/rosey-qa/<run-id>/` summarizing findings, applied fixes, and advisory outputs. Include the artifact path in the structured output.
+- **Write a run artifact** under `rosey/qa/<run-id>/` summarizing findings, applied fixes, and advisory outputs. Include the artifact path in the structured output.
 - **Do not file tickets or externalize work.** The caller receives structured findings and routes downstream work itself.
 - **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:headless` must run in an isolated checkout/worktree or stop instead of changing branches. When stopping, emit `Review failed (headless mode). Reason: cannot switch shared checkout. Re-invoke with base:<ref> to review the current checkout, or run from an isolated worktree.`
 - **Not safe for concurrent use on a shared checkout.** Unlike `mode:report-only`, headless mutates files (applies `safe_auto` fixes). Callers must not run headless concurrently with other mutating operations on the same checkout.
@@ -167,7 +167,7 @@ Routing rules:
 | `rosey-maintainability-reviewer` | Structural quality, complexity deletion, 1k-line regressions, coupling, type-boundary leaks, dead code, abstraction debt |
 | `rosey-project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, portability |
 | `rosey-agent-native-reviewer` | Verify new features are agent-accessible |
-| `rosey-learnings-researcher` | Search docs/solutions/ for past issues related to this PR |
+| `rosey-learnings-researcher` | Search rosey/solutions/ for past issues related to this PR |
 
 **Cross-cutting conditional (selected per diff):**
 
@@ -197,9 +197,9 @@ Every review spawns all 4 always-on personas plus the 2 Rosey always-on agents, 
 
 The following paths are Rosey pipeline artifacts and must never be flagged for deletion, removal, or gitignore by any reviewer:
 
-- `docs/brainstorms/*` -- requirements documents created by rosey-brainstorm
-- `docs/plans/*.md` -- plan files created by rosey-plan (decision artifacts; execution progress is derived from git, not stored in plan bodies)
-- `docs/solutions/*.md` -- solution documents created during the pipeline
+- `rosey/brainstorms/*` -- requirements documents created by rosey-brainstorm
+- `rosey/plans/*.md` -- plan files created by rosey-plan (decision artifacts; execution progress is derived from git, not stored in plan bodies)
+- `rosey/solutions/*.md` -- solution documents created during the pipeline
 
 If a reviewer flags any file in these directories for cleanup or removal, discard that finding during synthesis.
 
@@ -348,7 +348,7 @@ Using `git diff $BASE` (without `..HEAD`) diffs the merge-base against the worki
 
 **Untracked file handling:** Always inspect the `UNTRACKED:` list, even when `FILES:`/`DIFF:` are non-empty. Untracked files are outside review scope until staged. If the list is non-empty, tell the user which files are excluded. If any of them should be reviewed, stop and tell the user to `git add` them first and rerun. Only continue when the user is intentionally reviewing tracked changes only. In `mode:headless` or `mode:autofix`, do not stop to ask — proceed with tracked changes only and note the excluded untracked files in the Coverage section of the output.
 
-**Hindsight recall:** After the diff scope is known, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory for the reviewed modules, PR scope, intent hints, and base marker. Use relevant memory as additional review context, separate from `docs/solutions/` results surfaced by `rosey-learnings-researcher`. If Hindsight is unavailable or not configured, continue the review without blocking.
+**Hindsight recall:** After the diff scope is known, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory for the reviewed modules, PR scope, intent hints, and base marker. Use relevant memory as additional review context, separate from `rosey/solutions/` results surfaced by `rosey-learnings-researcher`. If Hindsight is unavailable or not configured, continue the review without blocking.
 
 ### Stage 2: Intent discovery
 
@@ -383,8 +383,8 @@ Pass this to every reviewer in their spawn prompt. Intent shapes *how hard each 
 Locate the plan document so Stage 6 can verify requirements completeness. Check these sources in priority order — stop at the first hit:
 
 1. **`plan:` argument.** If the caller passed a plan path, use it directly. Read the file to confirm it exists.
-2. **PR body.** If PR metadata was fetched in Stage 1, scan the body for paths matching `docs/plans/*.md`. If exactly one match is found and the file exists, use it as `plan_source: explicit`. If multiple plan paths appear, treat as ambiguous — demote to `plan_source: inferred` for the most recent match that exists on disk, or skip if none exist or none clearly relate to the PR title/intent. Always verify the selected file exists before using it — stale or copied plan links in PR descriptions are common.
-3. **Auto-discover.** Extract 2-3 keywords from the branch name (e.g., `feat/onboarding-skill` -> `onboarding`, `skill`). Glob `docs/plans/*` and filter filenames containing those keywords. If exactly one match, use it. If multiple matches or the match looks ambiguous (e.g., generic keywords like `review`, `fix`, `update` that could hit many plans), **skip auto-discovery** — a wrong plan is worse than no plan. If zero matches, skip.
+2. **PR body.** If PR metadata was fetched in Stage 1, scan the body for paths matching `rosey/plans/*.md`. If exactly one match is found and the file exists, use it as `plan_source: explicit`. If multiple plan paths appear, treat as ambiguous — demote to `plan_source: inferred` for the most recent match that exists on disk, or skip if none exist or none clearly relate to the PR title/intent. Always verify the selected file exists before using it — stale or copied plan links in PR descriptions are common.
+3. **Auto-discover.** Extract 2-3 keywords from the branch name (e.g., `feat/onboarding-skill` -> `onboarding`, `skill`). Glob `rosey/plans/*` and filter filenames containing those keywords. If exactly one match, use it. If multiple matches or the match looks ambiguous (e.g., generic keywords like `review`, `fix`, `update` that could hit many plans), **skip auto-discovery** — a wrong plan is worse than no plan. If zero matches, skip.
 
 **Confidence tagging:** Record how the plan was found:
 - `plan:` argument -> `plan_source: explicit` (high confidence)
@@ -455,10 +455,10 @@ Generate a unique run ID before dispatch. It scopes reviewer artifacts and the r
 
 ```bash
 RUN_ID=$(date +%Y%m%d-%H%M%S)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' ')
-mkdir -p "/tmp/rosey/rosey-qa/$RUN_ID"
+mkdir -p "rosey/qa/$RUN_ID"
 ```
 
-Pass `{run_id}` to every persona sub-agent so they can write their full analysis to `/tmp/rosey/rosey-qa/{run_id}/{reviewer_name}.json`.
+Pass `{run_id}` to every persona sub-agent so they can write their full analysis to `rosey/qa/{run_id}/{reviewer_name}.json`.
 
 **Report-only mode:** Skip run-id generation and directory creation. Do not pass `{run_id}` to agents. Agents return compact JSON only with no file write, consistent with report-only's no-write contract.
 
@@ -481,11 +481,11 @@ Spawn each selected persona reviewer using the subagent template included below.
 7. **For `project-standards` only:** the standards file path list from Stage 3b, wrapped in a `<standards-paths>` block appended to the review context
 8. **For `data-migration` only:** the resolved review base ref from Stage 1 (`BASE:` marker), wrapped in `<review-base>` inside the review context so schema drift checks never assume `main`
 
-Persona sub-agents are project-read-only: review and return structured JSON. The only permitted write is their full analysis artifact under `/tmp/rosey/rosey-qa/<run-id>/`.
+Persona sub-agents are project-read-only: review and return structured JSON. The only permitted write is their full analysis artifact under `rosey/qa/<run-id>/`.
 
 Read-only here means **non-mutating**, not "no shell access." Reviewer sub-agents may use non-mutating inspection commands when needed to gather evidence or verify scope, including read-oriented `git` commands such as `git diff`, `git show`, `git blame`, and `git log`, plus GitHub MCP read tools. They must not edit project files, change branches, commit, push, create PRs, or otherwise mutate the checkout or repository state.
 
-Each persona sub-agent writes full JSON (all schema fields) to `/tmp/rosey/rosey-qa/{run_id}/{reviewer_name}.json` and returns compact JSON with merge-tier fields only:
+Each persona sub-agent writes full JSON (all schema fields) to `rosey/qa/{run_id}/{reviewer_name}.json` and returns compact JSON with merge-tier fields only:
 
 ```json
 {
@@ -602,7 +602,7 @@ When Stage 5b does not run, the merged finding set from Stage 5 flows through to
 2. **Apply dispatch budget cap.** If the selected set exceeds 15 findings, validate the highest-severity 15 (P0 first, then P1, then P2, then P3, breaking ties by anchor descending). Drop the remainder and record the over-budget count for the Coverage section. The blunt drop is intentional; a review producing 15+ surviving findings is already in territory where a second wave would not change the user's triage approach.
 3. **Spawn validators with bounded parallelism.** One sub-agent per finding, dispatched independently using the validator template and the same bounded scheduler from Stage 4. Each validator receives:
    - The finding's title, severity, file, line, suggested_fix, original reviewer name, and confidence anchor
-   - `why_it_matters` when available — loaded from the per-agent artifact file at `/tmp/rosey/rosey-qa/{run_id}/{reviewer_name}.json`; omit when the file is absent or the artifact write failed. The validator proceeds without it, using the diff and cited code directly.
+   - `why_it_matters` when available — loaded from the per-agent artifact file at `rosey/qa/{run_id}/{reviewer_name}.json`; omit when the file is absent or the artifact write failed. The validator proceeds without it, using the diff and cited code directly.
    - The full diff
    - Read-tool access to inspect the cited code, callers, guards, framework defaults, and git blame
 4. **Collect verdicts.** Each validator returns `{ "validated": true | false, "reason": "<one sentence>" }`.
@@ -627,7 +627,7 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
 4. **Applied Fixes.** Include only if a fix phase ran in this invocation.
 5. **Residual Actionable Work.** Include when unresolved actionable findings were handed off or should be handed off.
 6. **Pre-existing.** Separate section, does not count toward verdict.
-7. **Learnings & Past Solutions.** Surface rosey-learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to docs/solutions/ files.
+7. **Learnings & Past Solutions.** Surface rosey-learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to rosey/solutions/ files.
 8. **Agent-Native Gaps.** Surface rosey-agent-native-reviewer results. Omit section if no gaps found.
 9. **Deployment Notes.** If rosey-deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage. Schema drift appears in the findings tables as `data-migration` P1 rows — do not add a separate Schema Drift section.
 10. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, and any intent uncertainty carried by non-interactive modes.
@@ -648,7 +648,7 @@ Scope: <scope-line>
 Intent: <intent-summary>
 Reviewers: <reviewer-list with conditional justifications>
 Verdict: <Ready to merge | Ready with fixes | Not ready>
-Artifact: /tmp/rosey/rosey-qa/<run-id>/
+Artifact: rosey/qa/<run-id>/
 
 Applied N safe_auto fixes.
 
@@ -701,7 +701,7 @@ Coverage:
 Review complete
 ```
 
-**Detail enrichment (headless only):** The headless envelope includes `Why:`, `Evidence:`, and `Suggested fix:` lines. After merge (Stage 5), read the per-agent artifact files from `/tmp/rosey/rosey-qa/{run_id}/` for only the findings that survived dedup and confidence gating.
+**Detail enrichment (headless only):** The headless envelope includes `Why:`, `Evidence:`, and `Suggested fix:` lines. After merge (Stage 5), read the per-agent artifact files from `rosey/qa/{run_id}/` for only the findings that survived dedup and confidence gating.
    - **Field tiers:** `Why:` and `Evidence:` are detail-tier -- load from per-agent artifact files. `Suggested fix:` is merge-tier -- use it directly from the compact return without artifact lookup.
    - **Artifact matching:** For each surviving finding, look up its detail-tier fields in the artifact files of the contributing reviewers. Match on `file + line_bucket(line, +/-3)` (the same tolerance used in Stage 5 dedup) within each contributing reviewer's artifact. When multiple artifact entries fall within the line bucket, apply `normalize(title)` to both the merged finding's title and each candidate entry's title as a tie-breaker.
    - **Reviewer order:** Try contributing reviewers in the order they appear in the merged finding's reviewer list; use the first match.
@@ -726,7 +726,7 @@ Before delivering the review, verify:
 2. **No false positives from skimming.** For each finding, verify the surrounding code was actually read. Check that the "bug" isn't handled elsewhere in the same function, that the "unused import" isn't used in a type annotation, that the "missing null check" isn't guarded by the caller.
 3. **Severity is calibrated.** A style nit is never P0. A SQL injection is never P3. Re-check every severity assignment.
 4. **Line numbers are accurate.** Verify each cited line number against the file content. A finding pointing to the wrong line is worse than no finding.
-5. **Protected artifacts are respected.** Discard any findings that recommend deleting or gitignoring files in `docs/brainstorms/`, `docs/plans/`, or `docs/solutions/`.
+5. **Protected artifacts are respected.** Discard any findings that recommend deleting or gitignoring files in `rosey/brainstorms/`, `rosey/plans/`, or `rosey/solutions/`.
 6. **Findings don't duplicate linter output.** Don't flag things the project's linter/formatter would catch (missing semicolons, wrong indentation). Focus on semantic issues.
 
 ## After Review
@@ -840,7 +840,7 @@ The fixer accepts two queue shapes depending on which caller invoked it:
 
 #### Step 4: Emit artifacts and downstream handoff
 
-- In interactive, autofix, and headless modes, write a per-run artifact under `/tmp/rosey/rosey-qa/<run-id>/` containing:
+- In interactive, autofix, and headless modes, write a per-run artifact under `rosey/qa/<run-id>/` containing:
   - synthesized findings (merged output from Stage 5)
   - applied fixes
   - residual actionable work
@@ -859,7 +859,7 @@ The fixer accepts two queue shapes depending on which caller invoked it:
   Capture `branch` and `head_sha` at dispatch time (before any autofixes land), and write the file after the verdict is finalized. This file is additive -- pre-existing artifacts that predate this field are still valid, and downstream skills fall back to file mtime when it is missing.
 - In autofix mode, the run artifact is the handoff. Orchestrators read the artifact's residual actionable work and route it as appropriate. The skill itself does not file tickets or prompt the user in autofix.
 - Interactive mode may offer to externalize residual actionable work via `references/tracker-defer.md`, but it is not required to finish the review.
-- After the review completes, if durable non-secret learnings emerged and the user is not filing or updating `docs/solutions/`, use [`rosey-hindsight`](../rosey-hindsight/SKILL.md) to retain a short review learning with `--context learnings`. This is advisory memory only and must not gate the QA verdict or artifact emission.
+- After the review completes, if durable non-secret learnings emerged and the user is not filing or updating `rosey/solutions/`, use [`rosey-hindsight`](../rosey-hindsight/SKILL.md) to retain a short review learning with `--context learnings`. This is advisory memory only and must not gate the QA verdict or artifact emission.
 
 #### Step 5: Final next steps
 

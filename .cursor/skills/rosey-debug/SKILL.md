@@ -249,7 +249,7 @@ Options:
 
 #### After a PR is open (either path): consider offering learning capture
 
-Most bugs are localized mechanical fixes (typo, missed null check, missing import) where the only "lesson" is the bug itself. Compounding those clutters `docs/solutions/` without adding value. Decide which path applies:
+Most bugs are localized mechanical fixes (typo, missed null check, missing import) where the only "lesson" is the bug itself. Compounding those clutters `rosey/solutions/` without adding value. Decide which path applies:
 
 - **Skip silently** when the fix is mechanical and there's no generalizable insight. Default to this when in doubt.
 - **Offer neutrally** when the lesson can be stated in one sentence — e.g., "X.foo() returns T | undefined when Y, not just T", or "the diagnostic path was non-obvious and worth recording." If you cannot articulate the lesson, skip rather than offer.
@@ -258,6 +258,6 @@ Most bugs are localized mechanical fixes (typo, missed null check, missing impor
 When offering, use the blocking question tool described above. If the user accepts, choose the durable target explicitly:
 
 - **Cross-session memory (default for preferences, procedures, and repo-specific workarounds):** read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and run `uvx hindsight-embed memory retain` with `--context learnings`. This does not create a file in the repo.
-- **Curated institutional learning (when the lesson should be searchable in git):** add or update a file under `docs/solutions/` or `docs/insights/` following `save-insights` frontmatter rules, then commit that file to the same branch and push so the open PR picks it up.
+- **Curated institutional learning (when the lesson should be searchable in git):** add or update a file under `rosey/solutions/` or `rosey/insights/` following `save-insights` frontmatter rules, then commit that file to the same branch and push so the open PR picks it up.
 
 Do not treat Hindsight retain as producing a learning document. Use file-based docs only when the insight should live in version control.

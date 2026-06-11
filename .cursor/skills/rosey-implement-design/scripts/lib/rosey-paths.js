@@ -3,7 +3,7 @@ const path = require("path");
 const crypto = require("crypto");
 
 /** Project-relative root for OpenDesign pipeline artifacts (not rules or DESIGN.md). */
-const DESIGNS_DIR = path.join("docs", "designs");
+const DESIGNS_DIR = path.join("rosey", "designs");
 
 function designsRoot(projectRoot) {
   return path.join(projectRoot, DESIGNS_DIR);
@@ -100,7 +100,7 @@ function loadLatestRosey(projectRoot, pageSlug) {
 
   const slug = pageSlug || latest.activePageSlug;
   if (!slug) {
-    throw new Error("No active page in docs/designs/latest.json. Pass --page-slug or run rosey-design-catalog.");
+    throw new Error("No active page in rosey/designs/latest.json. Pass --page-slug or run rosey-design-catalog.");
   }
 
   const entry = latest.pages?.[slug];

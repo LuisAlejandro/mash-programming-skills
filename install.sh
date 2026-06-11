@@ -1,17 +1,81 @@
 #!/usr/bin/env bash
-set -e
-
-echo "🌹 Installing Rosey Agentic Environment..."
+set -euo pipefail
 
 INSTALL_ROOT="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_ROOT="$SCRIPT_DIR"
+SOURCE_ROOT="${ROSEY_AGENTIC_ENV:-$SCRIPT_DIR}"
+VERSION_FILE="$SOURCE_ROOT/VERSION"
+INSTALL_VERSION="0.1.0"
+CHECK_ONLY=false
+WRITE_PIN=true
+CREATE_AGENTS=true
 
+if [ -f "$VERSION_FILE" ]; then
+    INSTALL_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
+fi
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --version)
+            echo "$INSTALL_VERSION"
+            exit 0
+            ;;
+        --check)
+            CHECK_ONLY=true
+            shift
+            ;;
+        --write-pin)
+            WRITE_PIN=true
+            shift
+            ;;
+        --no-write-pin)
+            WRITE_PIN=false
+            shift
+            ;;
+        --agents)
+            CREATE_AGENTS=true
+            shift
+            ;;
+        --no-agents)
+            CREATE_AGENTS=false
+            shift
+            ;;
+        -h | --help)
+            echo "Usage: install.sh [--check] [--version] [--write-pin|--no-write-pin] [--agents|--no-agents]"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+echo "Installing Rosey Agentic Environment..."
 echo "-> Installing from $SOURCE_ROOT into $INSTALL_ROOT..."
 
 if [ ! -d "$SOURCE_ROOT/.cursor" ]; then
-    echo "❌ Error: Could not find .cursor directory in $SOURCE_ROOT"
+    echo "Error: Could not find .cursor directory in $SOURCE_ROOT"
     echo "   Run this script from the rosey-agentic-env repository (install.sh must live beside .cursor/)."
+    exit 1
+fi
+
+if [ "$CHECK_ONLY" = true ]; then
+    missing=0
+    for path in .cursor/rules .cursor/skills .cursor/agents .cursor/mcp.json rosey/agentic-env.json; do
+        if [ ! -e "$path" ]; then
+            echo "missing: $path"
+            missing=$((missing + 1))
+        fi
+    done
+    if [ "$CREATE_AGENTS" = true ] && [ ! -f AGENTS.md ]; then
+        echo "missing: AGENTS.md"
+        missing=$((missing + 1))
+    fi
+    if [ "$missing" -eq 0 ]; then
+        echo "Rosey Agentic Environment installed ($INSTALL_VERSION)"
+        exit 0
+    fi
     exit 1
 fi
 
@@ -42,11 +106,62 @@ append_gitignore_if_missing() {
 }
 
 append_gitignore_if_missing ".cursor/"
-append_gitignore_if_missing "docs/brainstorms/"
-append_gitignore_if_missing "docs/plans/"
-append_gitignore_if_missing "docs/designs/"
-append_gitignore_if_missing "docs/solutions/"
-append_gitignore_if_missing "docs/insights/"
+append_gitignore_if_missing "rosey/brainstorms/"
+append_gitignore_if_missing "rosey/plans/"
+append_gitignore_if_missing "rosey/designs/"
+append_gitignore_if_missing "rosey/solutions/"
+append_gitignore_if_missing "rosey/insights/"
+append_gitignore_if_missing "rosey/design-system/"
+append_gitignore_if_missing "rosey/qa/"
+append_gitignore_if_missing "rosey/deepening/"
+append_gitignore_if_missing "rosey/agentic-env.json"
+append_gitignore_if_missing "AGENTS.md"
+append_gitignore_if_missing "DESIGN.md"
+
+write_agents_file_if_missing() {
+    if [ "$CREATE_AGENTS" != true ] || [ -f AGENTS.md ]; then
+        return 0
+    fi
+
+    echo "-> Creating AGENTS.md..."
+    cat > AGENTS.md <<'EOF'
+# Rosey Agent Guidance
+
+This repository uses the Rosey Agentic Environment installed under `.cursor/`.
+This file intentionally does not store user preferences.
+
+Before non-trivial planning, implementation, or review work, follow the installed
+Cursor rules, especially:
+
+- `.cursor/rules/rosey-workflow-gates.mdc`
+- `.cursor/rules/hindsight-memory.mdc`
+- `.cursor/rules/karpathy-guidelines.mdc`
+- `.cursor/rules/save-insights.mdc`
+
+Use `.cursor/skills/` for Rosey workflows and `.cursor/agents/` for specialist
+reviews.
+EOF
+}
+
+write_agentic_pin() {
+    if [ "$WRITE_PIN" != true ]; then
+        return 0
+    fi
+
+    echo "-> Writing rosey/agentic-env.json..."
+    mkdir -p rosey
+    installed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+    cat > rosey/agentic-env.json <<EOF
+{
+  "installed_at": "$installed_at",
+  "source": "$SOURCE_ROOT",
+  "version": "$INSTALL_VERSION"
+}
+EOF
+}
+
+write_agents_file_if_missing
+write_agentic_pin
 
 # --- npm install helpers ---
 
@@ -155,7 +270,8 @@ check_hindsight_embed() {
 check_hindsight_embed || true
 
 echo ""
-echo "✅ Rosey Environment installed successfully!"
+echo "Rosey Environment installed successfully!"
 echo "   .cursor/rules, .cursor/skills, .cursor/agents, and mcp.json are in place."
+echo "   rosey/agentic-env.json records the installed agentic environment version."
 echo "   Next: configure MCP secrets in .cursor/mcp.json."
 echo "   Optional local memory: configure Hindsight with 'uvx hindsight-embed configure'."

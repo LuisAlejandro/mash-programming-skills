@@ -50,7 +50,7 @@ Parse `$ARGUMENTS` for:
 |-------|---------|--------|
 | `mode:non-interactive` | `mode:non-interactive` | Run without prompts or confirmation gates |
 | `mode:interactive` | `mode:interactive` | Explicit default interactive behavior |
-| `plan:<path>` | `plan:docs/plans/2026-05-29-001-feat-workflow-plan.md` | Source plan for PR title/body context and PR summary location |
+| `plan:<path>` | `plan:rosey/plans/2026-05-29-001-feat-workflow-plan.md` | Source plan for PR title/body context and PR summary location |
 | `base:<branch>` | `base:release` | Explicit base branch override. Default is `develop` |
 
 Strip recognized tokens before interpreting remaining text as description focus, PR URL/number, or user instructions.

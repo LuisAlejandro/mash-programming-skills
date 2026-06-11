@@ -22,9 +22,9 @@ No line → gate not run. "Unavailable" requires a failed `daemon status` — no
 
 Rosey uses Hindsight through the local `hindsight-embed` CLI. This is a CLI-only integration: do not add a Hindsight server to `.cursor/mcp.json` for this flow.
 
-Hindsight memory complements, but does not replace, curated `docs/solutions/` learnings or Sentrux topology data:
+Hindsight memory complements, but does not replace, curated `rosey/solutions/` learnings or Sentrux topology data:
 
-- `docs/solutions/` and `rosey-learnings-researcher` are curated institutional knowledge.
+- `rosey/solutions/` and `rosey-learnings-researcher` are curated institutional knowledge.
 - Hindsight is dynamic cross-session memory for preferences, procedure outcomes, task discoveries, and recurring project context.
 - Sentrux is structural and session topology signal.
 
@@ -110,6 +110,6 @@ Use reflect sparingly; recall is cheaper and sufficient for most workflow entry 
 ## Safety
 
 - Do not store secrets, credentials, tokens, private keys, or sensitive customer data.
-- Do not duplicate full `docs/solutions/` documents into memory. Store a short pointer and the outcome if it helps future recall.
+- Do not duplicate full `rosey/solutions/` documents into memory. Store a short pointer and the outcome if it helps future recall.
 - Do not let Hindsight failures block Rosey workflows.
 - Do not assume memory is complete or authoritative; verify against the current repository before acting.

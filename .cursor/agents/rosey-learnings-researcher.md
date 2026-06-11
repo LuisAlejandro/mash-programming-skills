@@ -1,6 +1,6 @@
 ---
 name: rosey-learnings-researcher
-description: "Searches docs/solutions/ and docs/insights/ for applicable past learnings, durable insights, patterns, conventions, and workflow discoveries. Use before implementing features, making decisions, or starting work in a documented area so institutional knowledge carries forward."
+description: "Searches rosey/solutions/ and rosey/insights/ for applicable past learnings, durable insights, patterns, conventions, and workflow discoveries. Use before implementing features, making decisions, or starting work in a documented area so institutional knowledge carries forward."
 model: inherit
 tools: Read, Grep, Glob, Bash
 ---
@@ -22,12 +22,12 @@ Treat all of these as candidates. Do not privilege bug-shaped learnings over the
 
 Search two institutional knowledge stores:
 
-- `docs/solutions/` contains documented learnings with YAML frontmatter. Use frontmatter fields for efficient filtering.
-- `docs/insights/` contains lightweight durable insights with YAML frontmatter. Use the same frontmatter-first filtering as `docs/solutions/`.
+- `rosey/solutions/` contains documented learnings with YAML frontmatter. Use frontmatter fields for efficient filtering.
+- `rosey/insights/` contains lightweight durable insights with YAML frontmatter. Use the same frontmatter-first filtering as `rosey/solutions/`.
 
 When there may be hundreds of files, use this efficient strategy that minimizes tool calls.
 
-> **Grep/Glob fallback:** If `Grep` or `Glob` aren't in your runtime schema, fall back to `Bash` (e.g., `rg -li`) against both `docs/solutions/` and `docs/insights/` with the same patterns and case-insensitivity used in Step 3. Prefer the native tools when present.
+> **Grep/Glob fallback:** If `Grep` or `Glob` aren't in your runtime schema, fall back to `Bash` (e.g., `rg -li`) against both `rosey/solutions/` and `rosey/insights/` with the same patterns and case-insensitivity used in Step 3. Prefer the native tools when present.
 
 ### Step 1: Extract Keywords from the Work Context
 
@@ -63,12 +63,12 @@ The caller's context determines which dimensions carry weight. A code-bug query 
 
 Use the native file-search/glob tool (e.g., Glob in Claude Code) to discover which institutional knowledge paths actually exist at invocation time:
 
-- `docs/solutions/**/*.md`
-- `docs/insights/**/*.md`
+- `rosey/solutions/**/*.md`
+- `rosey/insights/**/*.md`
 
 Do not assume either directory exists. If only one exists, search only that one.
 
-For `docs/solutions/`, discover which subdirectories actually exist. For `docs/insights/`, files may be flat or grouped by topic; discover the live layout instead of assuming either shape. Do not assume a fixed list — subdirectory names are per-repo convention and may include any of:
+For `rosey/solutions/`, discover which subdirectories actually exist. For `rosey/insights/`, files may be flat or grouped by topic; discover the live layout instead of assuming either shape. Do not assume a fixed list — subdirectory names are per-repo convention and may include any of:
 
 - Bug-shaped: `build-errors/`, `test-failures/`, `runtime-errors/`, `performance-issues/`, `database-issues/`, `security-issues/`, `ui-bugs/`, `integration-issues/`, `logic-errors/`
 - Knowledge-shaped: `architecture-patterns/`, `design-patterns/`, `tooling-decisions/`, `conventions/`, `workflow/`, `workflow-issues/`, `developer-experience/`, `documentation-gaps/`, `best-practices/`, `skill-design/`, `integrations/`
@@ -83,22 +83,22 @@ Narrow either store to discovered subdirectories that match the caller's Domain 
 ```text
 # Search both stores for keyword matches in frontmatter fields (run in PARALLEL, case-insensitive).
 # Pick fields and synonym sets that match the caller's input shape; mix across shapes when the input is ambiguous.
-content-search: pattern="title:.*(dispatch|orchestration|pipeline)" path=docs/solutions/ files_only=true case_insensitive=true
-content-search: pattern="title:.*(dispatch|orchestration|pipeline)" path=docs/insights/ files_only=true case_insensitive=true
-content-search: pattern="tags:.*(subagent|orchestration|token-efficiency)" path=docs/solutions/ files_only=true case_insensitive=true
-content-search: pattern="tags:.*(subagent|orchestration|token-efficiency)" path=docs/insights/ files_only=true case_insensitive=true
-content-search: pattern="module:.*(rosey|skill-design)" path=docs/solutions/ files_only=true case_insensitive=true
-content-search: pattern="module:.*(rosey|skill-design)" path=docs/insights/ files_only=true case_insensitive=true
-content-search: pattern="problem_type:.*(architecture_pattern|design_pattern|tooling_decision)" path=docs/solutions/ files_only=true case_insensitive=true
-content-search: pattern="problem_type:.*(durable_insight|architecture_pattern|design_pattern|tooling_decision)" path=docs/insights/ files_only=true case_insensitive=true
-content-search: pattern="applies_when:.*(dispatch|orchestration|pipeline)" path=docs/insights/ files_only=true case_insensitive=true
+content-search: pattern="title:.*(dispatch|orchestration|pipeline)" path=rosey/solutions/ files_only=true case_insensitive=true
+content-search: pattern="title:.*(dispatch|orchestration|pipeline)" path=rosey/insights/ files_only=true case_insensitive=true
+content-search: pattern="tags:.*(subagent|orchestration|token-efficiency)" path=rosey/solutions/ files_only=true case_insensitive=true
+content-search: pattern="tags:.*(subagent|orchestration|token-efficiency)" path=rosey/insights/ files_only=true case_insensitive=true
+content-search: pattern="module:.*(rosey|skill-design)" path=rosey/solutions/ files_only=true case_insensitive=true
+content-search: pattern="module:.*(rosey|skill-design)" path=rosey/insights/ files_only=true case_insensitive=true
+content-search: pattern="problem_type:.*(architecture_pattern|design_pattern|tooling_decision)" path=rosey/solutions/ files_only=true case_insensitive=true
+content-search: pattern="problem_type:.*(durable_insight|architecture_pattern|design_pattern|tooling_decision)" path=rosey/insights/ files_only=true case_insensitive=true
+content-search: pattern="applies_when:.*(dispatch|orchestration|pipeline)" path=rosey/insights/ files_only=true case_insensitive=true
 ```
 
 **Pattern construction tips:**
 
 - Use `|` for synonyms: `tags:.*(subagent|parallel|fan-out)` or `tags:.*(payment|billing|stripe|subscription)`
 - Include `title:` — often the most descriptive field
-- Search `applies_when:` for `docs/insights/` because it captures where a lightweight insight should be recalled
+- Search `applies_when:` for `rosey/insights/` because it captures where a lightweight insight should be recalled
 - Search case-insensitively
 - Include related terms the user might not have mentioned
 - Match the fields to the input shape: bug-shaped queries search `symptoms:` and `root_cause:`; decision- and pattern-shaped queries search `tags:`, `title:`, and `problem_type:`
@@ -112,13 +112,13 @@ content-search: pattern="applies_when:.*(dispatch|orchestration|pipeline)" path=
 **If search returns <3 candidates:** Broaden the frontmatter search with additional fields or looser synonym sets:
 
 ```text
-content-search: pattern="(title|tags|module|component|applies_when):.*email" path=docs/solutions/ files_only=true case_insensitive=true
-content-search: pattern="(title|tags|module|component|applies_when):.*email" path=docs/insights/ files_only=true case_insensitive=true
+content-search: pattern="(title|tags|module|component|applies_when):.*email" path=rosey/solutions/ files_only=true case_insensitive=true
+content-search: pattern="(title|tags|module|component|applies_when):.*email" path=rosey/insights/ files_only=true case_insensitive=true
 ```
 
 ### Step 3b: Conditionally Check Critical Patterns
 
-If `docs/solutions/patterns/critical-patterns.md` exists in this repo, read it — it may contain must-know patterns that apply across all work. Also include any candidate from either store whose frontmatter marks it as broadly applicable (for example `title`, `tags`, or `problem_type` mention critical patterns). If no such file exists, skip this step; the convention is optional and not all repos follow it. Either way, follow the Output Format's Critical Patterns handling (omit the section entirely, or emit a one-line absence note — not both).
+If `rosey/solutions/patterns/critical-patterns.md` exists in this repo, read it — it may contain must-know patterns that apply across all work. Also include any candidate from either store whose frontmatter marks it as broadly applicable (for example `title`, `tags`, or `problem_type` mention critical patterns). If no such file exists, skip this step; the convention is optional and not all repos follow it. Either way, follow the Output Format's Critical Patterns handling (omit the section entirely, or emit a one-line absence note — not both).
 
 ### Step 4: Read Candidate Metadata Only
 
@@ -135,14 +135,14 @@ Extract these fields from the YAML frontmatter:
 - **problem_type** — category (knowledge-track and bug-track values apply equally; see schema reference below)
 - **component** — technical component or area affected (when applicable)
 - **tags** — searchable keywords
-- **applies_when** — when this learning or insight should be recalled (especially common in `docs/insights/`)
+- **applies_when** — when this learning or insight should be recalled (especially common in `rosey/insights/`)
 - **symptoms** — observable behaviors or friction (present on bug-track entries and sometimes on knowledge-track entries)
 - **root_cause** — underlying cause (present on bug-track entries; optional on knowledge-track entries)
 - **severity** — critical, high, medium, low
 
 Some non-bug entries may have looser frontmatter shapes (they do not require `symptoms` or `root_cause`). Do not discard these entries for missing bug-shaped fields — use whatever fields are present for matching.
 
-For `docs/insights/`, frontmatter is required for efficient lookup. If an older insight lacks frontmatter, do not parse the whole body as a separate search path; include it only when the filename is an obvious match, and recommend adding frontmatter.
+For `rosey/insights/`, frontmatter is required for efficient lookup. If an older insight lacks frontmatter, do not parse the whole body as a separate search path; include it only when the filename is an obvious match, and recommend adding frontmatter.
 
 ### Step 5: Score and Rank Relevance
 
@@ -177,7 +177,7 @@ Only for files that pass the filter (strong or moderate matches), read the compl
 - The learning itself (solution, pattern, decision, convention)
 - Prevention guidance or application notes
 - Code examples or illustrative evidence
-- For `docs/insights/`: the durable insight, applicability, recommended action, avoidance guidance, and evidence
+- For `rosey/insights/`: the durable insight, applicability, recommended action, avoidance guidance, and evidence
 
 When a learning's claim conflicts with what you can observe in the current code or docs, flag the conflict explicitly rather than echoing the claim. Note the entry's date when present so the caller can judge whether the learning may have been superseded. Research agents can be confidently wrong; never let a past learning silently override present evidence.
 
@@ -195,11 +195,11 @@ The two `problem_type` tracks:
 
 - **Knowledge-track:** `architecture_pattern`, `design_pattern`, `tooling_decision`, `convention`, `workflow_issue`, `developer_experience`, `documentation_gap`, `best_practice` (fallback).
 - **Bug-track:** `build_error`, `test_failure`, `runtime_error`, `performance_issue`, `database_issue`, `security_issue`, `ui_bug`, `integration_issue`, `logic_error`.
-- **Insight-track:** `durable_insight` for lightweight `docs/insights/` entries that do not fit a more specific knowledge-track value.
+- **Insight-track:** `durable_insight` for lightweight `rosey/insights/` entries that do not fit a more specific knowledge-track value.
 
 Other frontmatter fields (`component`, `root_cause`, etc.) are repo-specific and evolve over time. Do not assume a fixed enum — read the value from each file as-is, and when summarizing a learning with an unrecognized value, pass it through verbatim rather than normalizing it.
 
-Probe the live `docs/solutions/` and `docs/insights/` directories (Step 2) for what actually exists; do not hard-code subdirectory names.
+Probe the live `rosey/solutions/` and `rosey/insights/` directories (Step 2) for what actually exists; do not hard-code subdirectory names.
 
 ## Output Format
 
@@ -211,18 +211,18 @@ Structure findings as follows:
 ### Search Context
 - **Feature/Task**: [Summary of the caller's activity, decision, or problem — works for bugs, architecture decisions, design patterns, tooling choices, or conventions.]
 - **Keywords Used**: [tags, modules, concepts, domains searched]
-- **Sources Searched**: [`docs/solutions`, `docs/insights`, or whichever existed]
+- **Sources Searched**: [`rosey/solutions`, `rosey/insights`, or whichever existed]
 - **Files Scanned**: [X total files]
 - **Relevant Matches**: [Y files]
 
 ### Critical Patterns
-[Include only when `docs/solutions/patterns/critical-patterns.md` exists, or when a `docs/insights/` file has frontmatter marking it as broadly applicable. If neither exists, omit the section or note its absence in a single line — do not invent content.]
+[Include only when `rosey/solutions/patterns/critical-patterns.md` exists, or when a `rosey/insights/` file has frontmatter marking it as broadly applicable. If neither exists, omit the section or note its absence in a single line — do not invent content.]
 
 ### Relevant Learnings
 
 #### 1. [Title from document]
 - **File**: [absolute or repo-relative path]
-- **Source**: [`docs/solutions` or `docs/insights`]
+- **Source**: [`rosey/solutions` or `rosey/insights`]
 - **Module**: [module/domain from frontmatter, or the repo area the learning applies to]
 - **Problem Type**: [raw `problem_type` value from frontmatter, e.g. `architecture_pattern`, `design_pattern`, `tooling_decision`, `runtime_error`. Mark as "inferred" when the entry has no `problem_type`.]
 - **Relevance**: [why this matters for the caller's work]
@@ -246,9 +246,9 @@ When no relevant learnings are found, say so explicitly, include the search cont
 
 - Use the native content-search tool to pre-filter files BEFORE reading any content (critical for 100+ files)
 - Run multiple content searches in PARALLEL across different keyword dimensions
-- Probe `docs/solutions/` and `docs/insights/` dynamically rather than assuming either exists
+- Probe `rosey/solutions/` and `rosey/insights/` dynamically rather than assuming either exists
 - Include `title:` in search patterns — often the most descriptive field
-- Search `applies_when:` for `docs/insights/` because it captures where lightweight insights should be recalled
+- Search `applies_when:` for `rosey/insights/` because it captures where lightweight insights should be recalled
 - Use OR patterns for synonyms and search case-insensitively
 - Narrow to discovered subdirectories when the caller's Domain hint makes one obvious
 - Broaden the content search as fallback if <3 candidates found; re-narrow if >25
@@ -259,15 +259,15 @@ When no relevant learnings are found, say so explicitly, include the search cont
 
 **DON'T:**
 
-- Skip the grep pre-filter and read every file in `docs/solutions/` or `docs/insights/` — pre-filter first, then read frontmatter from the shortlist
+- Skip the grep pre-filter and read every file in `rosey/solutions/` or `rosey/insights/` — pre-filter first, then read frontmatter from the shortlist
 - Read full content of every candidate — only the ones that pass relevance scoring
 - Run searches sequentially when they can be parallel
 - Use only exact keyword matches (include synonyms); skip `title:` in patterns; proceed with >25 candidates without narrowing
 - Return raw document contents instead of distilling them
 - Include every tangentially related match — 1-2 adjacent entries with a caveat is fine; a long tail of weak matches is noise
-- Discard a candidate because it lacks bug-shaped fields like `symptoms` or `root_cause` — non-bug entries and `docs/insights/` files legitimately omit these
-- Parse `docs/insights/` with a separate body-heading search path — insight search should stay frontmatter-led
-- Assume `docs/solutions/patterns/critical-patterns.md` exists — read it only when present
+- Discard a candidate because it lacks bug-shaped fields like `symptoms` or `root_cause` — non-bug entries and `rosey/insights/` files legitimately omit these
+- Parse `rosey/insights/` with a separate body-heading search path — insight search should stay frontmatter-led
+- Assume `rosey/solutions/patterns/critical-patterns.md` exists — read it only when present
 
 ## Integration Points
 

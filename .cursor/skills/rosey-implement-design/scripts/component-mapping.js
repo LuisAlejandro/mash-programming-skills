@@ -339,7 +339,7 @@ function main() {
     projectRoot,
     pageSlug: pageSlug || context?.pageSlug || null,
     source: context
-      ? path.join("docs", "designs", context.pageSlug || pageSlug || "<page-slug>", "design-context.json")
+      ? path.join("rosey", "designs", context.pageSlug || pageSlug || "<page-slug>", "design-context.json")
       : args.serialized || "inline",
     designSystem: designSystem ? { title: designSystem.title, path: designSystem.path } : null,
     designSystemResolved: context?.designSystemResolved || context?.tokens?.designSystemResolved || null,

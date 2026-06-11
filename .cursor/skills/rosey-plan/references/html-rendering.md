@@ -59,7 +59,7 @@ These hold regardless of which skill produced the artifact.
   (the user prompt context, the upstream brainstorm doc when one
   exists, or just the composing skill name when there's no external
   source). Example shape:
-  `<footer class="composition-signal">Composed 2026-05-17T14:23Z by rosey-plan from <code>docs/brainstorms/...-requirements.md</code></footer>`.
+  `<footer class="composition-signal">Composed 2026-05-17T14:23Z by rosey-plan from <code>rosey/brainstorms/...-requirements.md</code></footer>`.
   Under exclusive output mode this signal is the artifact's own
   provenance — there's no markdown sibling to reference. Omitting it
   leaves readers unable to tell how stale the rendering is.
@@ -102,8 +102,8 @@ carrying layout, color, or typography rules the doc cannot read offline.
 When tier 3 of the precedence stack applies, look for a DESIGN.md file in
 these locations, first match wins:
 
-1. Worktree root (resolve via `git rev-parse --show-toplevel`).
-2. `docs/DESIGN.md`.
+1. Worktree root `DESIGN.md` (resolve via `git rev-parse --show-toplevel`).
+2. `rosey/design-system/DESIGN.md`.
 3. `.rosey/DESIGN.md`.
 
 Read once at compose time. Absent → fall through to the fallback default.
@@ -214,7 +214,7 @@ git remote get-url origin
 Apply linking to three reference shapes:
 
 - **Repo-relative code/doc paths** (`services/foo.ts`,
-  `docs/solutions/bar.md`) → `<repo-url>/blob/main/<path>`.
+  `rosey/solutions/bar.md`) → `<repo-url>/blob/main/<path>`.
 - **Named GitHub PRs/issues** (`PR #636`, `issue #1048`) →
   `<repo-url>/pull/636` or `<repo-url>/issues/1048`.
 - **Named external trackers** (Linear `ESP-1705`, Jira `PROJ-123`) →

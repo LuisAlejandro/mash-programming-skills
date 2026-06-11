@@ -25,7 +25,7 @@ Before going online, check if curated knowledge already exists in skills:
 
 2. **Identify Relevant Skills**:
    Match the research topic to available skills in this workspace (`.cursor/skills/**/SKILL.md`). Common mappings:
-   - Rails/Ruby → search project skills and `docs/solutions/` for Rails patterns
+   - Rails/Ruby → search project skills and `rosey/solutions/` for Rails patterns
    - Frontend/Design → `rosey-design-system`, `rosey-implement-design`
    - TypeScript/React → project conventions and Context7 for framework docs
    - AI/Agents → `rosey-agent-native-reviewer`, `rosey-work`

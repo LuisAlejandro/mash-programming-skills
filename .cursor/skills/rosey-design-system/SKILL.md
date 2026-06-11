@@ -1,6 +1,6 @@
 ---
 name: rosey-design-system
-description: Creates an OpenDesign design-system package from a local folder through the OpenDesign daemon API, optionally applies a revision, publishes it, and copies the package to docs/design-system. Use before rosey-design-catalog when the user needs OpenDesign to produce the DESIGN.md package first.
+description: Creates an OpenDesign design-system package from a local folder through the OpenDesign daemon API, optionally applies a revision, publishes it, and copies the package to rosey/design-system. Use before rosey-design-catalog when the user needs OpenDesign to produce the DESIGN.md package first.
 ---
 
 # Create OpenDesign Design System Package
@@ -15,7 +15,7 @@ description: Creates an OpenDesign design-system package from a local folder thr
 
 Use this skill to create the OpenDesign design-system package that becomes input for `rosey-design-catalog`.
 
-The workflow imports a local folder through the OpenDesign daemon, optionally applies one revision, publishes the package, copies it to `docs/design-system`, and writes an async manifest. `rosey-design-catalog` may run later and auto-discover `docs/design-system/DESIGN.md`.
+The workflow imports a local folder through the OpenDesign daemon, optionally applies one revision, publishes the package, copies it to `rosey/design-system`, and writes an async manifest. `rosey-design-catalog` may run later and auto-discover `rosey/design-system/DESIGN.md`.
 
 ## Inputs
 
@@ -127,7 +127,7 @@ od design-systems show "$DS" --json | jq '.body' -r
 
 ### Step 5: Copy Package
 
-User design systems live under `${OD_DATA_DIR:-<openDesignProjectRoot>/.od}/design-systems/<slug>`. The slug is the part after `user:`. This workflow intentionally removes the previous `docs/design-system` before copying the latest package.
+User design systems live under `${OD_DATA_DIR:-<openDesignProjectRoot>/.od}/design-systems/<slug>`. The slug is the part after `user:`. This workflow intentionally removes the previous `rosey/design-system` before copying the latest package.
 
 ```bash
 case "$DS" in
@@ -146,20 +146,20 @@ PACKAGE_DIR="$OD_ROOT/design-systems/$SLUG"
 
 test -d "$PACKAGE_DIR"
 
-rm -rf docs/design-system
-mkdir -p docs/design-system
-cp -R "$PACKAGE_DIR"/. docs/design-system/
+rm -rf rosey/design-system
+mkdir -p rosey/design-system
+cp -R "$PACKAGE_DIR"/. rosey/design-system/
 
-test -f docs/design-system/DESIGN.md
+test -f rosey/design-system/DESIGN.md
 
-mkdir -p docs/designs
+mkdir -p rosey/designs
 jq -n \
   --arg designSystemId "$DS" \
   --arg sourceDir "$SOURCE_DIR" \
   --arg packageDir "$PACKAGE_DIR" \
-  --arg copiedPath "docs/design-system" \
-  --arg designPath "docs/design-system/DESIGN.md" \
-  --arg checksum "$(shasum -a 256 docs/design-system/DESIGN.md | awk '{print $1}')" \
+  --arg copiedPath "rosey/design-system" \
+  --arg designPath "rosey/design-system/DESIGN.md" \
+  --arg checksum "$(shasum -a 256 rosey/design-system/DESIGN.md | awk '{print $1}')" \
   --arg copiedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   '{
     designSystemId: $designSystemId,
@@ -169,7 +169,7 @@ jq -n \
     designPath: $designPath,
     designChecksum: $checksum,
     copiedAt: $copiedAt
-  }' > docs/designs/design-system.json
+  }' > rosey/designs/design-system.json
 ```
 
 ## Handoff
@@ -178,7 +178,7 @@ After copying succeeds, report:
 
 - OpenDesign design-system id.
 - Whether revision feedback was applied.
-- Copied package path: `docs/design-system`.
-- Async manifest path: `docs/designs/design-system.json`.
+- Copied package path: `rosey/design-system`.
+- Async manifest path: `rosey/designs/design-system.json`.
 
-`rosey-design-catalog` can be invoked later; it auto-discovers `docs/design-system/DESIGN.md`.
+`rosey-design-catalog` can be invoked later; it auto-discovers `rosey/design-system/DESIGN.md`.

@@ -63,7 +63,7 @@ Use this **exact format** when presenting synthesized review findings. Findings 
 
 ### Learnings & Past Solutions
 
-- [Known Pattern] `docs/solutions/export-pagination.md` -- previous export pagination fix applies to this endpoint
+- [Known Pattern] `rosey/solutions/export-pagination.md` -- previous export pagination fix applies to this endpoint
 
 ### Agent-Native Gaps
 
@@ -127,7 +127,7 @@ This fails because: no pipe-delimited tables, no severity-grouped `###` headers,
 - **Applied Fixes section** -- include only when a fix phase ran in this review invocation
 - **Residual Actionable Work section** -- include only when unresolved actionable findings were handed off for later work
 - **Pre-existing section** -- separate table, no confidence column (these are informational)
-- **Learnings & Past Solutions section** -- results from rosey-learnings-researcher, with links to docs/solutions/ files
+- **Learnings & Past Solutions section** -- results from rosey-learnings-researcher, with links to rosey/solutions/ files
 - **Agent-Native Gaps section** -- results from rosey-agent-native-reviewer. Omit if no gaps found.
 - **Deployment Notes section** -- key checklist items from rosey-deployment-verification-agent. Omit if the agent did not run. Schema drift surfaces as `data-migration` findings — no separate section.
 - **Coverage section** -- suppressed count, residual risks, testing gaps, failed reviewers

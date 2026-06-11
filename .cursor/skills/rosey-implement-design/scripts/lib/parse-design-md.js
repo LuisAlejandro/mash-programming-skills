@@ -105,10 +105,10 @@ function findDesignMdPath({ designPath, htmlPath, projectRoot }) {
   }
   if (projectRoot) {
     candidates.push(
-      path.join(projectRoot, "docs", "design-system", "DESIGN.md"),
-      path.join(projectRoot, "docs", "design-system", "design.md"),
       path.join(projectRoot, "DESIGN.md"),
       path.join(projectRoot, "design.md"),
+      path.join(projectRoot, "rosey", "design-system", "DESIGN.md"),
+      path.join(projectRoot, "rosey", "design-system", "design.md"),
     );
   }
   for (const candidate of candidates) {

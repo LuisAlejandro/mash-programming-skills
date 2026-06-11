@@ -38,7 +38,7 @@ Non-interactive parent workflows, such as `rosey-plan mode:non-interactive`, sho
 Callers invoke headless mode by including `mode:headless` in the skill arguments, e.g.:
 
 ```
-Skill("rosey-doc-review", "mode:headless docs/plans/my-plan.md")
+Skill("rosey-doc-review", "mode:headless rosey/plans/my-plan.md")
 ```
 
 If `mode:headless` is not present, the skill runs in its default interactive mode with the routing question, walk-through, and bulk-preview behaviors documented in `references/walkthrough.md` and `references/bulk-preview.md`.
@@ -47,13 +47,13 @@ If `mode:headless` is not present, the skill runs in its default interactive mod
 
 **If a document path is provided:** Read it, then proceed.
 
-**If no document is specified (interactive mode):** Ask which document to review, or find the most recent in `docs/brainstorms/` or `docs/plans/` using a file-search/glob tool (e.g., Glob in Claude Code).
+**If no document is specified (interactive mode):** Ask which document to review, or find the most recent in `rosey/brainstorms/` or `rosey/plans/` using a file-search/glob tool (e.g., Glob in Claude Code).
 
 **If no document is specified (headless mode):** Output "Review failed: headless mode requires a document path. Re-invoke with: Skill(\"rosey-doc-review\", \"mode:headless <path>\")" without dispatching agents.
 
 ### Classify Document Type
 
-Classify the document by reading its **content shape**, not its file path. Path is a tie-breaker hint, not the primary signal — a brainstorm-style doc placed under `docs/plans/` should still classify as `requirements`, and a plan-shaped doc under `docs/brainstorms/` should still classify as `plan`. The reviewers below operate differently depending on this classification, so misclassifying a plan-shaped doc as a requirements doc (or vice versa) produces noisy or under-scrutinized findings.
+Classify the document by reading its **content shape**, not its file path. Path is a tie-breaker hint, not the primary signal — a brainstorm-style doc placed under `rosey/plans/` should still classify as `requirements`, and a plan-shaped doc under `rosey/brainstorms/` should still classify as `plan`. The reviewers below operate differently depending on this classification, so misclassifying a plan-shaped doc as a requirements doc (or vice versa) produces noisy or under-scrutinized findings.
 
 Use these signals to decide:
 
@@ -65,14 +65,14 @@ Use these signals to decide:
 - No implementation units, no per-unit file lists, no test scenarios attached to units
 
 **`plan` signals (how-to-build documents):**
-- Frontmatter fields like `type: feat|fix|refactor`, `origin: docs/brainstorms/...`
+- Frontmatter fields like `type: feat|fix|refactor`, `origin: rosey/brainstorms/...`
 - Section headings such as `Implementation Units`, `Output Structure`, `Key Technical Decisions`, `Risks & Dependencies`, `System-Wide Impact`
 - Numbered identifiers in the form `U1`, `U2` — implementation unit IDs
 - Per-unit fields named `Goal`, `Files`, `Approach`, `Test scenarios`, `Verification`
 - Repo-relative file paths to create/modify/test
 - Prose framing focused on technical decisions, sequencing, and implementer-facing detail
 
-**Tie-breaker rule.** When the content signals are mixed or sparse, fall back to path: `docs/brainstorms/` → `requirements`, `docs/plans/` → `plan`. When neither path location applies, treat the dominant content shape as authoritative; if shape is genuinely ambiguous, default to `requirements` (the more conservative classification — it activates fewer plan-specific feasibility checks).
+**Tie-breaker rule.** When the content signals are mixed or sparse, fall back to path: `rosey/brainstorms/` → `requirements`, `rosey/plans/` → `plan`. When neither path location applies, treat the dominant content shape as authoritative; if shape is genuinely ambiguous, default to `requirements` (the more conservative classification — it activates fewer plan-specific feasibility checks).
 
 Pass the classification result to each persona via the `{document_type}` slot in the subagent template. Personas read this and adapt their analysis accordingly.
 

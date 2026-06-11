@@ -187,7 +187,7 @@ function main() {
     });
     if (!designSystem && !args["allow-missing-design"]) {
       throw new Error(
-        "DESIGN.md is required. Pass --design <path>, place it beside the HTML, or use docs/design-system/DESIGN.md. Use --allow-missing-design only for HTML-only debugging.",
+        "DESIGN.md is required. Pass --design <path>, place it beside the HTML, or use rosey/design-system/DESIGN.md. Use --allow-missing-design only for HTML-only debugging.",
       );
     }
 
@@ -226,7 +226,7 @@ function main() {
         const currentDsChecksum = fileChecksum(manifestPath);
         if (currentDsChecksum !== dsManifest.designChecksum) {
           console.warn(
-            "Warning: docs/design-system/DESIGN.md changed since rosey-design-system copy. Re-run rosey-design-system or rosey-design-catalog.",
+            "Warning: rosey/design-system/DESIGN.md changed since rosey-design-system copy. Re-run rosey-design-system or rosey-design-catalog.",
           );
         }
       }

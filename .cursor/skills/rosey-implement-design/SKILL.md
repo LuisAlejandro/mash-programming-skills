@@ -42,16 +42,16 @@ npm install --prefix .cursor/skills/rosey-design-catalog
 
 Require `htmlPath` for exported OpenDesign HTML. Optional inputs:
 
-- `pageSlug`: required when multiple pages exist in `docs/designs/latest.json`
+- `pageSlug`: required when multiple pages exist in `rosey/designs/latest.json`
 - `assetsDir`: exported image/font assets (only if not colocated with HTML)
 - `targetRoute` or target component path
 - `targetFile`: file being edited (import path suggestions)
 
 Read when present (from `rosey-design-catalog`):
 
-- `docs/designs/latest.json` (`activePageSlug`, `pages.<slug>.*`)
-- `docs/designs/<page-slug>/design-context.json` (embedded `serialized` DOM — do not re-serialize unless HTML checksum changed)
-- `docs/designs/component-catalog.json`
+- `rosey/designs/latest.json` (`activePageSlug`, `pages.<slug>.*`)
+- `rosey/designs/<page-slug>/design-context.json` (embedded `serialized` DOM — do not re-serialize unless HTML checksum changed)
+- `rosey/designs/component-catalog.json`
 - `.cursor/rules/rosey-design-system.mdc`
 
 Token fields on `design-context.json` (prefer top-level):
@@ -69,13 +69,13 @@ node .cursor/skills/rosey-implement-design/scripts/prepare-implementation.js \
   [--page-slug <pageSlug>]
 ```
 
-Pass `--page-slug <pageSlug>` only when overriding `docs/designs/latest.json` `activePageSlug`.
+Pass `--page-slug <pageSlug>` only when overriding `rosey/designs/latest.json` `activePageSlug`.
 
 The prep script writes:
 
-- `docs/designs/<page-slug>/asset-map.json` (always created, may be `{}`)
-- `docs/designs/<page-slug>/component-mapping.json`
-- `docs/designs/<page-slug>/implementation-checklist.json` (one row per `controlInventory` item)
+- `rosey/designs/<page-slug>/asset-map.json` (always created, may be `{}`)
+- `rosey/designs/<page-slug>/component-mapping.json`
+- `rosey/designs/<page-slug>/implementation-checklist.json` (one row per `controlInventory` item)
 
 Mappings use `stableId` (preferred) and numeric `controlInventory[].id`.
 
@@ -97,7 +97,7 @@ Use `design-context.json` → `architecture.scripts` (e.g. `dev`, `start`) from 
 
 ### Step 5: Review / Sync / Iterate (required)
 
-Create `docs/designs/<page-slug>/review/`.
+Create `rosey/designs/<page-slug>/review/`.
 
 **Run only the iterator subagent** (it delegates to reviewer and sync each cycle):
 
@@ -185,5 +185,5 @@ Stop baseline server:
 
 ```bash
 node .cursor/skills/rosey-implement-design/scripts/stop-baseline-server.js \
-  --pid-file docs/designs/<page-slug>/review/baseline-server.pid
+  --pid-file rosey/designs/<page-slug>/review/baseline-server.pid
 ```

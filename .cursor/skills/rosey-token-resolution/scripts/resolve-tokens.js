@@ -167,7 +167,7 @@ function main() {
     projectRoot,
   });
   if (!designSystem && args["require-design"]) {
-    console.error("DESIGN.md is required. Pass --design <path> or place it at docs/design-system/DESIGN.md.");
+    console.error("DESIGN.md is required. Pass --design <path>, place it at project root, or use rosey/design-system/DESIGN.md.");
     process.exit(1);
   }
 

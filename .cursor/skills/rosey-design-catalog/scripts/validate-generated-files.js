@@ -114,7 +114,7 @@ function main() {
 
     const dsManifest = readJsonIfExists(designSystemManifestPath(root));
     if (dsManifest?.designChecksum && context.designSystem?.checksum) {
-      const manifestPath = path.resolve(root, dsManifest.designPath || "docs/design-system/DESIGN.md");
+      const manifestPath = path.resolve(root, dsManifest.designPath || "rosey/design-system/DESIGN.md");
       if (fs.existsSync(manifestPath)) {
         const current = fileChecksum(manifestPath);
         if (current !== dsManifest.designChecksum) {
