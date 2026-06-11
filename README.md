@@ -24,7 +24,7 @@ ROSEY_AGENTIC_ENV=/Users/luisalejandro/Development/rosey-agentic-env \
 ### What the installer does:
 1. Downloads the latest rules and skills from this repository.
 2. Creates and populates the `.cursor/rules` and `.cursor/skills` folders in your target repository.
-3. Automatically updates your `.gitignore` to keep Rosey-local artifacts out of version control: `.cursor/`, `rosey/brainstorms/`, `rosey/plans/`, `rosey/designs/`, `rosey/solutions/`, `rosey/insights/`, `rosey/design-system/`, `rosey/qa/`, and `rosey/deepening/`.
+3. Automatically updates your `.gitignore` to keep Rosey-local artifacts out of version control: `.cursor/`, `rosey/brainstorms/`, `rosey/plans/`, `rosey/designs/`, `rosey/solutions/`, `rosey/insights/`, `rosey/design-system/`, `rosey/qa/`, `rosey/deepening/`, `rosey/agentic-env.json`, and `rosey/maintainer-manifest.json`.
 4. Creates `rosey/agentic-env.json` so orchestrators can detect the installed version.
 5. Creates a minimal `AGENTS.md` if one does not exist. It does not store preferences; it points agents to important Cursor rules such as `.cursor/rules/rosey-workflow-gates.mdc`.
 

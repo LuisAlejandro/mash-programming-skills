@@ -115,6 +115,7 @@ append_gitignore_if_missing "rosey/design-system/"
 append_gitignore_if_missing "rosey/qa/"
 append_gitignore_if_missing "rosey/deepening/"
 append_gitignore_if_missing "rosey/agentic-env.json"
+append_gitignore_if_missing "rosey/maintainer-manifest.json"
 append_gitignore_if_missing "AGENTS.md"
 append_gitignore_if_missing "DESIGN.md"
 
