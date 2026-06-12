@@ -7,3 +7,19 @@
 
 # Local skill dependencies
 .cursor/skills/**/node_modules/
+
+# Rosey Agentic Environment
+rosey/brainstorms/
+rosey/plans/
+rosey/designs/
+rosey/solutions/
+rosey/insights/
+rosey/design-system/
+rosey/qa/
+rosey/deepening/
+rosey/agentic-env.json
+AGENTS.md
+DESIGN.md
+
+# Rosey Maintainer Tools
+rosey/maintainer-manifest.json

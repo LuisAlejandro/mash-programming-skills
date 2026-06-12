@@ -21,7 +21,10 @@ This skill follows the Rosey-native commit/push/PR workflow, with Rosey transpor
 - Use GitHub MCP for GitHub actions: `search_pull_requests`, `pull_request_read`, `create_pull_request`, and `update_pull_request`.
 - Do **not** use the GitHub CLI.
 - Do **not** assign or bootstrap PR labels.
-- Use `develop` as the integration/base branch unless the user explicitly overrides.
+- Implement MAINTAINER release ritual step 4 for app repos: push the current feature branch and create or update a pull request against `develop`.
+- Use `develop` as the fixed Rosey workspace integration/base branch unless the user explicitly overrides with `base:<branch>` for an exceptional manual case.
+- Receive completed work after `rosey-work` and usually after `rosey-qa`, or as the PR stage inside `rosey-lfg-quality`.
+- Stop at PR create/update. Do not merge PRs, watch or fix CI, create milestones, or run releases; auto-merge workflows and `rosey-release` own those later steps.
 - Do not use the old product-document mode. Prefer `plan:<path>` metadata when supplied; otherwise derive title/body from branch commits and diff.
 - After a successful PR create/update, write a PR summary artifact beside the source plan when a plan path is known.
 

@@ -33,7 +33,8 @@ In non-interactive mode, resolve implementation-time unknowns conservatively fro
 
 This skill follows the Rosey-native work workflow with Rosey Sentrux and handoff boundaries:
 
-- `rosey-work` executes the plan. It does **not** own PR creation or QA workflow adaptation; those belong to `rosey-qa`, `rosey-pr`, and `rosey-lfg-quality`.
+- `rosey-work` executes MAINTAINER release ritual steps 2-3 for app repos: start a git-flow feature branch from `develop`, then implement the work on that branch.
+- `rosey-work` does **not** own QA, PR creation, merge, or release. Those belong downstream to `rosey-qa`, `rosey-pr`, `rosey-lfg-quality`, auto-merge workflows, and `rosey-release`.
 - Read [`rosey-sentrux`](../rosey-sentrux/SKILL.md) when a plan has a topology artifact or when executing a `rosey-plan` plan.
 - Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) before substantive implementation so cross-session memory can inform the work.
 - Recall relevant Hindsight context before the first implementation task; retain durable discoveries during work and a session summary at handoff.
@@ -106,54 +107,55 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
 2. **Setup Environment**
 
-   First, check the current branch:
+   The Rosey app release ritual uses `develop` as the fixed integration branch.
+   First, check the current branch and verify `origin/develop` exists:
 
    ```bash
    current_branch=$(git branch --show-current)
-   default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
-
-   # Fallback if remote HEAD isn't set
-   if [ -z "$default_branch" ]; then
-     default_branch=$(git rev-parse --verify origin/main >/dev/null 2>&1 && echo "main" || echo "master")
-   fi
+   git rev-parse --verify origin/develop >/dev/null
    ```
 
-   **If already on a feature branch** (not the default branch):
+   **If already on a feature branch** (not `develop`):
 
-   First, check whether the branch name is **meaningful** — a name like `feat/crowd-sniff` or `fix/email-validation` tells future readers what the work is about. Auto-generated worktree names (e.g., `worktree-jolly-beaming-raven`) or other opaque names do not.
+   First, check whether the branch name is **meaningful** — a name like `feature/crowd-sniff` tells future readers what the work is about. Auto-generated worktree names (e.g., `worktree-jolly-beaming-raven`) or other opaque names do not.
 
    If the branch name is meaningless or auto-generated, suggest renaming it before continuing:
+
    ```bash
    git branch -m <meaningful-name>
    ```
-   Derive the new name from the plan title or work description (e.g., `feat/crowd-sniff`). Present the rename as a recommended option alongside continuing as-is.
+
+   Derive the new name from the plan title or work description (e.g., `feature/crowd-sniff`). Present the rename as a recommended option alongside continuing as-is.
 
    Then ask: "Continue working on `[current_branch]`, or create a new branch?"
    - If continuing (with or without rename), proceed to step 3
    - If creating new, follow Option A or B below
-   - In non-interactive mode, continue on a meaningful feature branch; if the name is opaque, create a new meaningful branch from the default branch when safe, or stop if branch movement would risk losing work.
+   - In non-interactive mode, continue on a meaningful `feature/<slug>` branch; if the name is opaque, create a new meaningful branch from `develop` when safe, or stop if branch movement would risk losing work.
 
-   **If on the default branch**, choose how to proceed:
+   **If on `develop`**, choose how to proceed:
 
-   **Option A: Create a new branch**
+   **Option A: Create a new git-flow feature branch**
+
    ```bash
-   git pull origin [default_branch]
-   git checkout -b feature-branch-name
+   git pull origin develop
+   git config --get gitflow.branch.master >/dev/null 2>&1 || git flow init -d
+   git flow feature start <slug>
    ```
-   Use a meaningful name based on the work (e.g., `feat/user-authentication`, `fix/email-validation`).
+
+   Use a meaningful slug based on the work (e.g., `user-authentication`). `git flow feature start <slug>` creates and checks out `feature/<slug>`.
 
    **Option B: Use a worktree (recommended for parallel development)**
-   Use the platform's worktree support or an available worktree helper. The worktree must create a new branch from the default branch in an isolated checkout.
+   Use the platform's worktree support or an available worktree helper. The worktree must create a new `feature/<slug>` branch from `develop` in an isolated checkout. Keep worktree isolation for parallel implementation; shared-directory parallel writes are unsafe.
 
-   **Option C: Continue on the default branch**
+   **Option C: Continue on `develop`**
    - Requires explicit user confirmation
-   - Only proceed after user explicitly says "yes, commit to [default_branch]"
-   - Never commit directly to the default branch without explicit permission
-   - In non-interactive mode, never continue on the default branch; create a new feature branch.
+   - Only proceed after user explicitly says "yes, commit to develop"
+   - Never commit directly to `develop` without explicit permission
+   - In non-interactive mode, never continue on `develop`; create a new feature branch.
 
    **Recommendation**: Use worktree if:
    - You want to work on multiple features simultaneously
-   - You want to keep the default branch clean while experimenting
+   - You want to keep `develop` clean while experimenting
    - You plan to switch between branches frequently
 
 3. **Create Task List** _(skip if Phase 0 already built one, or if Phase 0 routed as Trivial)_

@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Rosey LFG Code
 
-Run the code-production half of the Rosey autonomous pipeline. This skill produces implementation plus handoff context. It does not run code review, create a PR, watch CI, or emit the final DONE signal.
+Run the code-production half of the Rosey autonomous pipeline. This skill produces implementation plus handoff context. It does not run code review, create a PR, handle post-PR CI, or emit the final DONE signal.
 
 ## Communication while using this skill
 
@@ -44,7 +44,7 @@ When `INTERACTION_MODE=non-interactive`:
 - Plan via `rosey-plan`
 - Implementation, lint/build, and Sentrux handoff via `rosey-work`
 
-`rosey-lfg-quality` owns QA, PR creation/update, CI follow-up, residual durability, and `<promise>DONE</promise>`.
+`rosey-lfg-quality` owns QA, PR creation/update, residual durability, and `<promise>DONE</promise>`. It does not watch or fix CI; Bugbot and existing automation handle CI failures after PR creation.
 
 Do not invoke `rosey-qa` or `rosey-pr` from this skill. `rosey-work` must also stop before QA and PR.
 
@@ -131,4 +131,4 @@ SENTRUX_REVIEW_CONTEXT:
 END_ROSEY_LFG_QUALITY_HANDOFF
 ```
 
-Do not emit `<promise>DONE</promise>`. The full autonomous pipeline is complete only after `rosey-lfg-quality` finishes QA, PR, and CI handling.
+Do not emit `<promise>DONE</promise>`. The full autonomous pipeline is complete only after `rosey-lfg-quality` finishes QA and PR handling.
