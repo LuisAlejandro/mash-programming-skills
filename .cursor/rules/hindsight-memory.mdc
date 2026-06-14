@@ -24,7 +24,7 @@ When **any** of these is true:
 You **must** run this sequence **before** other research or edits:
 
 1. Read `.cursor/skills/rosey-hindsight/SKILL.md`
-2. Run `uvx hindsight-embed daemon status`
+2. Run `uvx hindsight-embed daemon status` (daemon startup is handled by `.cursor/hooks/ensure-hindsight-daemon.sh` on session start)
 3. If status OK → run `uvx hindsight-embed memory recall <bank> "<task summary>"`
 4. If status fails → continue workflow but state `Hindsight: unavailable — <reason>` in the first status message
 

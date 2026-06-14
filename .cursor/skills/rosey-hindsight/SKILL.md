@@ -42,6 +42,10 @@ If the command fails because Hindsight is not configured, tell the user to run t
 uvx hindsight-embed configure
 ```
 
+Daemon startup is handled by the project hook `.cursor/hooks/ensure-hindsight-daemon.sh` (registered in `.cursor/hooks.json` on `sessionStart`). Do not run `daemon start` manually; use `daemon status` only.
+
+If status still fails after the hook runs (cold boot can take several minutes while `uvx` downloads packages), record `Hindsight: unavailable — <reason>` and continue.
+
 Do not block Rosey planning, implementation, QA, or handoff when Hindsight is unavailable. Continue the workflow and record `HINDSIGHT: unavailable` where a handoff envelope asks for memory status.
 
 ## Bank Resolution

@@ -87,6 +87,12 @@ mkdir -p .cursor
 [ -d "$SOURCE_ROOT/.cursor/skills" ] && cp -R "$SOURCE_ROOT/.cursor/skills" .cursor/
 [ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
 [ -f "$SOURCE_ROOT/.cursor/mcp.json" ] && cp "$SOURCE_ROOT/.cursor/mcp.json" .cursor/
+[ -f "$SOURCE_ROOT/.cursor/hooks.json" ] && cp "$SOURCE_ROOT/.cursor/hooks.json" .cursor/
+if [ -d "$SOURCE_ROOT/.cursor/hooks" ]; then
+    mkdir -p .cursor/hooks
+    cp -R "$SOURCE_ROOT/.cursor/hooks/." .cursor/hooks/
+    chmod +x .cursor/hooks/*.sh 2>/dev/null || true
+fi
 
 echo "-> Updating .gitignore..."
 touch .gitignore
@@ -250,6 +256,18 @@ install_sentrux || true
 
 # --- Hindsight embed ---
 
+hindsight_embed_configured() {
+    [ -f "${HOME}/.hindsight/embed" ] || [ -f "${HOME}/.hindsight/config.env" ]
+}
+
+start_hindsight_daemon() {
+    # Cold starts can exceed the CLI's 180s default while uvx pulls deps and
+    # loads embedding models. Prefix the timeout here — embed-file values load
+    # after the CLI reads this constant.
+    HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT="${HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT:-600}" \
+        uvx hindsight-embed daemon start
+}
+
 check_hindsight_embed() {
     echo "-> Checking optional Hindsight embed CLI..."
 
@@ -261,11 +279,25 @@ check_hindsight_embed() {
     fi
 
     if uvx hindsight-embed daemon status >/dev/null 2>&1; then
-        echo "   Hindsight embed is configured."
-    else
-        echo "   ⚠️  Hindsight embed is optional and not configured yet."
-        echo "      Run once when you want local memory: uvx hindsight-embed configure"
+        echo "   Hindsight embed daemon is running."
+        return 0
     fi
+
+    if hindsight_embed_configured; then
+        echo "   Hindsight embed is configured but daemon is stopped; starting..."
+        if start_hindsight_daemon >/dev/null 2>&1 \
+            && uvx hindsight-embed daemon status >/dev/null 2>&1; then
+            echo "   Hindsight embed daemon started."
+        else
+            echo "   ⚠️  Hindsight daemon failed to start (cold boot can take several minutes)."
+            echo "      Retry: HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT=600 uvx hindsight-embed daemon start"
+            echo "      Logs: uvx hindsight-embed daemon logs -n 50"
+        fi
+        return 0
+    fi
+
+    echo "   ⚠️  Hindsight embed is optional and not configured yet."
+    echo "      Run once when you want local memory: uvx hindsight-embed configure"
 }
 
 check_hindsight_embed || true
