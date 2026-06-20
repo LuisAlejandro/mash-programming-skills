@@ -19,18 +19,18 @@ Do not save routine task summaries, obvious facts, temporary state, secrets, cre
 2. Choose a concise lowercase filename: `rosey/insights/<topic-slug>.md`.
 3. If a closely related insight file already exists, update it instead of creating a duplicate.
 4. Add YAML frontmatter so `rosey-learnings-researcher` can find it by metadata:
-   - `title`: human-readable insight title
-   - `module`: repo area or workflow, e.g. `rosey-memory`
-   - `problem_type`: use `durable_insight` by default, or a more specific knowledge-track value when it fits (`architecture_pattern`, `workflow_issue`, `tooling_decision`, `convention`, `best_practice`)
-   - `component`: specific skill, agent, script, command, or subsystem when known
-   - `tags`: searchable keywords
-   - `applies_when`: conditions where future agents should recall this
-   - `severity`: `low`, `medium`, or `high`
+ - `title`: human-readable insight title
+ - `module`: repo area or workflow, e.g. `rosey-memory`
+ - `problem_type`: use `durable_insight` by default, or a more specific knowledge-track value when it fits (`architecture_pattern`, `workflow_issue`, `tooling_decision`, `convention`, `best_practice`)
+ - `component`: specific skill, agent, script, command, or subsystem when known
+ - `tags`: searchable keywords
+ - `applies_when`: conditions where future agents should recall this
+ - `severity`: `low`, `medium`, or `high`
 5. Write a short markdown body with:
-   - `## Insight`
-   - `## When It Applies`
-   - `## What To Do`
-   - `## Evidence`
+ - `## Insight`
+ - `## When It Applies`
+ - `## What To Do`
+ - `## Evidence`
 6. Keep the entry actionable and brief. Prefer bullets over narrative.
 
 ## Anti-Patterns
@@ -46,18 +46,18 @@ module: rosey-memory
 problem_type: durable_insight
 component: rosey-hindsight
 tags:
-  - hindsight
-  - memory
-  - cursor
-  - workflow
+ - hindsight
+ - memory
+ - cursor
+ - workflow
 applies_when:
-  - Adding or modifying Rosey memory behavior
+ - Adding or modifying Rosey memory behavior
 severity: medium
 ---
 
 ## Insight
 
-- Rosey skills use Hindsight via `uvx hindsight-embed`, not `.cursor/mcp.json`.
+- Rosey skills use Hindsight via `uvx hindsight-embed@0.8.2`, not `.cursor/mcp.json`.
 
 ## When It Applies
 

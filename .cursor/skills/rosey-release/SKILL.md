@@ -1,16 +1,15 @@
 ---
 name: rosey-release
-description: Create the weekly patch release for Rosey app repos by documenting closed issues in a milestone, running make release-patch, and closing the milestone. Use when publishing the current develop branch after auto-merged PRs have landed.
-argument-hint: "[mode:interactive|mode:non-interactive]"
+description: Gate and publish Rosey app repo releases (patch, minor, major) by orchestrating milestone intelligence, Makefile release targets, GitHub Actions gates, PyPI checks, and release handoff.
+argument-hint: "[mode:interactive|mode:non-interactive] [patch|minor|major]"
 ---
 
 # Rosey Release
 
-Publish the weekly patch release for Rosey app repositories.
+Gate and publish **releases** (patch, minor, major) for Rosey app repositories.
 
-This skill implements MAINTAINER release steps 7-9 for the current Rosey
-workspace. It does not plan releases, implement hotfixes, open PRs, merge PRs,
-or announce releases.
+This skill implements the release portion of `MAINTAINER.rst`. It does not plan
+feature work, open PRs, merge PRs, implement code, or announce releases.
 
 ## Communication while using this skill
 
@@ -22,69 +21,65 @@ irreversible warnings, user confusion, or when the user asks for normal wording.
 
 ## Rosey Overlay
 
-`rosey-release` is the publishing endpoint for the maintainer ritual:
+`rosey-release` is the publishing endpoint after features land on `develop`:
 
-- Upstream: feature work lands through `rosey-work`, `rosey-qa`,
-  `rosey-pr`, or `rosey-lfg-quality`, then app PRs auto-merge into `develop`.
+- Upstream: `rosey-lfg-code` and `rosey-lfg-quality` (or `rosey-work`, `rosey-qa`,
+  `rosey-pr`), then app PRs auto-merge into `develop`.
 - Owned steps: release readiness checks, retroactive milestone documentation,
-  `make release-patch`, and milestone closure.
-- Downstream: none. CI pipeline babysitting is handled outside this v1 flow by
-  Cursor Bugbot and existing automation.
+  `make release-*` execution, branch CI verification, Publish Release workflow
+  verification, PyPI/package asset verification, milestone closure, and handoff.
+- Downstream: none. This skill stops after release verification and handoff.
 
 Hard boundaries:
 
-- App repos only. Do not run this skill in `rosey-maintainer-tools` or
-  `rosey-agentic-env`; those are maintainer repositories and do not follow the
-  app release ritual.
-- Patch releases only. Do not infer minor or major releases from issues,
-  labels, commits, or PRs.
-- Do not implement hotfixes. Maintainers perform hotfixes manually.
-- Do not create or update release planning artifacts. The milestone created here
-  is retroactive documentation for the version being published.
-- Do not pass an app name. Each repo's Makefile defines `APP_NAME ?= ...`;
-  `make release-patch` passes that value to `scripts/release.sh` for the GitHub
-  release title.
+- App repos only. Do not run in `rosey-maintainer-tools` or `rosey-agentic-env`.
+- Patch is the default. Minor and major only when explicitly requested in
+  arguments or by the user. Do not infer from issues, labels, commits, or PRs.
+- Do not implement feature code.
+- Do not create release planning artifacts. The milestone here is retroactive
+  documentation for the version being published.
+- Do not pass `APP_NAME=...`; the Makefile supplies it.
+- Do not weaken, skip, or edit CI to make a release pass.
 
 ## Interaction Mode
 
 Parse `$ARGUMENTS` for at most one interaction mode token:
 
-- `mode:interactive` — default for direct chat invocation. The skill may ask for
-  confirmation before running the release script.
-- `mode:non-interactive` — scripted or skill-to-skill execution. The skill must
-  not ask blocking questions or wait for confirmations.
+- `mode:interactive` — default. May ask for confirmation before running scripts.
+- `mode:non-interactive` — no blocking questions or confirmations.
 
-Strip the interaction mode token before interpreting remaining text. If no
-interaction mode token is present, set `INTERACTION_MODE=interactive`.
+Strip the mode token before interpreting release type. Default `INTERACTION_MODE=interactive`.
 
-If multiple interaction mode tokens appear, stop and report the conflict.
+Parse at most one release type token:
+
+- `patch` — default. Milestone selection + `make release-patch`.
+- `minor` — `make release-minor`; confirm milestone handling with user.
+- `major` — `make release-major`; confirm milestone handling with user.
+
+If no type token, set `RELEASE_TYPE=patch`. If multiple type tokens, stop and ask.
 
 ## Hindsight Gate
 
 Before release work:
 
 1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md).
-2. Run `uvx hindsight-embed daemon status`.
-3. If available, recall release context for the current repo and weekly patch
-   release.
-4. If unavailable, continue and record `HINDSIGHT: unavailable` in the release
-   handoff.
+2. Run `uvx hindsight-embed@0.8.2 daemon status`.
+3. If available, recall release context for the current repo.
+4. If unavailable, record `HINDSIGHT: unavailable` in the handoff.
 
 ## Release Workflow
 
 ### 1. Resolve Repository
 
-1. Confirm the current directory is inside a git repository.
-2. Resolve the git root and repo name.
-3. Stop if the repo name is `rosey-maintainer-tools` or `rosey-agentic-env`.
-4. Confirm release files exist:
-   - `Makefile`
-   - `.bumpversion.cfg`
-   - `scripts/release.sh`
-5. Verify `Makefile` defines `APP_NAME`. This is informational. Do not patch the
-   Makefile and do not pass `APP_NAME=...` at runtime.
+1. Confirm git repository; resolve root and repo name.
+2. Stop if repo is `rosey-maintainer-tools` or `rosey-agentic-env`.
+3. Confirm files exist:
+   - `Makefile`, `.bumpversion.cfg`
+   - `scripts/release.sh`, `scripts/lib.sh`, `scripts/rollback.sh`
+   - `.github/workflows/push.yml`, `.github/workflows/release.yml`
+4. Verify `Makefile` defines `APP_NAME` (informational only).
 
-### 2. Check Release Preconditions
+### 2. Check Preconditions
 
 Run and verify:
 
@@ -92,199 +87,144 @@ Run and verify:
 git status --short
 git branch --show-current
 git rev-parse --verify origin/develop
+command -v git docker make gh bumpversion gpg
+docker info
 git flow version
+gh auth status
+git config --get user.signingkey
+gpg --list-secret-keys "$(git config --get user.signingkey)"
 ```
 
 Preconditions:
 
-- Working tree must be clean.
-- Current branch must be `develop`.
-- `origin/develop` must exist.
-- No release branch may already be in progress.
-- Git flow must be available. If git flow is missing, stop with installation
-  guidance. If git flow is installed but not initialized, the release script may
-  initialize it.
+- Working tree clean — no modified or untracked files (`git status --porcelain` empty).
+- Host tools: `git`, `docker` (daemon running), `make`, `gh` (authenticated),
+  `bumpversion`, `gpg`, `git flow`.
+- GPG: `user.signingkey` set and secret key available locally.
+- `origin/develop` exists.
+- No in-flight `release/*` branch unless user explicitly asked to recover (use undo first).
+- Current branch must be `develop`. Sync: `git pull origin develop`.
 
-Then sync:
-
-```bash
-git pull origin develop
-```
-
-If pull changes the tree, re-check that the working tree is clean.
-
-Warn, but do not block, when open PRs still target `develop`:
+Warn (do not block) on open PRs targeting `develop`:
 
 ```bash
 gh pr list --base develop --state open
 ```
 
-Record the count in the handoff or status output. The weekly release still
-proceeds when eligible closed parent or standalone issues exist.
-
-### 3. Compute Next Patch Version
-
-Compute the next version without changing files:
+### 3. Compute Next Version
 
 ```bash
-bumpversion --dry-run --list patch
+bumpversion --dry-run --list patch   # or minor | major
 ```
 
-Extract `new_version=<version>`. The milestone name is this patch version.
+Extract `new_version=<version>`. Milestone name matches this version for patch flows.
 
-Do not accept or expose `version_type:minor`, `version_type:major`,
-`app_name:<name>`, positional app names, or `APP_NAME=...` overrides.
+### 4. Select Issues For The Milestone (patch only)
 
-### 4. Select Issues For The Milestone
+For `minor` and `major`, require user confirmation of milestone handling before
+creating or changing milestones.
 
-Use GitHub data to identify parent or standalone issues for the retroactive
-milestone. Sub-task issues are implementation details and must not be added to
-the release milestone directly.
+For `patch`, use GitHub data for parent or standalone issues (not sub-tasks).
 
-Preferred order:
+Resolve release window:
 
-1. Use available GitHub MCP tools for milestone and issue operations when an
-   enabled server supports them.
-2. Fall back to `gh` when MCP support is unavailable, because this release flow
-   already depends on GitHub CLI for `gh release create` inside
-   `scripts/release.sh`.
+1. Most recently closed milestone `closed_at` as exclusive lower bound.
+2. Else latest GitHub release or tag date.
+3. Else stop (ask in interactive mode; blocker in non-interactive).
 
-Resolve the release window:
+Before selecting patch issues, close completed parent issues when all sub-issues
+are closed (`gh issue close <parent> --comment "All sub-tasks completed."`).
 
-1. Find the most recently closed milestone by `closed_at`.
-2. Use that `closed_at` as the exclusive lower bound.
-3. If no closed milestone exists, prefer the latest GitHub release or tag date as
-   the lower bound.
-4. If no lower bound can be resolved, stop in interactive mode and ask for the
-   initial window; in non-interactive mode, stop with a blocker.
+Eligible patch issues:
 
-Before selecting eligible issues, close completed parent issues:
+- Parent features or standalone issues closed after the lower bound.
+- Not sub-tasks, not `Task:` issues, not on a later open milestone.
+- Exclude if blocked by unmerged PR evidence.
 
-1. Find open parent feature issues. A parent feature issue is one of:
-   - An issue that has sub-issues.
-   - An issue with the CodeCandidates parent naming convention, such as a
-     `Feature:` title, when sub-issue metadata is unavailable.
-2. For each open parent, verify every linked sub-issue is closed.
-3. If all linked sub-issues are closed, close the parent with:
-
-   ```bash
-   gh issue close <parent-number> --comment "All sub-tasks completed."
-   ```
-
-4. Do not close parents with open or unknown sub-issues. Do not close sub-task
-   issues from this skill; PR merge via `Closes #N` owns sub-task closure.
-
-Eligible milestone issues after that preflight:
-
-- **Parent feature issues**: closed, `closed_at` after the lower bound, and
-  identified as a parent by sub-issue metadata or `Feature:` title convention.
-- **Standalone issues**: closed, `closed_at` after the lower bound, not linked
-  as a sub-issue of another issue, and not a CodeCandidates `Task:` issue.
-- Issue is not already assigned to a later open milestone.
-- If linked PR evidence is available and shows the issue is still blocked by an
-  unmerged PR, exclude it.
-
-Issues are the source of truth. Do not use merged PRs as the primary source of
-truth because one issue may need more than one PR.
-
-Explicit exclusions:
-
-- `Task:` sub-issues or issues linked as sub-issues of a parent.
-- Open parent issues where only some children are closed.
-- Issues already assigned to a later open milestone.
-
-If no eligible issues exist, stop before creating a milestone:
+If no eligible issues for patch, stop:
 
 ```text
-No eligible closed issues since <date>; skipping weekly release.
+No eligible closed issues since <date>; skipping release.
 ```
 
 ### 5. Create And Populate Milestone
 
-Create a new milestone named for the next patch version.
+Create milestone for next version when applicable. Attach eligible issues only.
+Do not run `make release-*` if milestone creation partially failed.
 
-Attach every eligible parent or standalone issue to the milestone. Do not attach
-sub-task issues directly.
+### 6. Run The Gated Make Target
 
-The milestone documents the version and the issues resolved in that version. It
-is created during release and closed after release; it is not a planning
-milestone.
+Five gates:
 
-If milestone creation or issue assignment fails after partial work:
+| Gate | What runs | Verified by |
+| --- | --- | --- |
+| 1 Local preflight | `make release-preflight` | Script exit |
+| 2 Branch push | `release/<version>` pushed | Remote branch |
+| 3 Branch CI | Push workflow + `Release Gate` | `gh run watch` |
+| 4 Tag + GH release | git-flow finish, tag, `gh release create` | Remote tag + release |
+| 5 Publish verify | `release.yml` on GitHub release | `gh run view` — verify-only, single PyPI, or monorepo PyPI per repo |
 
-- Do not run the release script.
-- Report the partial milestone state clearly.
-- Leave cleanup to the maintainer unless the corrective action is obvious and
-  non-destructive.
+| Type | Interactive | Non-interactive |
+| --- | --- | --- |
+| `patch` | `make release-patch` | `NON_INTERACTIVE=true make release-patch` |
+| `minor` | `make release-minor` | `NON_INTERACTIVE=true make release-minor` |
+| `major` | `make release-major` | `NON_INTERACTIVE=true make release-major` |
 
-### 6. Run The Release Script
+### 6b. Abort and Roll Back on Failure
 
-Interactive mode:
+On any failure, **always** run `VERSION=<version> make undo-release`, halt, report
+what failed, confirm rollback, and tell the user to fix on `develop` and invoke
+`rosey-release` again.
 
-```bash
-make release-patch
-```
+### 7. Verify Branch CI And Publish Workflow
 
-Non-interactive mode:
+Verify: branch CI passed before tag; remote tag; GitHub release; **Publish Release**
+workflow (`release.yml`) succeeded.
 
-```bash
-NON_INTERACTIVE=true make release-patch
-```
+**Gate 5 by repo profile:**
 
-Do not run `make release-minor`, `make release-major`, `make hotfix`, or
-`make release-patch APP_NAME=...`.
+| Profile | `release.yml` behavior | Extra checks |
+| --- | --- | --- |
+| verify-only (default fleet) | `verify-release-tag` job only | lint + tests pass on tag |
+| single-pypi (**spices**) | verify + build + PyPI publish | PyPI lists package; GitHub release assets |
+| monorepo-pypi (**agoras**) | verify + multi-package build + sequential PyPI | PyPI lists all packages; RTD webhook if configured |
 
-The Makefile passes its repo-local `APP_NAME` into `scripts/release.sh`; the
-script uses it for the GitHub release title.
-
-### 7. Verify Release
-
-Verify:
-
-- The command completed successfully.
-- The new tag exists on the remote.
-- GitHub release creation either succeeded or was skipped by the release script
-  because `gh` was unavailable.
-- Local branch is back on `develop` and clean.
+Local branch on `develop` and clean.
 
 ### 8. Close Milestone
 
-Close the milestone after successful release verification.
-
-The release date and milestone close date should be the same date. If closing the
-milestone fails after a successful release, report the release as complete but
-the milestone close as a blocker for manual follow-up.
+Close milestone after successful verification (same date as release).
 
 ### 9. Handoff
 
-Emit:
-
 ```text
 ROSEY_RELEASE_HANDOFF
-VERSION: <new patch version>
-MILESTONE: <title or url>
+VERSION: <new version>
+RELEASE_TYPE: <patch | minor | major>
+MILESTONE: <title or url | none>
 ISSUES_INCLUDED:
 - <issue number>: <title>
 COMMAND:
-- <make release-patch | NON_INTERACTIVE=true make release-patch>: <pass | failed>
+- <make command>: <pass | failed>
+PREFLIGHT: <pass | failed>
+BRANCH_CI: <pass | failed>
+PUBLISH_WORKFLOW: <pass | failed>
+PYPI: <not-applicable | pass | failed> — <package list or none>
+GITHUB_ASSETS: <pass | failed | not-applicable>
 VERIFY:
 - remote tag: <pass | failed>
-- GitHub release: <created | skipped | failed>
-- milestone closed: <pass | failed>
+- GitHub release: <created | existed | skipped | failed>
+- milestone closed: <pass | failed | not-applicable>
 BLOCKERS: <none | one-line blocker>
 HINDSIGHT: <available | unavailable | skipped> -- <brief reason>
 END_ROSEY_RELEASE_HANDOFF
 ```
 
-If Hindsight is available, retain a concise session summary with repo, version,
-milestone, included issues, command result, and blockers. Do not store secrets.
-
 ## Prohibited Behavior
 
-- Do not create releases when no eligible issues exist.
-- Do not create an empty milestone.
+- Do not create patch releases when no eligible issues exist.
+- Do not create empty milestones.
 - Do not pass app names or override `APP_NAME`.
-- Do not release from branches other than `develop`.
-- Do not weaken or alter CI to make a release possible.
-- Do not perform hotfixes.
+- Do not infer minor or major releases.
+- Do not weaken, skip, or alter CI.
 - Do not run in maintainer repositories.

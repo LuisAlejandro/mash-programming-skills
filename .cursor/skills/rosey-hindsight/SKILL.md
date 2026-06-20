@@ -22,6 +22,16 @@ No line → gate not run. "Unavailable" requires a failed `daemon status` — no
 
 Rosey uses Hindsight through the local `hindsight-embed` CLI. This is a CLI-only integration: do not add a Hindsight server to `.cursor/mcp.json` for this flow.
 
+## Pinned CLI version
+
+Always invoke Hindsight with a pinned `uvx` package (not bare `hindsight-embed@latest`), so `uv` reuses a stable environment instead of re-resolving on every call:
+
+```bash
+uvx hindsight-embed@0.8.2 <command> ...
+```
+
+Bump the pin in `.cursor/hooks/ensure-hindsight-daemon.sh`, this skill, and every Rosey reference when upgrading Hindsight deliberately.
+
 Hindsight memory complements, but does not replace, curated `rosey/solutions/` learnings or Sentrux topology data:
 
 - `rosey/solutions/` and `rosey-learnings-researcher` are curated institutional knowledge.
@@ -33,13 +43,13 @@ Hindsight memory complements, but does not replace, curated `rosey/solutions/` l
 Before relying on memory, check whether the local embed daemon is configured:
 
 ```bash
-uvx hindsight-embed daemon status
+uvx hindsight-embed@0.8.2 daemon status
 ```
 
 If the command fails because Hindsight is not configured, tell the user to run the interactive setup once:
 
 ```bash
-uvx hindsight-embed configure
+uvx hindsight-embed@0.8.2 configure
 ```
 
 Daemon startup is handled by the project hook `.cursor/hooks/ensure-hindsight-daemon.sh` (registered in `.cursor/hooks.json` on `sessionStart`). Do not run `daemon start` manually; use `daemon status` only.
@@ -72,7 +82,7 @@ Recall before substantive work:
 Use a task-specific query with the plan path, feature summary, relevant modules, PR scope, and stable IDs when present:
 
 ```bash
-uvx hindsight-embed memory recall "$bank" "Task summary, plan path, modules, risks, and stable requirement IDs"
+uvx hindsight-embed@0.8.2 memory recall "$bank" "Task summary, plan path, modules, risks, and stable requirement IDs"
 ```
 
 Fold useful recalled context into the approach. Do not dump raw CLI output into chat unless the user asks.
@@ -84,11 +94,11 @@ Retain only durable, non-secret information. Pass rich context, not a pre-compre
 Use `--context` to label the memory type:
 
 ```bash
-uvx hindsight-embed memory retain "$bank" "User prefers strict TypeScript and explicit return types in this repository." --context preferences
+uvx hindsight-embed@0.8.2 memory retain "$bank" "User prefers strict TypeScript and explicit return types in this repository." --context preferences
 
-uvx hindsight-embed memory retain "$bank" "Running npm test without NODE_ENV=test fails because the config loader expects TEST_DATABASE_URL. Setting NODE_ENV=test fixed the suite." --context procedures
+uvx hindsight-embed@0.8.2 memory retain "$bank" "Running npm test without NODE_ENV=test fails because the config loader expects TEST_DATABASE_URL. Setting NODE_ENV=test fixed the suite." --context procedures
 
-uvx hindsight-embed memory retain "$bank" "During the auth refactor, the existing middleware order required permission checks before session refresh. Reversing the order caused stale-session redirects." --context learnings
+uvx hindsight-embed@0.8.2 memory retain "$bank" "During the auth refactor, the existing middleware order required permission checks before session refresh. Reversing the order caused stale-session redirects." --context learnings
 ```
 
 Retain during a task when you discover:
@@ -106,7 +116,7 @@ At the end of `rosey-work`, retain a concise but rich session summary: plan path
 Use `reflect` when the next step requires synthesis rather than raw recall:
 
 ```bash
-uvx hindsight-embed memory reflect "$bank" "Based on past work in this repository, what constraints should guide this implementation?"
+uvx hindsight-embed@0.8.2 memory reflect "$bank" "Based on past work in this repository, what constraints should guide this implementation?"
 ```
 
 Use reflect sparingly; recall is cheaper and sufficient for most workflow entry points.

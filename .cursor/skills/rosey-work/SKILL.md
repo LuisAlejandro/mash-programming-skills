@@ -54,7 +54,7 @@ This skill follows the Rosey-native work workflow with Rosey Sentrux and handoff
 ### Phase 0.0: Hindsight gate (hard)
 
 1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
-2. Run `uvx hindsight-embed daemon status`
+2. Run `uvx hindsight-embed@0.8.2 daemon status`
 3. Run `memory recall` OR emit `Hindsight: unavailable — <reason>` before any file edits
 4. At handoff: `memory retain` session summary OR document why retain was skipped
 
@@ -185,7 +185,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    **Hindsight recall:**
    - Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) before the first implementation task.
    - Resolve the Hindsight bank ID using the skill's bank resolution rule.
-   - Run `uvx hindsight-embed memory recall <bank> "<task summary>"` with the plan path or bare prompt, affected modules, important risks, and U/R/A/F/AE IDs when present.
+   - Run `uvx hindsight-embed@0.8.2 memory recall <bank> "<task summary>"` with the plan path or bare prompt, affected modules, important risks, and U/R/A/F/AE IDs when present.
    - Fold useful recalled context into the execution approach. Do not paste raw recall output into chat unless the user asks.
    - If Hindsight is unavailable, continue and record the unavailable status for handoff.
 
@@ -271,8 +271,6 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
 1. **Task Execution Loop**
 
-   For each task in priority order:
-
    ```
    while (tasks remain):
      - Mark task as in-progress
@@ -289,7 +287,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
      - Evaluate for incremental commit (see below)
    ```
 
-   When a task reveals durable context, retain it immediately with `uvx hindsight-embed memory retain` using the guidance in [`rosey-hindsight`](../rosey-hindsight/SKILL.md). Good candidates include user preferences, project conventions, failed-command fixes, environment requirements, architecture decisions, and workarounds. Do not store secrets or sensitive data.
+   When a task reveals durable context, retain it immediately with `uvx hindsight-embed@0.8.2 memory retain` using the guidance in [`rosey-hindsight`](../rosey-hindsight/SKILL.md). Good candidates include user preferences, project conventions, failed-command fixes, environment requirements, architecture decisions, and workarounds. Do not store secrets or sensitive data.
 
    When a unit carries an `Execution note`, honor it. For test-first units, write the failing test before implementation for that unit. For characterization-first units, capture existing behavior before changing it. For units without an `Execution note`, proceed pragmatically.
 
@@ -445,7 +443,7 @@ When all Phase 2 tasks are complete:
      ```
 
    - `FILES_CHANGED`, `WHAT_WAS_IMPLEMENTED`, `PLAN_OR_REQUIREMENTS`, and `SENTRUX_REVIEW_CONTEXT` are required for downstream compatibility.
-   - `DONE`, `VERIFY`, `BLOCKERS`, `HINDSIGHT`, and `SENTRUX` are compact machine-to-machine fields. Keep each line short; put full detail in artifacts or blocker reports only when needed.
+   - `DONE`, `VERIFY`, `BLOCKERS`, `HINDSIGHT`, and `SENTRUX` are machine-to-machine fields. Keep each line short; put full detail in artifacts or blocker reports only when needed.
 6. **Stop**. Do not invoke `rosey-qa`, `rosey-pr`, or any shipping workflow. Shipping/QA adaptation is handled by a separate plan.
 
 ## Key Principles
