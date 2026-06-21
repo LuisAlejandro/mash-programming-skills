@@ -142,7 +142,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    git flow feature start <slug>
    ```
 
-   Use a meaningful slug based on the work (e.g., `user-authentication`). `git flow feature start <slug>` creates and checks out `feature/<slug>`.
+   Use a meaningful slug based on the work (e.g., `user-authentication`). `git flow feature start <slug>` creates and checks out `feature/<slug>`. Keep branch names on `feature/<slug>` for `pr-auto-merge.yml` head filter compatibility.
 
    **Option B: Use a worktree (recommended for parallel development)**
    Use the platform's worktree support or an available worktree helper. The worktree must create a new `feature/<slug>` branch from `develop` in an isolated checkout. Keep worktree isolation for parallel implementation; shared-directory parallel writes are unsafe.

@@ -45,7 +45,7 @@ When `INTERACTION_MODE=non-interactive`:
 - PR creation or update through `rosey-pr`
 - Final `<promise>DONE</promise>` signal
 
-`rosey-lfg-quality` implements the quality and PR portion of MAINTAINER release ritual step 4. It does not merge PRs, watch or fix CI, create milestones, or publish releases. App repo PRs are handled by auto-merge workflows after this skill creates or updates the PR. Pipeline failures are handled outside this v1 flow by Cursor Bugbot and existing automation.
+`rosey-lfg-quality` implements workflow overview step 2 (quality and PR). It does not merge PRs, watch or fix CI, create milestones, or publish releases. App repo PRs may be auto-merged by static-synced `pr-auto-merge.yml` after this skill creates or updates the PR (owner and Dependabot only). Pipeline failures are handled outside this v1 flow by Cursor Bugbot and existing automation.
 
 Do not invoke `rosey-brainstorm`, `rosey-plan`, or `rosey-work` from this skill. If code-stage context is missing, stop and ask for the `rosey-lfg-code` handoff.
 
@@ -150,6 +150,7 @@ Gate before continuing:
 - Verify a PR was created or an existing PR was updated.
 - Record PR number, URL, base branch, and head branch.
 - Verify `rosey-pr` wrote the plan-linked PR summary artifact when `PLAN_PATH` is known.
+- If head branch is not `feature/<slug>` or `dependabot/**`, warn in the handoff that `pr-auto-merge.yml` will not run (manual merge/review required). Do not block PR creation.
 
 ### 5. Done Signal
 

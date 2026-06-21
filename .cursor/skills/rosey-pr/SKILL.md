@@ -22,7 +22,8 @@ This skill follows the Rosey-native commit/push/PR workflow, with Rosey transpor
 - Do **not** use the GitHub CLI.
 - Do **not** assign or bootstrap PR labels.
 - Implement MAINTAINER release ritual step 4 for app repos: push the current feature branch and create or update a pull request against `develop`.
-- Use `develop` as the fixed Rosey workspace integration/base branch unless the user explicitly overrides with `base:<branch>` for an exceptional manual case.
+- Use `develop` as the fixed Rosey workspace integration/base branch unless the user explicitly overrides with `base:<branch>` for an exceptional manual case. PRs not targeting `develop` are out of `pr-auto-merge.yml` scope (gate skips).
+- Integration PR head branches must be `feature/<slug>` (git-flow) so static-synced auto-merge head filters match. Dependabot uses `dependabot/**`.
 - Receive completed work after `rosey-work` and usually after `rosey-qa`, or as the PR stage inside `rosey-lfg-quality`.
 - Stop at PR create/update. Do not merge PRs, watch or fix CI, create milestones, or run releases; auto-merge workflows and `rosey-release` own those later steps.
 - Do not use the old product-document mode. Prefer `plan:<path>` metadata when supplied; otherwise derive title/body from branch commits and diff.
@@ -54,7 +55,7 @@ Parse `$ARGUMENTS` for:
 | `mode:non-interactive` | `mode:non-interactive` | Run without prompts or confirmation gates |
 | `mode:interactive` | `mode:interactive` | Explicit default interactive behavior |
 | `plan:<path>` | `plan:rosey/plans/2026-05-29-001-feat-workflow-plan.md` | Source plan for PR title/body context and PR summary location |
-| `base:<branch>` | `base:release` | Explicit base branch override. Default is `develop` |
+| `base:<branch>` | `base:release` | Explicit base branch override. Default is `develop`. Auto-merge does not apply when base is not `develop`. |
 
 Strip recognized tokens before interpreting remaining text as description focus, PR URL/number, or user instructions.
 
@@ -93,10 +94,16 @@ Resolve `owner/repo` from `git remote -v`. Before calling any GitHub MCP tool, r
 
 Branch routing:
 
-- **Detached HEAD** — in interactive mode, explain a branch is required and ask whether to create a feature branch. If yes, derive a name from the change content. If no, stop. In non-interactive mode, auto-create a feature branch when a safe base can be resolved; otherwise stop with a blocker.
-- **On `<base>` with work to do** (uncommitted, unpushed, or no upstream) — automatically create a feature branch. Pushing the integration branch directly is not supported.
+- **Detached HEAD** — in interactive mode, explain a branch is required and ask whether to create a `feature/<slug>` branch. If yes, derive `<slug>` per **Branch naming** below and run git-flow feature start. If no, stop. In non-interactive mode, auto-create a feature branch when a safe base can be resolved; otherwise stop with a blocker.
+- **On `<base>` with work to do** (uncommitted, unpushed, or no upstream) — automatically create a `feature/<slug>` branch via git-flow. Pushing the integration branch directly is not supported.
 - **On `<base>` with no work** — report no feature branch work and stop.
-- **Feature branch** — continue.
+- **Feature branch** — if the branch is meaningful but not `feature/<slug>`, suggest `git branch -m feature/<slug>` before push (mirror `rosey-work` rename guidance). If the name is opaque, derive a slug and rename. Then continue.
+
+**Branch naming** (integration PRs only):
+
+- Format: `feature/<slug>` via `git flow feature start <slug>` (see `references/branch-creation.md`).
+- Slug: kebab-case from `plan:<path>` basename (strip date/id prefix) or change summary; max ~50 characters.
+- Do not use `test/`, `chore/`, or `release/` prefixes for integration PRs.
 
 Use GitHub MCP `search_pull_requests` to detect an existing open PR for the current branch. Step 5 uses it to route between new-PR and existing-PR application.
 

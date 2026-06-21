@@ -2,6 +2,8 @@
 
 Local `<base>` may have stale commits (another session/worktree advanced it) or commits the user authored intending to branch from later. Local git can't distinguish these — ask when unpushed commits are present in interactive mode. In non-interactive mode, never ask; stop when preserving or excluding local commits would materially change the PR.
 
+Integration PRs use git-flow feature branches: `feature/<slug>`. This matches `pr-auto-merge.yml` head filters (`feature/**`).
+
 ## Decision flow
 
 ### 1. Fetch fresh remote base
@@ -28,17 +30,30 @@ git log origin/<base>..HEAD --oneline
 
   Never default silently in interactive mode — carrying foreign commits into a PR is worse than asking again. In non-interactive mode, stop with a blocker instead of choosing.
 
-### 3. Create the feature branch
+### 3. Derive feature slug
+
+- From `plan:<path>`: basename without extension; strip leading date/id tokens (e.g. `2026-05-29-001-feat-`); kebab-case; max ~50 characters.
+- Otherwise: kebab-case summary of the change.
+- Do not use `test`, `chore`, or `release` as the slug prefix.
+
+### 4. Create the feature branch
+
+Ensure git-flow is initialized, check out the base ref, then start the feature:
 
 ```bash
-git checkout -b <branch-name> "$BASE_REF"
+git config --get gitflow.branch.master >/dev/null 2>&1 || git flow init -d
+git checkout "$BASE_REF"
+git flow feature start <slug>
 ```
 
-If checkout fails because uncommitted changes would be overwritten, stash and retry:
+`git flow feature start` creates and checks out `feature/<slug>`.
+
+If checkout fails because uncommitted changes would be overwritten, stash and retry from step 4:
 
 ```bash
-git stash push -u -m "rosey-pr: pre-branch <branch-name>"
-git checkout -b <branch-name> "$BASE_REF"
+git stash push -u -m "rosey-pr: pre-branch feature/<slug>"
+git checkout "$BASE_REF"
+git flow feature start <slug>
 git stash pop
 ```
 
@@ -46,10 +61,11 @@ If `git stash pop` reports conflicts, surface the conflict output and the stash 
 
 ## Fetch failure fallback
 
-If `git fetch` fails, branch from current local HEAD:
+If `git fetch` fails, branch from current local HEAD when it is not `<base>`; otherwise stop with a blocker in non-interactive mode or ask in interactive mode.
 
 ```bash
-git checkout -b <branch-name>
+git config --get gitflow.branch.master >/dev/null 2>&1 || git flow init -d
+git flow feature start <slug>
 ```
 
 Note in the user-facing summary that base freshness was not verified. Skip the unpushed-commits check — without a fresh `origin/<base>`, the answer is unreliable.

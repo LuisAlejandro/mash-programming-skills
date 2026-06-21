@@ -112,6 +112,7 @@ Preconditions:
 - `origin/develop` exists.
 - No in-flight `release/*` branch unless user explicitly asked to recover (use undo first).
 - Current branch must be `develop`. Sync: `git pull origin develop`.
+- `release/<version>` uses **Push** workflow (`push.yml`) and `scripts/release.sh`; it does not go through `pr-auto-merge.yml`.
 
 Warn (do not block) on open PRs targeting `develop`:
 
