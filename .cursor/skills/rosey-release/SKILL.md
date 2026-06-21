@@ -58,6 +58,14 @@ Parse at most one release type token:
 
 If no type token, set `RELEASE_TYPE=patch`. If multiple type tokens, stop and ask.
 
+In `mode:non-interactive`:
+
+- **Patch only** unless a release type token (`minor` or `major`) is present in `$ARGUMENTS`.
+- If `minor` or `major` is requested in non-interactive mode, document milestone handling without
+  blocking questions. If milestone rules cannot be satisfied automatically, emit
+  `ROSEY_RELEASE_HANDOFF` with `SUCCESS: false`, `BLOCKERS:` describing the milestone gap,
+  and do not run release scripts.
+
 ## Hindsight Gate
 
 Before release work:
@@ -162,7 +170,7 @@ Five gates:
 | 2 Branch push | `release/<version>` pushed | Remote branch |
 | 3 Branch CI | Push workflow + `Release Gate` | `gh run watch` |
 | 4 Tag + GH release | git-flow finish, tag, `gh release create` | Remote tag + release |
-| 5 Publish verify | `release.yml` on GitHub release | `gh run view` — verify-only, single PyPI, or monorepo PyPI per repo |
+| 5 Publish verify | `release.yml` before PyPI | `gh run view` |
 
 | Type | Interactive | Non-interactive |
 | --- | --- | --- |
@@ -178,18 +186,19 @@ what failed, confirm rollback, and tell the user to fix on `develop` and invoke
 
 ### 7. Verify Branch CI And Publish Workflow
 
-Verify: branch CI passed before tag; remote tag; GitHub release; **Publish Release**
-workflow (`release.yml`) succeeded.
+Verify: branch CI passed before tag; remote tag; GitHub release; Publish Release
+workflow succeeded; `Verify release tag` before PyPI; distribution assets on
+GitHub release; PyPI verification per dispatch (see below); local branch on
+`develop` and clean.
 
-**Gate 5 by repo profile:**
+**PyPI verification rules:**
 
-| Profile | `release.yml` behavior | Extra checks |
-| --- | --- | --- |
-| verify-only (default fleet) | `verify-release-tag` job only | lint + tests pass on tag |
-| single-pypi (**spices**) | verify + build + PyPI publish | PyPI lists package; GitHub release assets |
-| monorepo-pypi (**agoras**) | verify + multi-package build + sequential PyPI | PyPI lists all packages; RTD webhook if configured |
-
-Local branch on `develop` and clean.
+- If VersionPromote dispatch lists packages (from `publish-to-pypi` in
+  `.github/workflows/release.yml`), verify each listed package on PyPI and record
+  `pass` or `failed` per package in the handoff `PYPI:` section.
+- If dispatch says PyPI is not applicable (no `publish-to-pypi` job), set
+  `PYPI: not-applicable` in the handoff and skip PyPI checks.
+- Do not hardcode package names; use only the dispatch list or repo workflow discovery.
 
 ### 8. Close Milestone
 
@@ -209,16 +218,20 @@ COMMAND:
 PREFLIGHT: <pass | failed>
 BRANCH_CI: <pass | failed>
 PUBLISH_WORKFLOW: <pass | failed>
-PYPI: <not-applicable | pass | failed> — <package list or none>
-GITHUB_ASSETS: <pass | failed | not-applicable>
+PYPI: <not-applicable | per-package lines below>
+- <package-name>: <pass | failed>
+GITHUB_ASSETS: <pass | failed>
 VERIFY:
 - remote tag: <pass | failed>
 - GitHub release: <created | existed | skipped | failed>
 - milestone closed: <pass | failed | not-applicable>
 BLOCKERS: <none | one-line blocker>
+ROLLBACK: <pass | failed | not-applicable>
 HINDSIGHT: <available | unavailable | skipped> -- <brief reason>
 END_ROSEY_RELEASE_HANDOFF
 ```
+
+Record `ROLLBACK: pass` after successful `make undo-release`; `failed` if rollback did not complete; `not-applicable` when no release version was created.
 
 ## Prohibited Behavior
 

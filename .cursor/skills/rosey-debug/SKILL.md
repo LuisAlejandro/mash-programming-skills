@@ -16,6 +16,34 @@ Find root causes, then fix them. This skill investigates bugs systematically —
 
 <bug_description> #$ARGUMENTS </bug_description>
 
+## Interaction Mode
+
+Parse `$ARGUMENTS` for at most one interaction mode token:
+
+- `mode:interactive` — default for direct chat invocation. Blocking questions and diagnosis-only paths are allowed.
+- `mode:non-interactive` — scripted or consumer execution (for example DebugPromote). No blocking questions, no diagnosis-only exit; always fix and open a PR when possible.
+
+Strip the interaction mode token before parsing the bug description. If no interaction mode token is present, set `INTERACTION_MODE=interactive`.
+
+If multiple interaction mode tokens appear, stop and report the conflict.
+
+### Non-Interactive Mode Rules
+
+When `INTERACTION_MODE=non-interactive`:
+
+- Do not use blocking question tools or wait for user confirmation.
+- Skip Phase 2 "Fix it now / Diagnosis only" and Phase 4 commit/PR menus.
+- On trivial-bug fast-path: apply the fix immediately after causal chain is clear; do not offer diagnosis-only.
+- Always proceed through Phase 3 (fix) when a safe fix exists.
+- Create a feature branch from `develop` when on the default branch without asking.
+- Stash or avoid overwriting unrelated dirty work; if the tree cannot be made safe, stop with `DEBUG_HANDOFF` and `SUCCESS: false`.
+- After fix and verification, invoke `rosey-pr` with `mode:non-interactive plan:<path>` when a plan exists, otherwise ad-hoc mode with a descriptive title.
+- Emit the machine-readable `DEBUG_HANDOFF` block before finishing (required).
+- Skip learning-capture offers.
+- **Issue fetch override:** If Phase 0 issue fetch (`gh issue view`, MCP, or URL fetch) fails,
+  do not ask the user to paste content. Emit `DEBUG_HANDOFF` with `SUCCESS: false` and
+  `BLOCKERS:` set to the fetch error, then stop.
+
 ## Core Principles
 
 1. **Investigate before fixing.** Do not propose a fix until you can explain the full causal chain from trigger to symptom with no gaps. "Somehow X leads to Y" is a gap.
@@ -261,3 +289,19 @@ When offering, use the blocking question tool described above. If the user accep
 - **Curated institutional learning (when the lesson should be searchable in git):** add or update a file under `rosey/solutions/` or `rosey/insights/` following `save-insights` frontmatter rules, then commit that file to the same branch and push so the open PR picks it up.
 
 Do not treat Hindsight retain as producing a learning document. Use file-based docs only when the insight should live in version control.
+
+### Non-Interactive Handoff (required when `INTERACTION_MODE=non-interactive`)
+
+After Phase 4, emit:
+
+```text
+DEBUG_HANDOFF
+SUCCESS: <true | false>
+PR_URL: <url or none>
+ROOT_CAUSE: <one-line causal summary>
+CONFIDENCE: <High | Medium | Low>
+BLOCKERS: <none | one-line blocker>
+END_DEBUG_HANDOFF
+```
+
+When `SUCCESS: true`, `PR_URL` must be a GitHub pull request URL on its own line in the chat output as well.

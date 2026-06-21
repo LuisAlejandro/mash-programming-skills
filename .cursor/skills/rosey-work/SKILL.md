@@ -271,6 +271,8 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
 1. **Task Execution Loop**
 
+   For each task in priority order:
+
    ```
    while (tasks remain):
      - Mark task as in-progress
@@ -443,7 +445,7 @@ When all Phase 2 tasks are complete:
      ```
 
    - `FILES_CHANGED`, `WHAT_WAS_IMPLEMENTED`, `PLAN_OR_REQUIREMENTS`, and `SENTRUX_REVIEW_CONTEXT` are required for downstream compatibility.
-   - `DONE`, `VERIFY`, `BLOCKERS`, `HINDSIGHT`, and `SENTRUX` are machine-to-machine fields. Keep each line short; put full detail in artifacts or blocker reports only when needed.
+   - `DONE`, `VERIFY`, `BLOCKERS`, `HINDSIGHT`, and `SENTRUX` are compact machine-to-machine fields. Keep each line short; put full detail in artifacts or blocker reports only when needed.
 6. **Stop**. Do not invoke `rosey-qa`, `rosey-pr`, or any shipping workflow. Shipping/QA adaptation is handled by a separate plan.
 
 ## Key Principles

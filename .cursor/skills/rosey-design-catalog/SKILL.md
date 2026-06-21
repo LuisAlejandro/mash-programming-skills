@@ -11,11 +11,28 @@ description: Generates custom design system rules from OpenDesign exported HTML/
 
 **Artifact boundary:** Caveman full applies to chat and status prose, not generated rules, catalog JSON, design context JSON, manifests, or validation output.
 
+Generates design system rules mapping OpenDesign HTML/CSS into the app's framework, components, and tokens.
+
+## Interaction Mode
+
+Parse `$ARGUMENTS` for at most one interaction mode token:
+
+- `mode:interactive` — default. May offer to invoke rosey-implement-design after Step 5.
+- `mode:non-interactive` — scripted execution (for example DesignPromote). Strip the token before interpreting artifact inputs.
+
+If multiple interaction mode tokens appear, stop and report the conflict.
+
+### Non-Interactive Mode Rules
+
+When `mode:non-interactive` is present (in `$ARGUMENTS` or the invoking prompt):
+
+- Skip Step 6 (do not offer or invoke rosey-implement-design).
+- End after Step 5 validation passes.
+- Do not ask blocking questions; use conservative defaults for optional inputs.
+
 ## Overview
 
-First skill in the OpenDesign-to-code flow. After completing, offer to invoke **rosey-implement-design**.
-
-Generates design system rules mapping OpenDesign HTML/CSS into the app's framework, components, and tokens.
+First skill in the OpenDesign-to-code flow. After completing in interactive mode, offer to invoke **rosey-implement-design**.
 
 ### Outputs
 
@@ -82,5 +99,7 @@ Uses JSON schemas in `templates/rosey-*.schema.json`.
 Catalog must follow `templates/rosey-component-catalog.schema.json`: path, exported name, `matches`, `props`. It is project-level at `rosey/designs/component-catalog.json`; per-page matching output is generated later by `rosey-implement-design`.
 
 ### Step 6: Offer rosey-implement-design
+
+**Skip in `mode:non-interactive`.**
 
 Ask whether to implement now. Pass `pageSlug`, `htmlPath`, and `assetsDir` (if applicable) to implement skill.

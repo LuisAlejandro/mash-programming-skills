@@ -87,6 +87,18 @@ Parent workflows that run in `mode:non-interactive` should choose the QA submode
 - **Apply only `safe_auto -> review-fixer` findings.** Leave `gated_auto`, `manual`, `human`, and `release` work unresolved.
 - **Write a run artifact** under `rosey/qa/<run-id>/` summarizing findings, applied fixes, residual actionable work, and advisory outputs. Orchestrators read this artifact to route residual `downstream-resolver` findings; the skill itself does not file tickets or prompt the user in autofix.
 - **Emit a compact Residual Actionable Work summary in the autofix return** listing each residual `downstream-resolver` finding with only stable `#`, severity, file:line, title, autofix_class, and suggested fix when present. Structure the summary as two separate contiguous sections: applied `safe_auto` fixes first, then residual non-auto findings. Within the residual section, reuse each finding's stable `#` from Stage 5 -- never renumber. Include the run-artifact path. Callers read this summary directly without parsing the artifact. When no residuals exist, state `Residual actionable work: none.` explicitly.
+- **Emit `QA_REVIEW_HANDOFF` before finishing autofix** (required for skill-to-skill callers):
+
+```text
+QA_REVIEW_HANDOFF
+MODE: autofix
+ARTIFACT: rosey/qa/<run-id>/...
+RESIDUAL_COUNT: <n>
+RESIDUALS: none|<compact list>
+APPLIED_FIXES: <n>
+END_QA_REVIEW_HANDOFF
+```
+
 - **Never commit, push, or create a PR** from autofix mode. Parent workflows own those decisions.
 
 ### Report-only mode rules

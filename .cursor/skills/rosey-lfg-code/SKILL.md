@@ -128,7 +128,15 @@ HINDSIGHT: <available | unavailable | skipped> -- <brief reason>
 SENTRUX: <pass | failed | unavailable | override> -- <brief reason>
 SENTRUX_REVIEW_CONTEXT:
 <markdown sentrux summary or unavailable reason>
+CHILD_MODES:
+- rosey-brainstorm: non-interactive
+- rosey-plan: non-interactive
+- rosey-work: non-interactive
 END_ROSEY_LFG_QUALITY_HANDOFF
 ```
+
+When `INTERACTION_MODE=non-interactive`, every child skill invocation must include
+`mode:non-interactive` in the prompt. Record the three child receipts in
+`CHILD_MODES` as shown above.
 
 Do not emit `<promise>DONE</promise>`. The full autonomous pipeline is complete only after `rosey-lfg-quality` finishes QA and PR handling.

@@ -1,6 +1,6 @@
 ---
 name: rosey-implement-design
-description: Translates OpenDesign exported HTML/CSS artifacts into UI-layer app components (dummy data only) and runs Cursor subagent review, sync, and iteration. Use when implementing OpenDesign visual output into a codebase. Do not implement full page or component functionality here — the user invokes rosey-brainstorm separately when they want remaining behavior built.
+description: Translates OpenDesign exported HTML/CSS artifacts into UI-layer app components (dummy data only). Visual parity review runs in a separate rosey-design-iterator step (for example DesignPromote). Do not implement full page or component functionality here — the user invokes rosey-brainstorm separately when they want remaining behavior built.
 ---
 
 # Implement OpenDesign
@@ -17,6 +17,22 @@ This skill translates OpenDesign exported HTML/CSS into **UI-layer** app code wi
 
 OpenDesign source is artifact-first. Do not assume MCP tools exist. Use exported HTML as the baseline and map it into the project's native components.
 
+## Interaction Mode
+
+Parse `$ARGUMENTS` for at most one interaction mode token:
+
+- `mode:interactive` — default. May ask blocking questions for optional inputs.
+- `mode:non-interactive` — scripted or consumer execution (for example DesignPromote). No blocking questions; use conservative defaults for optional inputs.
+
+Strip the mode token before resolving inputs. If no mode token is present, set `INTERACTION_MODE=interactive`.
+
+When `INTERACTION_MODE=non-interactive`:
+
+- Do not use blocking question tools or wait for user confirmation.
+- Derive `pageSlug` from HTML filename or title when not provided.
+- Always emit `DESIGN_IMPLEMENT_HANDOFF` before finishing.
+- Leave the app dev server running for the downstream iterator stage.
+
 ## Scope: UI Layer Only
 
 **In scope:** layout, typography, colors, spacing, assets, responsive structure, accessibility markup, and visual interaction affordances (hover/focus states, disabled appearance) needed for parity.
@@ -25,7 +41,7 @@ OpenDesign source is artifact-first. Do not assume MCP tools exist. Use exported
 
 **Data layer:** fill lists, tables, charts, forms, and detail views with **dummy/static data** — hardcoded fixtures, mock objects, or placeholder strings. Wire props and state shapes loosely enough that real data can replace them later, but do not connect to live services.
 
-**Next step (user-driven):** when Step 5 passes (`status: aligned`), this skill is complete. Do not continue into functionality work. The **user** invokes **rosey-brainstorm** when they want the remaining behavior designed and built (data flow, APIs, validation, edge cases).
+**Next step (user-driven):** when implementation and dev-server handoff are complete, stop. Visual parity is handled by **rosey-design-iterator** (orchestrated separately). Do not continue into functionality work. The **user** invokes **rosey-brainstorm** when they want the remaining behavior designed and built (data flow, APIs, validation, edge cases).
 
 ## Prerequisites
 
@@ -95,31 +111,25 @@ Track progress in `implementation-checklist.json`: mark each control `implemente
 
 Use `design-context.json` → `architecture.scripts` (e.g. `dev`, `start`) from detected `package.json` files. Start the server, wait for readiness, capture the live `targetUrl` (include route when implementing a page).
 
-### Step 5: Review / Sync / Iterate (required)
+**Do not** run review/sync/iterate in this skill. Leave the dev server running for the downstream iterator stage.
 
-Create `rosey/designs/<page-slug>/review/`.
+### Done: implementation handoff
 
-**Run only the iterator subagent** (it delegates to reviewer and sync each cycle):
+Emit this block before finishing:
 
 ```text
-/rosey-design-iterator
+DESIGN_IMPLEMENT_HANDOFF
+SUCCESS: true|false
+PAGE_SLUG: <page-slug>
+TARGET_URL: <live app url>
+HTML_PATH: <exported html path>
+BASELINE_URL: <optional baseline artifact url>
+SERVER_PID: <optional dev server pid>
+BLOCKERS: <none | reason>
+END_DESIGN_IMPLEMENT_HANDOFF
 ```
 
-Pass: `htmlPath`, `assetsDir`, `pageSlug`, `targetUrl`, viewports (`1440x900`, `1024x768`, `390x844`), changed files, paths to `design-context.json`, `component-mapping.json`, `asset-map.json`, `implementation-checklist.json`, review directory.
-
-**CRITICAL:** Step 5 must always run. Do not stop after Step 3 implementation.
-
-Iterator must pass final gates before `status: aligned`:
-
-```bash
-node .cursor/skills/rosey-implement-design/scripts/validate-implementation-state.js \
-  --project-root <projectRoot> --page-slug <pageSlug> \
-  --require-checklist-complete --require-aligned
-```
-
-### Done: UI layer complete
-
-When the iterator reports `status: aligned`, stop. This skill does not invoke **rosey-brainstorm** automatically.
+This skill does not invoke **rosey-brainstorm** automatically.
 
 Leave the implementation ready for a future functionality pass:
 

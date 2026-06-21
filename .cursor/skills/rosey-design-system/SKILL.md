@@ -17,6 +17,21 @@ Use this skill to create the OpenDesign design-system package that becomes input
 
 The workflow first ensures the source folder has a high-quality root `DESIGN.md`. Phase 0 always runs: when `DESIGN.md` exists, improve it for accuracy, specificity, and missing sections; when it does not exist, generate it from the implemented frontend using [`phase-0-extract-design-system.md`](phase-0-extract-design-system.md). Phase 1 and later always receive that `DESIGN.md`, create an OpenDesign draft with the root `DESIGN.md` as `body`, open the agent-managed design-system workspace, run workspace generation through OpenDesign `/api/runs`, audit the package through the daemon endpoint, optionally apply one revision, publish the draft, copy the generated workspace package to `rosey/design-system`, and write an async manifest. `rosey-design-catalog` may run later and auto-discover `rosey/design-system/DESIGN.md`.
 
+## Interaction Mode
+
+Parse `$ARGUMENTS` for at most one interaction mode token:
+
+- `mode:interactive` — default. May ask blocking questions for optional inputs.
+- `mode:non-interactive` — scripted or consumer execution (for example DesignCandidates bootstrap). No blocking questions; use conservative defaults for optional inputs.
+
+Strip the mode token before resolving inputs. If no mode token is present, set `INTERACTION_MODE=interactive`.
+
+When `INTERACTION_MODE=non-interactive`:
+
+- Do not use blocking question tools or wait for user confirmation.
+- Skip optional revision offers unless `revisionFeedback` is already provided.
+- Proceed through publish, copy to `rosey/design-system`, and manifest write without prompts.
+
 ## Inputs
 
 Ask for or infer:
@@ -638,3 +653,16 @@ After copying succeeds, report the seeded draft/workspace design system:
 - `HINDSIGHT: available|unavailable` — never omit
 
 `rosey-design-catalog` can be invoked later; it auto-discovers `rosey/design-system/DESIGN.md`.
+
+Emit this machine-readable block before finishing:
+
+```text
+ROSEY_DESIGN_SYSTEM_HANDOFF
+SUCCESS: true|false
+DESIGN_PATH: rosey/design-system/DESIGN.md
+MANIFEST_PATH: rosey/designs/design-system.json
+DESIGN_SYSTEM_ID: <id>
+BLOCKERS: <none | reason>
+HINDSIGHT: <available | unavailable> -- <brief reason>
+END_ROSEY_DESIGN_SYSTEM_HANDOFF
+```

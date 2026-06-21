@@ -94,6 +94,10 @@ Read the review result and run artifact path. Record:
 - Residual actionable work
 - Advisory or release notes
 
+Parse `QA_REVIEW_HANDOFF` from `rosey-qa` autofix output (do not rely on prose
+`Residual actionable work:` strings). Forward `RESIDUALS`, `ARTIFACT`, and
+`RESIDUAL_COUNT` into the terminal block below.
+
 `rosey-qa` must not commit, push, or create a PR.
 
 ### 2. Post-Review Verification
@@ -153,6 +157,18 @@ Output exactly:
 
 ```text
 <promise>DONE</promise>
+```
+
+Also emit the machine-readable completion block:
+
+```text
+ROSEY_LFG_QUALITY_COMPLETE
+PR_URL: <url>
+PLAN_PATH: <path>
+QA_ARTIFACT: rosey/qa/<run-id>/...
+RESIDUALS: none|<summary from QA_REVIEW_HANDOFF>
+BLOCKERS: <none | reason>
+END_ROSEY_LFG_QUALITY_COMPLETE
 ```
 
 Only emit the done signal after:

@@ -71,7 +71,25 @@ Do **not** install missing CLIs globally or attempt to guess commands that aren'
 If a command fails:
 1. Attempt to fix the code automatically if the errors are obvious (e.g., fixing a typo, removing an unused import).
 2. Run the command again to verify.
-3. If the errors are complex or require architectural decisions, stop and provide the error output. In interactive mode, ask the user how to proceed. In non-interactive mode, return a structured failure and do not prompt.
+3. If the errors are complex or require architectural decisions, stop and provide the error output. In interactive mode, ask the user how to proceed. In non-interactive mode, emit `LINT_HANDOFF` with `LINT_STATUS: failed` and do not prompt.
+
+### 5. Handoff Output
+
+In `mode:non-interactive`, emit this block before finishing (required):
+
+```text
+LINT_HANDOFF
+STEPS:
+- format: pass|failed|skipped
+- lint: pass|failed|skipped
+- typecheck: pass|failed|skipped
+- build: pass|failed|skipped
+LINT_STATUS: pass|failed
+BLOCKERS: <none | one-line>
+END_LINT_HANDOFF
+```
+
+In interactive mode, emit the same block when automation or a parent skill requests it.
 
 ## Example Workflow
 
