@@ -26,6 +26,7 @@ This skill follows the Rosey-native commit/push/PR workflow, with Rosey transpor
 - Integration PR head branches must be `feature/<slug>` (git-flow) so static-synced auto-merge head filters match. Dependabot uses `dependabot/**`.
 - Receive completed work after `rosey-work` and usually after `rosey-qa`, or as the PR stage inside `rosey-lfg-quality`.
 - Stop at PR create/update. Do not merge PRs, watch or fix CI, create milestones, or run releases; auto-merge workflows and `rosey-release` own those later steps.
+- Create PRs **ready for review** only (`draft: false`). Never open draft PRs — `pr.yml` and `pr-auto-merge.yml` expect a normal PR on `feature/*` → `develop`. If the user asks for a draft, explain and create ready-for-review instead.
 - Do not use the old product-document mode. Prefer `plan:<path>` metadata when supplied; otherwise derive title/body from branch commits and diff.
 - After a successful PR create/update, write a PR summary artifact beside the source plan when a plan path is known.
 
@@ -168,7 +169,7 @@ Then continue with the rest of the reference (Steps A through G) to compose the 
 
 **New PR** (full workflow, no existing PR from Step 1) — apply per "Applying via GitHub MCP" below using `create_pull_request`. Report the URL.
 
-**Existing PR** (full workflow, found in Step 1) — the new commits are already on the PR from Step 3. In interactive mode, report the PR URL, then ask whether to rewrite the description. In non-interactive mode, update the description automatically from the current plan and diff context.
+**Existing PR** (full workflow, found in Step 1) — the new commits are already on the PR from Step 3. If the PR is a draft, mark it ready for review via `update_pull_request` with `draft: false` before reporting. In interactive mode, report the PR URL, then ask whether to rewrite the description. In non-interactive mode, update the description automatically from the current plan and diff context.
 
 - **No** — done.
 - **Yes** — run Step 4 if not already done, then preview and apply (see below).
@@ -189,7 +190,7 @@ For new PRs, call `create_pull_request` with:
 - `body`
 - `head`: current pushed feature branch
 - `base`: `develop` unless explicitly overridden
-- `draft`: only when requested
+- `draft`: `false` always — ready for review; never create draft PRs
 
 For existing PR description updates, call `update_pull_request` with:
 
@@ -198,6 +199,7 @@ For existing PR description updates, call `update_pull_request` with:
 - `pullNumber`
 - `title`
 - `body`
+- `draft`: `false` when the PR is still a draft (mark ready for review)
 
 Do not assign labels.
 
