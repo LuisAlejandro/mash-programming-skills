@@ -1,8 +1,8 @@
 # Plan Sections
 
 This reference describes what makes a great implementation plan. It does NOT
-prescribe how the plan looks on the page — rendering is handled by the
-format-specific references (`markdown-rendering.md`, `html-rendering.md`).
+prescribe how the plan looks on the page — rendering is handled by
+`references/markdown-rendering.md`.
 
 ## The outcome
 
@@ -175,16 +175,12 @@ plan.
 
 ### Required
 
-- **`title`** — verbatim plan title. Matches the H1 (markdown) or document
-  `<h1>` (HTML) so file metadata and visible heading don't drift.
+- **`title`** — verbatim plan title. Matches the H1 so file metadata and visible heading don't drift.
 - **`type`** — conventional-commit-prefix-aligned classification (`feat`,
   `fix`, `refactor`, `chore`, `docs`, `perf`, `test`, etc.). Carries the
   intent the eventual commit message should reflect.
 - **`status`** — `active` on creation; `rosey-work` flips to `completed` on
-  ship. `rosey-plan`'s Phase 0.1 resume fast path keys on `active`. In HTML,
-  status MUST render as `<span class="status">{value}</span>` so the flip
-  mechanic can locate and rewrite it by selector (see
-  `references/html-rendering.md`).
+  ship. `rosey-plan`'s Phase 0.1 resume fast path keys on `active`.
 - **`date`** — creation date in ISO 8601 (`YYYY-MM-DD`), ASCII digits only.
 
 ### Optional but well-known
@@ -232,14 +228,8 @@ These apply regardless of rendering format.
 
 ## Rendering
 
-The format-specific references describe how to render these sections in each
-output format:
-
-- **Markdown rendering:** `references/markdown-rendering.md`
-- **HTML rendering:** `references/html-rendering.md`
+Read `references/markdown-rendering.md` for how to render these sections.
 
 This reference (`plan-sections.md`) is about WHAT the plan contains;
-rendering references are about HOW each format presents it. The plan is
-written in one format — markdown OR HTML, never both — based on the
-resolved output mode. The section catalog is the same regardless of
-format.
+the markdown rendering reference is about HOW to present it on the page.
+The section catalog is the same regardless of format.

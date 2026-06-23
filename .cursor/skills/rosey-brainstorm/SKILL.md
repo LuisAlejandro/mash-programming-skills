@@ -1,7 +1,7 @@
 ---
 name: rosey-brainstorm
 description: 'Explore requirements and approaches through collaborative dialogue, then write a right-sized requirements document. Use when the user says "let''s brainstorm", "what should we build", or "help me think through X", presents a vague or ambitious feature request, or seems unsure about scope or direction -- even without explicitly asking to brainstorm.'
-argument-hint: "[feature idea or problem to explore] [output:html]"
+argument-hint: "[feature idea or problem to explore]"
 ---
 
 # Rosey Brainstorm
@@ -96,38 +96,20 @@ Do not proceed until you have a feature description from the user.
 
 ### Phase 0: Resume, Assess, and Route
 
-#### 0.0 Resolve Output Mode
+#### 0.0 Markdown Output
 
-Determine `OUTPUT_FORMAT` before any other phase fires. Output mode is **exclusive** — the requirements doc is written as either markdown (`.md`) OR HTML (`.html`), never both. Precedence: CLI arg > config > default (`md`), with a hard non-interactive override.
+Requirements documents are always markdown (`.md`). Read `references/markdown-rendering.md` for format principles, paired with `references/brainstorm-sections.md` for section content.
 
-**Read config (pre-resolved at skill load):**
-!`cat "$(git rev-parse --show-toplevel 2>/dev/null)/.rosey/config.local.yaml" 2>/dev/null || echo '__NO_CONFIG__'`
+When `mode:non-interactive` is active, apply Compact non-interactive artifacts from Output Guidance: preserve IDs and decision-bearing content, trim narrative.
 
-Resolution steps:
-
-1. **CLI arg.** Scan `$ARGUMENTS` for a token starting with the literal prefix `output:`. If found, strip it from arguments before treating the remainder as the feature description, and match its value case-insensitively against `md` and `html`.
-   - `output:` alone (no value) → no-op, fall through to step 2.
-   - `output:<unknown>` (e.g., `output:pdf`) → drop the token, fall through to step 2, and remember to emit a one-line note above the post-generation menu after final resolution: `Ignored unknown output: value '<value>' — using <resolved_format> instead.` where `<resolved_format>` is the value `OUTPUT_FORMAT` actually resolved to after steps 2-4. Do not hardcode `md` in the note — that misleads users when config has set HTML.
-2. **Config.** If step 1 did not resolve and the pre-resolved YAML above has an **active (non-commented)** `brainstorm_output:` key whose value matches `md` or `html` (case-insensitive), use it. Missing, invalid, or commented values fall through silently. Critical: lines starting with `#` are YAML comments and must be ignored — the shipped config template includes commented examples like `# brainstorm_output: html` to document the option, and matching those as active settings would silently force HTML mode on every run without the user having opted in.
-3. **Default.** Otherwise `OUTPUT_FORMAT=md`.
-4. **Non-interactive override.** When `mode:non-interactive` is active, force `OUTPUT_FORMAT=md` regardless of steps 1-3. Downstream consumers (`rosey-plan`, `rosey-work`) parse markdown reliably; HTML in non-interactive runs is unnecessary friction. Also apply Compact non-interactive artifacts from Output Guidance: preserve IDs and decision-bearing content, trim narrative.
-
-**Token-parsing convention:** only literal-prefix flag tokens (`output:`, `mode:`, `delegate:` where applicable) are consumed and stripped. Other `<word>:<word>` tokens — including conventional commit prefixes like `feat:`, `fix:`, `chore:` that may appear inside a feature description — pass through verbatim.
-
-**Load the format-rendering reference based on the resolved value.** Section content is the same in either format; presentation differs. Both rendering references are paired with `references/brainstorm-sections.md`, which describes what the brainstorm contains regardless of format.
-
-- When `OUTPUT_FORMAT=md`, read `references/markdown-rendering.md` for format principles.
-- When `OUTPUT_FORMAT=html`, read `references/html-rendering.md` for format principles.
-
-The `output:` preference does NOT auto-propagate to `rosey-plan` on handoff — rosey-plan re-resolves its own `plan_output` config independently. Asymmetric output (`requirements.html` + `plan.md`) is acceptable; users who want HTML for both set both keys in `.rosey/config.local.yaml`.
+**Token-parsing convention:** only literal-prefix flag tokens (`mode:`, `delegate:` where applicable) are consumed and stripped. Other `<word>:<word>` tokens — including conventional commit prefixes like `feat:`, `fix:`, `chore:` that may appear inside a feature description — pass through verbatim.
 
 #### 0.1 Resume Existing Work When Appropriate
 
-If the user references an existing brainstorm topic or document, or there is an obvious recent matching `*-requirements.{md,html}` file in `rosey/brainstorms/`:
+If the user references an existing brainstorm topic or document, or there is an obvious recent matching `*-requirements.md` file in `rosey/brainstorms/`:
 - Read the document
 - Confirm with the user before resuming: "Found an existing requirements doc for [topic]. Should I continue from this, or start fresh?"
 - If resuming, summarize the current state briefly, continue from its existing decisions and outstanding questions, and update the existing document instead of creating a duplicate
-- **Resume preserves the existing artifact's format, except non-interactive mode.** Write back in whatever format the existing artifact uses — markdown if the existing file is `.md`, HTML if it is `.html`. Explicit `output:` arguments on this run override (e.g., resuming an `.html` doc with `output:md` switches the artifact to markdown). Non-interactive mode always wins per Phase 0.0: even when resuming an existing `.html` brainstorm, non-interactive runs force `OUTPUT_FORMAT=md` so downstream automation receives the markdown shape it expects. The resume rewrites the markdown file at the parallel path and the original `.html` is left in place untouched.
 
 #### 0.1b Classify Task Domain
 
@@ -311,9 +293,9 @@ Write or update a requirements document only when the conversation produced dura
 When a doc is warranted, compose it using:
 
 - `references/brainstorm-sections.md` — section contract (outcomes, hard floor, include-when-material catalog, agency rules, ID conventions).
-- The format-specific rendering reference loaded at Phase 0.0 (`markdown-rendering.md` OR `html-rendering.md`) — how the resolved format presents the sections.
+- `references/markdown-rendering.md` — how to present the sections in markdown.
 
-Write to `rosey/brainstorms/YYYY-MM-DD-<topic>-requirements.<md|html>` — extension follows `OUTPUT_FORMAT`. Confirm with the absolute path so the reference is clickable.
+Write to `rosey/brainstorms/YYYY-MM-DD-<topic>-requirements.md`. Confirm with the absolute path so the reference is clickable.
 
 ### Phase 4: Handoff
 

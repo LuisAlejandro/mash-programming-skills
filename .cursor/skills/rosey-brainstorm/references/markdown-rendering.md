@@ -23,8 +23,7 @@ These hold regardless of which skill produced the artifact.
 - **Repo-relative paths for file references.** Always. Never absolute paths
   — they break portability across machines, worktrees, teammates.
 - **No HTML mixed in.** Keep the markdown pure. No `<div>`, no `<details>`,
-  no inline `<style>`. If a layout idea only works as HTML, defer it to the
-  HTML rendering. Markdown stays markdown.
+  no inline `<style>`. Use tables, lists, and mermaid instead of HTML layout.
 
 ## Format principles
 
@@ -138,11 +137,9 @@ flowchart TB
 (`TB` direction default — keeps diagrams narrow in source view and in
 narrow rendered viewports.)
 
-Markdown's diagram affordances are limited compared to HTML. For
-quantitative comparisons (bar charts, scatter plots) markdown has no
-native equivalent — use a table with the data and let prose or caption
-carry the interpretation. The richer visualization happens in the HTML
-rendering.
+Markdown's diagram affordances are limited. For quantitative comparisons
+(bar charts, scatter plots) use a table with the data and let prose or a
+caption carry the interpretation.
 
 ## Inline code and code blocks
 
