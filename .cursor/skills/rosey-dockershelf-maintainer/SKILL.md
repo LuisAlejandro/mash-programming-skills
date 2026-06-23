@@ -8,7 +8,7 @@ argument-hint: "[optional mode:check-only or explicit add/remove overrides]"
 
 Autonomous shelf-catalog maintenance on `develop`: discover upstream versions, apply cap policy, regenerate the tree, commit, push. **Default:** invoke with no arguments — do not ask the user which versions to add.
 
-**Out of scope:** git-flow release/hotfix (`MAINTAINER.md`), debugging failed image builds, Docker Hub cleanup, local full-matrix builds.
+**Out of scope:** git-flow release/hotfix (use [`rosey-release`](../rosey-release/SKILL.md)), debugging failed image builds, Docker Hub cleanup, local full-matrix builds.
 
 ## Communication
 
@@ -18,11 +18,11 @@ Autonomous shelf-catalog maintenance on `develop`: discover upstream versions, a
 
 Parse `$ARGUMENTS` for at most one mode token:
 
-| Token | Effect |
-|-------|--------|
-| `mode:autonomous` | **Default.** Run discovery, apply changes, regenerate, commit, push without prompts. |
-| `mode:check-only` | Run discovery and report; stop before editing files (no commit/push). |
-| `mode:interactive` | Run discovery, show planned add/remove, wait for user confirmation before apply. |
+| Token              | Effect                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| `mode:autonomous`  | **Default.** Run discovery, apply changes, regenerate, commit, push without prompts. |
+| `mode:check-only`  | Run discovery and report; stop before editing files (no commit/push).                |
+| `mode:interactive` | Run discovery, show planned add/remove, wait for user confirmation before apply.     |
 
 Strip the mode token before parsing optional manual overrides (`add …` / `remove …`). Multiple mode tokens → stop and report conflict.
 
@@ -30,13 +30,13 @@ Strip the mode token before parsing optional manual overrides (`add …` / `remo
 
 ## Version source of truth
 
-| Shelf | Manual config | Live / generated |
-|-------|---------------|-------------------|
-| Python | `python_suites` in `scripts/utils.py` | deadsnakes PPA (≥ 3.10); see `scripts/discover_shelf_versions.py` |
-| Node | `node_suites` in `scripts/utils.py` | nodejs.org index + NodeSource repo probe (even LTS majors ≥ 16) |
-| Go | `go_suites` in `scripts/utils.py` | golang telemetry minors; patches at regeneration |
+| Shelf  | Manual config                                       | Live / generated                                                                                       |
+| ------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Python | `python_suites` in `scripts/utils.py`               | deadsnakes PPA (≥ 3.10); see `scripts/discover_shelf_versions.py`                                      |
+| Node   | `node_suites` in `scripts/utils.py`                 | nodejs.org index + NodeSource repo probe (even LTS majors ≥ 16)                                        |
+| Go     | `go_suites` in `scripts/utils.py`                   | golang telemetry minors; patches at regeneration                                                       |
 | Debian | `debian_suites` in `scripts/utils.py` (suite names) | Codename per suite from `deb.debian.org` via `get_debian_versions()` (imported in `scripts/config.py`) |
-| LaTeX | `latex_versions` in `scripts/config.py` | Fixed `basic`, `full`, `extras` — do not edit in this skill |
+| LaTeX  | `latex_versions` in `scripts/config.py`             | Fixed `basic`, `full`, `extras` — do not edit in this skill                                            |
 
 **Rules:**
 
@@ -48,12 +48,12 @@ Strip the mode token before parsing optional manual overrides (`add …` / `remo
 
 Dockershelf supports a **fixed maximum** of concurrent versions per **runtime** shelf. The cap equals the **current list length** in `scripts/utils.py`. When adding a version would exceed the cap, **retire the oldest** (lowest semver / lowest numeric) in the **same change**.
 
-| Shelf | Max concurrent | List field | Retirement |
-|-------|----------------|------------|------------|
-| Python | **5** | `python_suites` | Drop oldest minor when adding a 6th |
-| Node | **5** | `node_suites` | Drop oldest major when adding a 6th |
-| Go | **6** | `go_suites` | Drop oldest minor when adding a 7th |
-| Debian | **4 suites** | `debian_suites` | See Debian rules below — not a sliding window |
+| Shelf  | Max concurrent | List field      | Retirement                                    |
+| ------ | -------------- | --------------- | --------------------------------------------- |
+| Python | **5**          | `python_suites` | Drop oldest minor when adding a 6th           |
+| Node   | **5**          | `node_suites`   | Drop oldest major when adding a 6th           |
+| Go     | **6**          | `go_suites`     | Drop oldest minor when adding a 7th           |
+| Debian | **4 suites**   | `debian_suites` | See Debian rules below — not a sliding window |
 
 **Cap policy (enforced by discovery script):** keep the **N newest** buildable upstream versions (N = current list length). Adding a newer release drops the oldest automatically (e.g. Node 26 in → Node 16 out).
 
@@ -115,11 +115,11 @@ python3 -m scripts.discover_shelf_versions --json
 
 Requires network (~1 min; deadsnakes PPA is slow). The script:
 
-| Shelf | Upstream source |
-|-------|-----------------|
-| Python | deadsnakes PPA packages (≥ 3.10) |
-| Node | nodejs.org `index.json` + NodeSource `node_N.x` repo HEAD |
-| Go | golang telemetry `config.json` minors |
+| Shelf  | Upstream source                                           |
+| ------ | --------------------------------------------------------- |
+| Python | deadsnakes PPA packages (≥ 3.10)                          |
+| Node   | nodejs.org `index.json` + NodeSource `node_N.x` repo HEAD |
+| Go     | golang telemetry `config.json` minors                     |
 
 It compares upstream to `scripts/utils.py`, applies cap policy, and reports `add` / `remove` per shelf.
 
@@ -232,12 +232,12 @@ Report push result. `pr.yml` runs `update.py` only on **pull requests** to `deve
 
 ## Argument hints
 
-| Pattern | Action |
-|---------|--------|
-| *(empty)* | Full autonomous run (discover → apply if needed → regenerate → commit → push) |
-| `mode:check-only` | Discovery report only |
-| `add python 3.15` / `remove node 16` | Skip discovery; manual override (honor cap policy) |
-| `add latex …` / `remove latex …` | **Reject** — LaTeX variants are fixed |
+| Pattern                              | Action                                                                        |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| _(empty)_                            | Full autonomous run (discover → apply if needed → regenerate → commit → push) |
+| `mode:check-only`                    | Discovery report only                                                         |
+| `add python 3.15` / `remove node 16` | Skip discovery; manual override (honor cap policy)                            |
+| `add latex …` / `remove latex …`     | **Reject** — LaTeX variants are fixed                                         |
 
 ## Handoff
 
@@ -247,9 +247,9 @@ When done, report:
 - Versions added/removed per shelf
 - Regeneration method used (`make update-shelves` vs `python3 update.py`)
 - Commit hash and `origin/develop` push status
-- Reminder: shelf changes reach Docker Hub production tags only after a release merges to `master` (`MAINTAINER.md`)
+- Reminder: shelf changes reach Docker Hub production tags only after [`rosey-release`](../rosey-release/SKILL.md) publishes and the release merges to `master`
 
 ## Additional resources
 
 - Shelf regeneration details: [reference.md](reference.md)
-- Release process (not this skill): `MAINTAINER.md`
+- Release publishing (not this skill): [`rosey-release`](../rosey-release/SKILL.md)

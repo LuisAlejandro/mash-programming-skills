@@ -33,7 +33,7 @@ In non-interactive mode, resolve implementation-time unknowns conservatively fro
 
 This skill follows the Rosey-native work workflow with Rosey Sentrux and handoff boundaries:
 
-- `rosey-work` executes MAINTAINER release ritual steps 2-3 for app repos: start a git-flow feature branch from `develop`, then implement the work on that branch.
+- For app repos, implement on a git-flow `feature/<slug>` branch. **Default:** new plan → new branch from `develop`. Continue on the current branch only when the plan slug matches, the plan explicitly extends that branch, or the user confirms carryover in interactive mode.
 - `rosey-work` does **not** own QA, PR creation, merge, or release. Those belong downstream to `rosey-qa`, `rosey-pr`, `rosey-lfg-quality`, auto-merge workflows, and `rosey-release`.
 - Read [`rosey-sentrux`](../rosey-sentrux/SKILL.md) when a plan has a topology artifact or when executing a `rosey-plan` plan.
 - Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) before substantive implementation so cross-session memory can inform the work.
@@ -76,11 +76,11 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
 2. **Assess complexity and route**
 
-   | Complexity | Signals | Action |
-   |-----------|---------|--------|
-   | **Trivial** | 1-2 files, no behavioral change (typo, config, rename) | Proceed to Phase 1 step 2 (environment setup), then implement directly — no task list, no execution loop. Apply Test Discovery if the change touches behavior-bearing code |
-   | **Small / Medium** | Clear scope, under ~10 files | Build a task list from discovery. Proceed to Phase 1 step 2 |
-   | **Large** | Cross-cutting, architectural decisions, 10+ files, touches auth/payments/migrations | Recommend `/rosey-brainstorm` or `/rosey-plan` to surface edge cases and boundaries. Honor the user's choice. If proceeding, build a task list and continue to Phase 1 step 2 |
+   | Complexity         | Signals                                                                             | Action                                                                                                                                                                        |
+   | ------------------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | **Trivial**        | 1-2 files, no behavioral change (typo, config, rename)                              | Proceed to Phase 1 step 2 (environment setup), then implement directly — no task list, no execution loop. Apply Test Discovery if the change touches behavior-bearing code    |
+   | **Small / Medium** | Clear scope, under ~10 files                                                        | Build a task list from discovery. Proceed to Phase 1 step 2                                                                                                                   |
+   | **Large**          | Cross-cutting, architectural decisions, 10+ files, touches auth/payments/migrations | Recommend `/rosey-brainstorm` or `/rosey-plan` to surface edge cases and boundaries. Honor the user's choice. If proceeding, build a task list and continue to Phase 1 step 2 |
 
    In non-interactive mode, do not offer routing choices for Large bare prompts. Stop and require a plan path instead.
 
@@ -107,7 +107,9 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
 2. **Setup Environment**
 
-   The Rosey app release ritual uses `develop` as the fixed integration branch.
+   App repos use `develop` as the fixed integration branch.
+   **Hard gate:** complete branch setup and record `BRANCH` / `BRANCH_DECISION` in the handoff envelope before the first file edit. Do not skip because the current branch "looks fine."
+
    First, check the current branch and verify `origin/develop` exists:
 
    ```bash
@@ -115,34 +117,61 @@ Determine how to proceed based on what was provided in `<input_document>`.
    git rev-parse --verify origin/develop >/dev/null
    ```
 
+   **Derive the plan slug** (same rule as [`rosey-pr`](../rosey-pr/SKILL.md) branch naming):
+
+   - From plan path basename without extension: strip leading date/id tokens (e.g. `2026-06-22-seo-phase-2-content-plan` → `seo-phase-2-content`); kebab-case; max ~50 characters.
+   - From bare prompt: kebab-case summary of the work.
+   - Expected branch: `feature/<slug>`.
+
+   **Plan ↔ branch alignment** (run whenever a plan path or bare-prompt slug exists):
+
+   | Signal                                                                                             | Action                                                                                                        |
+   | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+   | `current_branch` is `feature/<slug>` and slug matches plan slug                                    | Continue (record `BRANCH_DECISION: continued`)                                                                |
+   | Plan explicitly says it extends or continues `<branch>`                                            | Continue on that branch                                                                                       |
+   | Slug mismatch (e.g. plan `seo-phase-2-content`, branch `feature/seo-phase-1`)                      | **Recommend new branch from `develop`** — a meaningful but wrong-phase name is still a mismatch               |
+   | Branch name opaque or auto-generated (e.g. `worktree-jolly-beaming-raven`)                         | Rename or create new `feature/<slug>`                                                                         |
+   | Open PR on current branch (GitHub MCP `search_pull_requests` when available) **and** slug mismatch | Require new branch or explicit "add to existing PR" confirmation — do not silently stack unrelated plan scope |
+
    **If already on a feature branch** (not `develop`):
 
-   First, check whether the branch name is **meaningful** — a name like `feature/crowd-sniff` tells future readers what the work is about. Auto-generated worktree names (e.g., `worktree-jolly-beaming-raven`) or other opaque names do not.
+   Apply the alignment table above first. When slug mismatches or an open PR stacks unrelated scope, ask (interactive):
 
-   If the branch name is meaningless or auto-generated, suggest renaming it before continuing:
+   > "Plan expects `feature/<plan-slug>` but current branch is `[current_branch]`. Create a new branch from `develop`, or continue on the current branch?"
+   - **New branch** → follow **Create feature branch from `develop`** below. Preserve uncommitted work via stash when needed.
+   - **Continue** → only after explicit confirmation when slug mismatched or open PR stacks scope. Record `BRANCH_DECISION: continued` and a one-line `BRANCH_NOTE` explaining why.
+   - **Rename only** (opaque name, slug otherwise matches intent):
 
-   ```bash
-   git branch -m <meaningful-name>
-   ```
+     ```bash
+     git branch -m feature/<slug>
+     ```
 
-   Derive the new name from the plan title or work description (e.g., `feature/crowd-sniff`). Present the rename as a recommended option alongside continuing as-is.
-
-   Then ask: "Continue working on `[current_branch]`, or create a new branch?"
-   - If continuing (with or without rename), proceed to step 3
-   - If creating new, follow Option A or B below
-   - In non-interactive mode, continue on a meaningful `feature/<slug>` branch; if the name is opaque, create a new meaningful branch from `develop` when safe, or stop if branch movement would risk losing work.
+   In non-interactive mode: create `feature/<plan-slug>` from `develop` when slug mismatches and movement is safe; stop if uncommitted work or unpushed commits would be lost. Never silently continue on a mismatched branch.
 
    **If on `develop`**, choose how to proceed:
 
-   **Option A: Create a new git-flow feature branch**
+   **Option A: Create feature branch from `develop`** (default for new plan work)
+
+   Read [`../rosey-pr/references/branch-creation.md`](../rosey-pr/references/branch-creation.md) when local `develop` may be stale or has unpushed commits. Then:
 
    ```bash
+   git fetch --no-tags origin develop
    git pull origin develop
    git config --get gitflow.branch.master >/dev/null 2>&1 || git flow init -d
    git flow feature start <slug>
    ```
 
-   Use a meaningful slug based on the work (e.g., `user-authentication`). `git flow feature start <slug>` creates and checks out `feature/<slug>`. Keep branch names on `feature/<slug>` for `pr-auto-merge.yml` head filter compatibility.
+   Record `BRANCH_DECISION: new-from-develop`.
+
+   **Leaving an existing feature branch to create new** (slug mismatch, user chose new branch):
+
+   ```bash
+   git stash push -u -m "rosey-work: pre-branch feature/<slug>"   # when uncommitted changes exist
+   git fetch --no-tags origin develop
+   git checkout origin/develop   # or follow branch-creation.md when local develop has unpushed commits
+   git flow feature start <slug>
+   git stash pop                 # when stashed; stop on conflicts — do not auto-resolve
+   ```
 
    **Option B: Use a worktree (recommended for parallel development)**
    Use the platform's worktree support or an available worktree helper. The worktree must create a new `feature/<slug>` branch from `develop` in an isolated checkout. Keep worktree isolation for parallel implementation; shared-directory parallel writes are unsafe.
@@ -152,6 +181,8 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - Only proceed after user explicitly says "yes, commit to develop"
    - Never commit directly to `develop` without explicit permission
    - In non-interactive mode, never continue on `develop`; create a new feature branch.
+
+   Use a meaningful slug based on the plan or work (e.g. `user-authentication`). `git flow feature start <slug>` creates and checks out `feature/<slug>`. Keep branch names on `feature/<slug>` for `pr-auto-merge.yml` head filter compatibility.
 
    **Recommendation**: Use worktree if:
    - You want to work on multiple features simultaneously
@@ -193,11 +224,11 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    After creating the task list, decide how to execute based on the plan's size and dependency structure:
 
-   | Strategy | When to use |
-   |----------|-------------|
-   | **Inline** | 1-2 small tasks, or tasks needing user interaction mid-flight. **Default for bare-prompt work** — bare prompts rarely produce enough structured context to justify subagent dispatch |
-   | **Serial subagents** | 3+ tasks with dependencies between them. Each subagent gets a fresh context window focused on one unit — prevents context degradation across many tasks. Requires plan-unit metadata (Goal, Files, Approach, Test scenarios) |
-   | **Parallel subagents** | 3+ tasks that pass the Parallel Safety Check (below). Dispatch independent units simultaneously, run dependent units after their prerequisites complete. Requires plan-unit metadata |
+   | Strategy               | When to use                                                                                                                                                                                                                  |
+   | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | **Inline**             | 1-2 small tasks, or tasks needing user interaction mid-flight. **Default for bare-prompt work** — bare prompts rarely produce enough structured context to justify subagent dispatch                                         |
+   | **Serial subagents**   | 3+ tasks with dependencies between them. Each subagent gets a fresh context window focused on one unit — prevents context degradation across many tasks. Requires plan-unit metadata (Goal, Files, Approach, Test scenarios) |
+   | **Parallel subagents** | 3+ tasks that pass the Parallel Safety Check (below). Dispatch independent units simultaneously, run dependent units after their prerequisites complete. Requires plan-unit metadata                                         |
 
    **Parallel Safety Check** — required before choosing parallel dispatch:
 
@@ -261,7 +292,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    **After all parallel subagents in a batch complete (shared-directory fallback):**
    1. Wait for every subagent in the current parallel batch to finish before acting on any of their results
-   2. Cross-check receipts and discovered file collisions: compare the actual files modified by all subagents in the batch (not just their declared `Files:` lists). Subagents may create or modify files not anticipated during planning — this is expected, since plans describe *what* not *how*. A collision only matters when 2+ subagents in the same batch modified the same file. In a shared working directory, only the last writer's version survives — the other unit's changes to that file are lost. If a collision is detected: commit all non-colliding files from all units first, then re-run the affected units serially for the shared file so each builds on the other's committed work
+   2. Cross-check receipts and discovered file collisions: compare the actual files modified by all subagents in the batch (not just their declared `Files:` lists). Subagents may create or modify files not anticipated during planning — this is expected, since plans describe _what_ not _how_. A collision only matters when 2+ subagents in the same batch modified the same file. In a shared working directory, only the last writer's version survives — the other unit's changes to that file are lost. If a collision is detected: commit all non-colliding files from all units first, then re-run the affected units serially for the shared file so each builds on the other's committed work
    3. For each completed unit, in dependency order: review the diff, run the relevant test suite, stage only that unit's files, and commit with a conventional message derived from the unit's Goal
    4. If tests fail after committing a unit's changes, diagnose and fix before committing the next unit
    5. Update the task list (do not edit the plan body — progress is carried by the commits just made)
@@ -305,44 +336,44 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    **Test Scenario Completeness** — Before writing tests for a feature-bearing unit, check whether the plan's `Test scenarios` cover all categories that apply to this unit. If a category is missing or scenarios are vague (e.g., "validates correctly" without naming inputs and expected outcomes), supplement from the unit's own context before writing tests:
 
-   | Category | When it applies | How to derive if missing |
-   |----------|----------------|------------------------|
-   | **Happy path** | Always for feature-bearing units | Read the unit's Goal and Approach for core input/output pairs |
-   | **Edge cases** | When the unit has meaningful boundaries (inputs, state, concurrency) | Identify boundary values, empty/nil inputs, and concurrent access patterns |
+   | Category                | When it applies                                                           | How to derive if missing                                                                                                             |
+   | ----------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+   | **Happy path**          | Always for feature-bearing units                                          | Read the unit's Goal and Approach for core input/output pairs                                                                        |
+   | **Edge cases**          | When the unit has meaningful boundaries (inputs, state, concurrency)      | Identify boundary values, empty/nil inputs, and concurrent access patterns                                                           |
    | **Error/failure paths** | When the unit has failure modes (validation, external calls, permissions) | Enumerate invalid inputs the unit should reject, permission/auth denials it should enforce, and downstream failures it should handle |
-   | **Integration** | When the unit crosses layers (callbacks, middleware, multi-service) | Identify the cross-layer chain and write a scenario that exercises it without mocks |
+   | **Integration**         | When the unit crosses layers (callbacks, middleware, multi-service)       | Identify the cross-layer chain and write a scenario that exercises it without mocks                                                  |
 
    **System-Wide Test Check** — Before marking a task done, pause and ask:
 
-   | Question | What to do |
-   |----------|------------|
-   | **What fires when this runs?** Callbacks, middleware, observers, event handlers — trace two levels out from your change. | Read the actual code (not docs) for callbacks on models you touch, middleware in the request chain, `after_*` hooks. |
-   | **Do my tests exercise the real chain?** If every dependency is mocked, the test proves your logic works *in isolation* — it says nothing about the interaction. | Write at least one integration test that uses real objects through the full callback/middleware chain. No mocks for the layers that interact. |
+   | Question                                                                                                                                                                                       | What to do                                                                                                                                    |
+   | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+   | **What fires when this runs?** Callbacks, middleware, observers, event handlers — trace two levels out from your change.                                                                       | Read the actual code (not docs) for callbacks on models you touch, middleware in the request chain, `after_*` hooks.                          |
+   | **Do my tests exercise the real chain?** If every dependency is mocked, the test proves your logic works _in isolation_ — it says nothing about the interaction.                               | Write at least one integration test that uses real objects through the full callback/middleware chain. No mocks for the layers that interact. |
    | **Can failure leave orphaned state?** If your code persists state (DB row, cache, file) before calling an external service, what happens when the service fails? Does retry create duplicates? | Trace the failure path with real objects. If state is created before the risky call, test that failure cleans up or that retry is idempotent. |
-   | **What other interfaces expose this?** Mixins, DSLs, alternative entry points (Agent vs Chat vs ChatMethods). | Grep for the method/behavior in related classes. If parity is needed, add it now — not as a follow-up. |
-   | **Do error strategies align across layers?** Retry middleware + application fallback + framework error handling — do they conflict or create double execution? | List the specific error classes at each layer. Verify your rescue list matches what the lower layer actually raises. |
+   | **What other interfaces expose this?** Mixins, DSLs, alternative entry points (Agent vs Chat vs ChatMethods).                                                                                  | Grep for the method/behavior in related classes. If parity is needed, add it now — not as a follow-up.                                        |
+   | **Do error strategies align across layers?** Retry middleware + application fallback + framework error handling — do they conflict or create double execution?                                 | List the specific error classes at each layer. Verify your rescue list matches what the lower layer actually raises.                          |
 
    **When to skip:** Leaf-node changes with no callbacks, no state persistence, no parallel interfaces. If the change is purely additive (new helper method, new view partial), the check takes 10 seconds and the answer is "nothing fires, skip."
 
    **When this matters most:** Any change that touches models with callbacks, error handling with fallback/retry, or functionality exposed through multiple interfaces.
 
-
 2. **Incremental Commits**
 
    After completing each task, evaluate whether to create an incremental commit:
 
-   | Commit when... | Don't commit when... |
-   |----------------|---------------------|
-   | Logical unit complete (model, service, component) | Small part of a larger unit |
-   | Tests pass + meaningful progress | Tests failing |
-   | About to switch contexts (backend → frontend) | Purely scaffolding with no behavior |
-   | About to attempt risky/uncertain changes | Would need a "WIP" commit message |
+   | Commit when...                                    | Don't commit when...                |
+   | ------------------------------------------------- | ----------------------------------- |
+   | Logical unit complete (model, service, component) | Small part of a larger unit         |
+   | Tests pass + meaningful progress                  | Tests failing                       |
+   | About to switch contexts (backend → frontend)     | Purely scaffolding with no behavior |
+   | About to attempt risky/uncertain changes          | Would need a "WIP" commit message   |
 
    **Heuristic:** "Can I write a commit message that describes a complete, valuable change? If yes, commit. If the message would be 'WIP' or 'partial X', wait."
 
    If the plan has Implementation Units, use them as a starting guide for commit boundaries — but adapt based on what you find during implementation. A unit might need multiple commits if it's larger than expected, or small related units might land together. Use each unit's Goal to inform the commit message.
 
    **Commit workflow:**
+
    ```bash
    # 1. Verify tests pass (use project's test command)
    # Examples: bin/rails test, npm test, pytest, go test, etc.
@@ -395,7 +426,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - Fix visual differences identified
    - Repeat until implementation matches design
 
-6. **Track Progress**
+7. **Track Progress**
    - Keep the task list updated as you complete tasks
    - Note any blockers or unexpected discoveries
    - Create new tasks if scope expands
@@ -427,6 +458,9 @@ When all Phase 2 tasks are complete:
 
      ```text
      ROSEY_WORK_HANDOFF
+     BRANCH: <feature/slug>
+     BRANCH_DECISION: <new-from-develop | continued | renamed>
+     BRANCH_NOTE: <none | one-line reason when continued on mismatched or open-PR branch>
      FILES_CHANGED:
      - <repo-relative path>
      DONE:
@@ -444,8 +478,9 @@ When all Phase 2 tasks are complete:
      END_ROSEY_WORK_HANDOFF
      ```
 
-   - `FILES_CHANGED`, `WHAT_WAS_IMPLEMENTED`, `PLAN_OR_REQUIREMENTS`, and `SENTRUX_REVIEW_CONTEXT` are required for downstream compatibility.
+   - `BRANCH`, `BRANCH_DECISION`, `FILES_CHANGED`, `WHAT_WAS_IMPLEMENTED`, `PLAN_OR_REQUIREMENTS`, and `SENTRUX_REVIEW_CONTEXT` are required for downstream compatibility.
    - `DONE`, `VERIFY`, `BLOCKERS`, `HINDSIGHT`, and `SENTRUX` are compact machine-to-machine fields. Keep each line short; put full detail in artifacts or blocker reports only when needed.
+
 6. **Stop**. Do not invoke `rosey-qa`, `rosey-pr`, or any shipping workflow. Shipping/QA adaptation is handled by a separate plan.
 
 ## Key Principles
@@ -490,4 +525,5 @@ When all Phase 2 tasks are complete:
 - **Forgetting to track progress** - Update task status as you go or lose track of what's done
 - **80% done syndrome** - Finish the feature, don't move on early
 - **Skipping handoff context** - `rosey-qa` and `rosey-lfg-quality` need the plan, changed files, implementation summary, and Sentrux context
+- **Branch carryover** - A meaningful branch name for a prior plan (e.g. `feature/seo-phase-1`) is not permission to implement a new plan on it. Match plan slug or get explicit carryover confirmation before editing
 - **Re-scoping the plan into human-time phases** - The plan's Implementation Units define the scope of execution. Do not estimate human-hours per unit, propose multi-day breakdowns, or ask the user to pick a subset of units for "this session". Agents execute at agent speed, and context-window pressure is addressed by subagent dispatch (Phase 1 Step 4), not by phased sessions. If a plan-file input is genuinely too large for a single execution, say so plainly and suggest the user return to `/rosey-plan` to reduce scope — don't invent session phases as a workaround. For bare-prompt input, Phase 0's Large routing already handles oversized work

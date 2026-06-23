@@ -8,7 +8,7 @@ argument-hint: "[mode:interactive|mode:non-interactive] [patch|minor|major]"
 
 Gate and publish **releases** (patch, minor, major) for Rosey app repositories.
 
-This skill implements the release portion of `MAINTAINER.rst`. It does not plan
+This skill owns release publishing for app repos. It does not plan
 feature work, open PRs, merge PRs, implement code, or announce releases.
 
 ## Communication while using this skill
@@ -165,16 +165,16 @@ Do not run `make release-*` if milestone creation partially failed.
 
 Five gates:
 
-| Gate | What runs | Verified by |
-| --- | --- | --- |
-| 1 Local preflight | `make release-preflight` | Script exit |
-| 2 Branch push | `release/<version>` pushed | Remote branch |
-| 3 Branch CI | Push workflow + `Release Gate` | `gh run watch` |
+| Gate               | What runs                                 | Verified by          |
+| ------------------ | ----------------------------------------- | -------------------- |
+| 1 Local preflight  | `make release-preflight`                  | Script exit          |
+| 2 Branch push      | `release/<version>` pushed                | Remote branch        |
+| 3 Branch CI        | Push workflow + `Release Gate`            | `gh run watch`       |
 | 4 Tag + GH release | git-flow finish, tag, `gh release create` | Remote tag + release |
-| 5 Publish verify | `release.yml` before PyPI | `gh run view` |
+| 5 Publish verify   | `release.yml` before PyPI                 | `gh run view`        |
 
-| Type | Interactive | Non-interactive |
-| --- | --- | --- |
+| Type    | Interactive          | Non-interactive                           |
+| ------- | -------------------- | ----------------------------------------- |
 | `patch` | `make release-patch` | `NON_INTERACTIVE=true make release-patch` |
 | `minor` | `make release-minor` | `NON_INTERACTIVE=true make release-minor` |
 | `major` | `make release-major` | `NON_INTERACTIVE=true make release-major` |

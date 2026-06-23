@@ -21,7 +21,7 @@ This skill follows the Rosey-native commit/push/PR workflow, with Rosey transpor
 - Use GitHub MCP for GitHub actions: `search_pull_requests`, `pull_request_read`, `create_pull_request`, and `update_pull_request`.
 - Do **not** use the GitHub CLI.
 - Do **not** assign or bootstrap PR labels.
-- Implement MAINTAINER release ritual step 4 for app repos: push the current feature branch and create or update a pull request against `develop`.
+- For app repos: push the current feature branch and create or update a pull request against `develop`.
 - Use `develop` as the fixed Rosey workspace integration/base branch unless the user explicitly overrides with `base:<branch>` for an exceptional manual case. PRs not targeting `develop` are out of `pr-auto-merge.yml` scope (gate skips).
 - Integration PR head branches must be `feature/<slug>` (git-flow) so static-synced auto-merge head filters match. Dependabot uses `dependabot/**`.
 - Receive completed work after `rosey-work` and usually after `rosey-qa`, or as the PR stage inside `rosey-lfg-quality`.
@@ -32,7 +32,7 @@ This skill follows the Rosey-native commit/push/PR workflow, with Rosey transpor
 
 ## Mode
 
-- **Description-only** — user wants *just* a description ("write/draft a PR description", "describe this PR", or pasted a PR URL/number alone). Run Step 4 only; print the result. Apply only if the user asks. If a PR ref was pasted, pass it to Step 4 so Pre-A resolves the right range.
+- **Description-only** — user wants _just_ a description ("write/draft a PR description", "describe this PR", or pasted a PR URL/number alone). Run Step 4 only; print the result. Apply only if the user asks. If a PR ref was pasted, pass it to Step 4 so Pre-A resolves the right range.
 - **Description update** — user wants to refresh/rewrite an existing PR's description with no commit/push intent. If no open PR, report and stop. Otherwise run Step 4 (PR mode using the existing PR's URL), then Step 5 to preview, confirm, and apply via GitHub MCP `update_pull_request`.
 - **Full workflow** — otherwise. Run Steps 1-5 in order.
 
@@ -51,12 +51,12 @@ If multiple interaction mode tokens appear, stop and report the conflict.
 
 Parse `$ARGUMENTS` for:
 
-| Token | Example | Effect |
-|-------|---------|--------|
-| `mode:non-interactive` | `mode:non-interactive` | Run without prompts or confirmation gates |
-| `mode:interactive` | `mode:interactive` | Explicit default interactive behavior |
-| `plan:<path>` | `plan:rosey/plans/2026-05-29-001-feat-workflow-plan.md` | Source plan for PR title/body context and PR summary location |
-| `base:<branch>` | `base:release` | Explicit base branch override. Default is `develop`. Auto-merge does not apply when base is not `develop`. |
+| Token                  | Example                                                 | Effect                                                                                                     |
+| ---------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `mode:non-interactive` | `mode:non-interactive`                                  | Run without prompts or confirmation gates                                                                  |
+| `mode:interactive`     | `mode:interactive`                                      | Explicit default interactive behavior                                                                      |
+| `plan:<path>`          | `plan:rosey/plans/2026-05-29-001-feat-workflow-plan.md` | Source plan for PR title/body context and PR summary location                                              |
+| `base:<branch>`        | `base:release`                                          | Explicit base branch override. Default is `develop`. Auto-merge does not apply when base is not `develop`. |
 
 Strip recognized tokens before interpreting remaining text as description focus, PR URL/number, or user instructions.
 
@@ -99,6 +99,12 @@ Branch routing:
 - **On `<base>` with work to do** (uncommitted, unpushed, or no upstream) — automatically create a `feature/<slug>` branch via git-flow. Pushing the integration branch directly is not supported.
 - **On `<base>` with no work** — report no feature branch work and stop.
 - **Feature branch** — if the branch is meaningful but not `feature/<slug>`, suggest `git branch -m feature/<slug>` before push (mirror `rosey-work` rename guidance). If the name is opaque, derive a slug and rename. Then continue.
+
+**Plan ↔ branch guard** (when `plan:<path>` is supplied or `ROSEY_WORK_HANDOFF` includes `PLAN_OR_REQUIREMENTS`):
+
+- Derive expected slug from the plan basename (same rule as **Branch naming** below).
+- If `feature/<expected-slug>` ≠ current branch and `BRANCH_DECISION` is not `continued` with an explicit carryover note, **stop before commit** and report the mismatch. Do not stack a distinct plan onto a prior-phase branch unless the user confirms "add to existing PR" or "ship on current branch."
+- When an open PR exists on the current branch and the plan slug differs, treat as stacked scope — require the same explicit confirmation before commit/push.
 
 **Branch naming** (integration PRs only):
 
