@@ -37,3 +37,28 @@ To update the rules and skills in a target repository, simply run the install co
 - `--check`: verify `.cursor/`, `rosey/agentic-env.json`, and `AGENTS.md` exist in the target repo.
 - `--write-pin` / `--no-write-pin`: enable or disable writing `rosey/agentic-env.json`.
 - `--agents` / `--no-agents`: enable or disable creation of `AGENTS.md`.
+
+## Optional: Hindsight local memory
+
+Rosey can use [Hindsight](https://github.com/hindsight/hindsight) for cross-session memory via the `hindsight-embed` CLI (not MCP). This is optional.
+
+1. Install [uv](https://docs.astral.sh/uv/) if needed.
+2. Run interactive setup once (use the pin from `.cursor/hindsight-pin`):
+
+   ```bash
+   pin="$(tr -d '[:space:]' < .cursor/hindsight-pin)"
+   uvx "hindsight-embed@${pin}" configure
+   ```
+
+3. Re-run `install.sh` in your target repository. When Hindsight is configured, the installer runs (same pin file):
+
+   ```bash
+   pin="$(tr -d '[:space:]' < .cursor/hindsight-pin)"
+   uv tool install "hindsight-embed==${pin}" --with "hindsight-api==${pin}"
+   ```
+
+   The first install may take 30–60+ minutes while large dependencies download. Subsequent installs are fast.
+
+4. On each Cursor session, `.cursor/hooks/ensure-hindsight-daemon.sh` performs a fast daemon health check and warm restart via the installed `hindsight-embed` binary.
+
+Routine agent commands use `hindsight-embed` with `PATH="${HOME}/.local/bin:${PATH}"`. See `.cursor/skills/rosey-hindsight/SKILL.md` for the full contract.

@@ -33,7 +33,7 @@ This skill follows the Rosey-native brainstorm workflow with Rosey handoffs and 
 
 Before Phase 1.2 on Standard/Deep scope (before Phase 3 write on Lightweight with material scope):
 
-1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and run `daemon status` + `memory recall` (or document `Hindsight: unavailable — <reason>`).
+1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and run `hindsight-embed daemon status` + `hindsight-embed memory recall` (prepend `~/.local/bin` to PATH; see skill) OR document `Hindsight: unavailable — <reason>`.
 2. Do not write the requirements doc until step 1 completes or is explicitly marked unavailable.
 
 "Unavailable" means CLI failed — not "I skipped it."

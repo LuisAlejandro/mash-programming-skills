@@ -222,7 +222,7 @@ If a reviewer flags any file in these directories for cleanup or removal, discar
 Before computing diff scope:
 
 1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
-2. Run `daemon status` + `memory recall` with PR/plan scope OR emit `Hindsight: unavailable — <reason>`
+2. Run `hindsight-embed daemon status` + `hindsight-embed memory recall` with PR/plan scope (prepend `~/.local/bin` to PATH; see [`rosey-hindsight`](../rosey-hindsight/SKILL.md)) OR emit `Hindsight: unavailable — <reason>`
 3. Include recalled context in reviewer prompts when material
 
 `mode:report-only`: gate still runs; no file edits.

@@ -4,7 +4,7 @@
     "sessionStart": [
       {
         "command": ".cursor/hooks/ensure-hindsight-daemon.sh",
-        "timeout": 620
+        "timeout": 60
       }
     ]
   }

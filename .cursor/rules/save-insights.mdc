@@ -57,7 +57,7 @@ severity: medium
 
 ## Insight
 
-- Rosey skills use Hindsight via `uvx hindsight-embed@0.8.2`, not `.cursor/mcp.json`.
+- Rosey skills use Hindsight via the `hindsight-embed` tool install (`uv tool install` with co-installed `hindsight-api`), not `.cursor/mcp.json`. See `.cursor/skills/rosey-hindsight/SKILL.md`.
 
 ## When It Applies
 

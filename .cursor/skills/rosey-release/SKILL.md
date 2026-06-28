@@ -71,7 +71,7 @@ In `mode:non-interactive`:
 Before release work:
 
 1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md).
-2. Run `uvx hindsight-embed@0.8.2 daemon status`.
+2. Run `hindsight-embed daemon status` (see [`rosey-hindsight`](../rosey-hindsight/SKILL.md)).
 3. If available, recall release context for the current repo.
 4. If unavailable, record `HINDSIGHT: unavailable` in the handoff.
 

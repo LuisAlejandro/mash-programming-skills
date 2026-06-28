@@ -88,6 +88,7 @@ mkdir -p .cursor
 [ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
 [ -f "$SOURCE_ROOT/.cursor/mcp.json" ] && cp "$SOURCE_ROOT/.cursor/mcp.json" .cursor/
 [ -f "$SOURCE_ROOT/.cursor/hooks.json" ] && cp "$SOURCE_ROOT/.cursor/hooks.json" .cursor/
+[ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ] && cp "$SOURCE_ROOT/.cursor/hindsight-pin" .cursor/
 if [ -d "$SOURCE_ROOT/.cursor/hooks" ]; then
     mkdir -p .cursor/hooks
     cp -R "$SOURCE_ROOT/.cursor/hooks/." .cursor/hooks/
@@ -260,44 +261,79 @@ hindsight_embed_configured() {
     [ -f "${HOME}/.hindsight/embed" ] || [ -f "${HOME}/.hindsight/config.env" ]
 }
 
-start_hindsight_daemon() {
-    # Cold starts can exceed the CLI's 180s default while uvx pulls deps and
-    # loads embedding models. Prefix the timeout here — embed-file values load
-    # after the CLI reads this constant.
-    HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT="${HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT:-600}" \
-        uvx hindsight-embed daemon start
+read_hindsight_pin() {
+    local pin_file="$SOURCE_ROOT/.cursor/hindsight-pin"
+    if [ -f "$pin_file" ]; then
+        tr -d '[:space:]' <"$pin_file"
+    else
+        echo "0.8.2"
+    fi
+}
+
+hindsight_path() {
+    PATH="${HOME}/.local/bin:${PATH}"
+    export PATH
+}
+
+hindsight_cli() {
+    hindsight_path
+    hindsight-embed "$@"
+}
+
+install_hindsight_tool() {
+    local pin="$1"
+    echo "   Installing Hindsight embed + api (pinned ${pin})..."
+    echo "   First install may take 30–60+ minutes while large dependencies download."
+    uv tool install "hindsight-embed==${pin}" --with "hindsight-api==${pin}"
 }
 
 check_hindsight_embed() {
+    local pin
+    pin="$(read_hindsight_pin)"
+
     echo "-> Checking optional Hindsight embed CLI..."
 
-    if ! command -v uvx >/dev/null 2>&1; then
-        echo "   ⚠️  Hindsight embed requires uv/uvx for local memory."
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "   ⚠️  Hindsight embed requires uv for local memory."
         echo "      Install uv: https://docs.astral.sh/uv/"
-        echo "      Then run: uvx hindsight-embed configure"
-        return 0
-    fi
-
-    if uvx hindsight-embed daemon status >/dev/null 2>&1; then
-        echo "   Hindsight embed daemon is running."
-        return 0
-    fi
-
-    if hindsight_embed_configured; then
-        echo "   Hindsight embed is configured but daemon is stopped; starting..."
-        if start_hindsight_daemon >/dev/null 2>&1 \
-            && uvx hindsight-embed daemon status >/dev/null 2>&1; then
-            echo "   Hindsight embed daemon started."
+        if hindsight_embed_configured; then
+            echo "      After installing uv, re-run this install script."
         else
-            echo "   ⚠️  Hindsight daemon failed to start (cold boot can take several minutes)."
-            echo "      Retry: HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT=600 uvx hindsight-embed daemon start"
-            echo "      Logs: uvx hindsight-embed daemon logs -n 50"
+            echo "      Then run: uvx hindsight-embed@${pin} configure"
+            echo "      Re-run install.sh after configure to install the persistent tool."
         fi
         return 0
     fi
 
-    echo "   ⚠️  Hindsight embed is optional and not configured yet."
-    echo "      Run once when you want local memory: uvx hindsight-embed configure"
+    if ! hindsight_embed_configured; then
+        echo "   ⚠️  Hindsight embed is optional and not configured yet."
+        echo "      Run once when you want local memory: uvx hindsight-embed@${pin} configure"
+        echo "      Re-run install.sh after configure to install the persistent tool and start the daemon."
+        return 0
+    fi
+
+    if ! install_hindsight_tool "$pin"; then
+        echo "   ⚠️  Hindsight tool install failed."
+        echo "      Retry: uv tool install hindsight-embed==${pin} --with hindsight-api==${pin}"
+        return 0
+    fi
+
+    if hindsight_cli daemon status >/dev/null 2>&1; then
+        echo "   Hindsight embed daemon is running."
+        return 0
+    fi
+
+    echo "   Hindsight embed is configured but daemon is stopped; starting..."
+    if HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT="${HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT:-600}" \
+        hindsight_cli daemon start >/dev/null 2>&1 \
+        && hindsight_cli daemon status >/dev/null 2>&1; then
+        echo "   Hindsight embed daemon started."
+    else
+        echo "   ⚠️  Hindsight daemon failed to start (cold boot can take several minutes)."
+        echo "      Retry: HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT=600 hindsight-embed daemon start"
+        echo "      Logs: hindsight-embed daemon logs -n 50"
+        echo "      Hook log: ~/.hindsight/hook-last-run.log"
+    fi
 }
 
 check_hindsight_embed || true
@@ -307,4 +343,4 @@ echo "Rosey Environment installed successfully!"
 echo "   .cursor/rules, .cursor/skills, .cursor/agents, and mcp.json are in place."
 echo "   rosey/agentic-env.json records the installed agentic environment version."
 echo "   Next: configure MCP secrets in .cursor/mcp.json."
-echo "   Optional local memory: configure Hindsight with 'uvx hindsight-embed configure'."
+echo "   Optional local memory: uvx hindsight-embed@$(read_hindsight_pin) configure, then re-run install.sh."

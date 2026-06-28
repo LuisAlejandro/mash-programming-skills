@@ -285,7 +285,7 @@ Most bugs are localized mechanical fixes (typo, missed null check, missing impor
 
 When offering, use the blocking question tool described above. If the user accepts, choose the durable target explicitly:
 
-- **Cross-session memory (default for preferences, procedures, and repo-specific workarounds):** read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and run `uvx hindsight-embed@0.8.2 memory retain` with `--context learnings`. This does not create a file in the repo.
+- **Cross-session memory (default for preferences, procedures, and repo-specific workarounds):** read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and run `hindsight-embed memory retain` with `--context learnings`. This does not create a file in the repo.
 - **Curated institutional learning (when the lesson should be searchable in git):** add or update a file under `rosey/solutions/` or `rosey/insights/` following `save-insights` frontmatter rules, then commit that file to the same branch and push so the open PR picks it up.
 
 Do not treat Hindsight retain as producing a learning document. Use file-based docs only when the insight should live in version control.

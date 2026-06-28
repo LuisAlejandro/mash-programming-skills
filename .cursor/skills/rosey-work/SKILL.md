@@ -54,7 +54,7 @@ This skill follows the Rosey-native work workflow with Rosey Sentrux and handoff
 ### Phase 0.0: Hindsight gate (hard)
 
 1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
-2. Run `uvx hindsight-embed@0.8.2 daemon status`
+2. Run `hindsight-embed daemon status` (prepend `~/.local/bin` to PATH; see [`rosey-hindsight`](../rosey-hindsight/SKILL.md))
 3. Run `memory recall` OR emit `Hindsight: unavailable — <reason>` before any file edits
 4. At handoff: `memory retain` session summary OR document why retain was skipped
 
@@ -216,7 +216,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    **Hindsight recall:**
    - Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) before the first implementation task.
    - Resolve the Hindsight bank ID using the skill's bank resolution rule.
-   - Run `uvx hindsight-embed@0.8.2 memory recall <bank> "<task summary>"` with the plan path or bare prompt, affected modules, important risks, and U/R/A/F/AE IDs when present.
+   - Run `hindsight-embed memory recall <bank> "<task summary>"` with the plan path or bare prompt, affected modules, important risks, and U/R/A/F/AE IDs when present (see [`rosey-hindsight`](../rosey-hindsight/SKILL.md)).
    - Fold useful recalled context into the execution approach. Do not paste raw recall output into chat unless the user asks.
    - If Hindsight is unavailable, continue and record the unavailable status for handoff.
 
@@ -320,7 +320,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
      - Evaluate for incremental commit (see below)
    ```
 
-   When a task reveals durable context, retain it immediately with `uvx hindsight-embed@0.8.2 memory retain` using the guidance in [`rosey-hindsight`](../rosey-hindsight/SKILL.md). Good candidates include user preferences, project conventions, failed-command fixes, environment requirements, architecture decisions, and workarounds. Do not store secrets or sensitive data.
+   When a task reveals durable context, retain it immediately with `hindsight-embed memory retain` using the guidance in [`rosey-hindsight`](../rosey-hindsight/SKILL.md). Good candidates include user preferences, project conventions, failed-command fixes, environment requirements, architecture decisions, and workarounds. Do not store secrets or sensitive data.
 
    When a unit carries an `Execution note`, honor it. For test-first units, write the failing test before implementation for that unit. For characterization-first units, capture existing behavior before changing it. For units without an `Execution note`, proceed pragmatically.
 
