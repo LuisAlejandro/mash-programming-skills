@@ -13,6 +13,7 @@ const {
   pageDir,
   latestPath,
   componentCatalogPath,
+  rulesFilePath,
 } = require("../../rosey-implement-design/scripts/lib/rosey-paths");
 
 function parseArgs(argv) {
@@ -213,7 +214,7 @@ function main() {
     const catalogPath = componentCatalogPath(projectRoot);
     const contextPath = path.join(pageDirPath, "design-context.json");
     const artifactPath = path.join(pageDirPath, "artifact.json");
-    const baseRulePath = path.join(projectRoot, ".cursor", "rules", "rosey-design-system.mdc");
+    const baseRulePath = rulesFilePath(projectRoot, "rosey-design-system");
 
     const pathAliases = Object.fromEntries(
       (architecture.pathAliases?.entries || []).map(([key, value]) => [key, path.resolve(projectRoot, value)]),

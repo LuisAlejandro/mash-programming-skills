@@ -8,6 +8,11 @@ const { parseHtml } = require("./serialize-html");
 const { compareStructuralDom } = require("./lib/structural-dom-diff");
 const { compareScreenshotPair } = require("./lib/pixel-diff");
 const { gotoReady } = require("./lib/playwright-nav");
+const { treeKind } = require("./lib/rosey-paths");
+
+function skillsPrefix() {
+  return treeKind() === "vscode" ? ".github/skills/rosey-implement-design" : ".cursor/skills/rosey-implement-design";
+}
 
 function parseArgs(argv) {
   const args = {};
@@ -291,7 +296,7 @@ async function main() {
     ]);
     domFindings = compareStructuralDom(flattenDom(parseHtml(baselineHtml)), flattenDom(parseHtml(targetHtml)));
     notes.push(
-      "Install Playwright: npm install --prefix .cursor/skills/rosey-implement-design && npx --prefix .cursor/skills/rosey-implement-design playwright install chromium",
+      `Install Playwright: npm install --prefix ${skillsPrefix()} && npx --prefix ${skillsPrefix()} playwright install chromium`,
     );
   }
 

@@ -11,6 +11,7 @@ const {
   pageDir,
   componentCatalogPath,
   designSystemManifestPath,
+  rulesFilePath,
 } = require("../../rosey-implement-design/scripts/lib/rosey-paths");
 
 function parseArgs(argv) {
@@ -88,7 +89,7 @@ function main() {
     const artifact = readJson(path.join(pageRoot, "artifact.json"));
     const catalog = readJson(componentCatalogPath(root));
     const context = readJson(path.join(pageRoot, "design-context.json"));
-    const baseRules = readText(path.join(root, ".cursor", "rules", "rosey-design-system.mdc"));
+    const baseRules = readText(rulesFilePath(root, "rosey-design-system"));
     const ajv = compileValidator();
 
     validateSchema(ajv, "rosey-artifact.schema.json", artifact, "artifact");

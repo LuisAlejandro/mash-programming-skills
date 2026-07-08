@@ -8,6 +8,7 @@ const ROSEY_IGNORE_DIRS = new Set([
   "build",
   "coverage",
   ".cursor",
+  ".github",
 ]);
 
 module.exports = { ROSEY_IGNORE_DIRS };

@@ -5,6 +5,38 @@ const crypto = require("crypto");
 /** Project-relative root for OpenDesign pipeline artifacts (not rules or DESIGN.md). */
 const DESIGNS_DIR = path.join("rosey", "designs");
 
+/**
+ * Detect which Rosey tree this script is running from, based on its own location.
+ * - .cursor/skills/**  -> Cursor tree  -> rules live in .cursor/rules/*.mdc
+ * - .github/skills/**  -> VS Code tree -> rules live in .github/instructions/*.instructions.md
+ * Fallback: prefer .cursor/rules if it exists, else .github/instructions.
+ */
+function treeKind() {
+  const segments = __dirname.split(path.sep);
+  if (segments.includes(".cursor")) return "cursor";
+  if (segments.includes(".github")) return "vscode";
+  return null;
+}
+
+function rulesRoot(projectRoot) {
+  const kind = treeKind();
+  if (kind === "cursor") return path.join(projectRoot, ".cursor", "rules");
+  if (kind === "vscode") return path.join(projectRoot, ".github", "instructions");
+  const cursorRules = path.join(projectRoot, ".cursor", "rules");
+  return fs.existsSync(cursorRules) ? cursorRules : path.join(projectRoot, ".github", "instructions");
+}
+
+function rulesFileExtension() {
+  const kind = treeKind();
+  if (kind === "vscode") return ".instructions.md";
+  return ".mdc";
+}
+
+/** Absolute path to a Rosey rule file, target-aware. ruleName excludes extension. */
+function rulesFilePath(projectRoot, ruleName) {
+  return path.join(rulesRoot(projectRoot), `${ruleName}${rulesFileExtension()}`);
+}
+
 function designsRoot(projectRoot) {
   return path.join(projectRoot, DESIGNS_DIR);
 }
@@ -144,4 +176,8 @@ module.exports = {
   loadDesignSystemManifest,
   assertHtmlFresh,
   resolveProjectPath,
+  treeKind,
+  rulesRoot,
+  rulesFileExtension,
+  rulesFilePath,
 };

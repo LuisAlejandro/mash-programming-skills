@@ -60,13 +60,14 @@ if [ ! -d "$SOURCE_ROOT/.cursor" ]; then
     exit 1
 fi
 
+# --- Check mode ---
+
 if [ "$CHECK_ONLY" = true ]; then
     missing=0
-    for path in .cursor/rules .cursor/skills .cursor/agents .cursor/mcp.json rosey/agentic-env.json; do
-        if [ ! -e "$path" ]; then
-            echo "missing: $path"
-            missing=$((missing + 1))
-        fi
+    for path in .cursor/rules .cursor/skills .cursor/agents .cursor/mcp.json \
+                .github/copilot-instructions.md .github/instructions .github/skills \
+                .github/agents .vscode/mcp.json rosey/agentic-env.json; do
+        if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
     if [ "$CREATE_AGENTS" = true ] && [ ! -f AGENTS.md ]; then
         echo "missing: AGENTS.md"
@@ -79,21 +80,199 @@ if [ "$CHECK_ONLY" = true ]; then
     exit 1
 fi
 
-echo "-> Scaffolding .cursor folder..."
-mkdir -p .cursor
+# --- Helpers ---
 
-# Copy rules, skills, agents, and mcp.json from this repo
-[ -d "$SOURCE_ROOT/.cursor/rules" ] && cp -R "$SOURCE_ROOT/.cursor/rules" .cursor/
-[ -d "$SOURCE_ROOT/.cursor/skills" ] && cp -R "$SOURCE_ROOT/.cursor/skills" .cursor/
-[ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
-[ -f "$SOURCE_ROOT/.cursor/mcp.json" ] && cp "$SOURCE_ROOT/.cursor/mcp.json" .cursor/
-[ -f "$SOURCE_ROOT/.cursor/hooks.json" ] && cp "$SOURCE_ROOT/.cursor/hooks.json" .cursor/
-[ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ] && cp "$SOURCE_ROOT/.cursor/hindsight-pin" .cursor/
-if [ -d "$SOURCE_ROOT/.cursor/hooks" ]; then
-    mkdir -p .cursor/hooks
-    cp -R "$SOURCE_ROOT/.cursor/hooks/." .cursor/hooks/
-    chmod +x .cursor/hooks/*.sh 2>/dev/null || true
-fi
+# Extract frontmatter field value from an .mdc file (handles quoted/unquoted, single/double quotes).
+fm_field() {
+    local file="$1" field="$2"
+    sed -n "/^${field}:[[:space:]]*/{ s/^${field}:[[:space:]]*//; s/^[\"']//; s/[\"']$//; p; q; }" "$file" 2>/dev/null
+}
+
+# True if an .mdc rule has alwaysApply: true
+fm_always_apply() {
+    grep -qE '^alwaysApply:[[:space:]]*true' "$1" 2>/dev/null
+}
+
+# Print the body of an .mdc file (everything after the closing --- of frontmatter).
+fm_body() {
+    awk 'NR==1 && /^---$/ { fm=1; next } fm && /^---$/ { fm=0; body=1; next } body { print }' "$1"
+}
+
+# Rewrite .cursor/* path references to their VS Code equivalents in a file.
+rewrite_cursor_refs() {
+    local file="$1"
+    sed -i.bak -E \
+        -e 's|\.cursor/rules/([A-Za-z0-9._-]+)\.mdc|.github/instructions/\1.instructions.md|g' \
+        -e 's|\.cursor/skills/([A-Za-z0-9._-]+)/SKILL\.md|.github/skills/\1/SKILL.md|g' \
+        -e 's|\.cursor/agents/([A-Za-z0-9._-]+)\.md|.github/agents/\1.agent.md|g' \
+        -e 's|\.cursor/hooks/([A-Za-z0-9._-]+)\.sh|.github/hooks/\1.sh|g' \
+        -e 's|\.cursor/rules/|.github/instructions/|g' \
+        -e 's|\.cursor/skills/|.github/skills/|g' \
+        -e 's|\.cursor/agents/|.github/agents/|g' \
+        -e 's|\.cursor/hooks/|.github/hooks/|g' \
+        -e 's|\.cursor/mcp\.json|.vscode/mcp.json|g' \
+        -e 's|\.cursor/hindsight-pin|rosey/hindsight-pin|g' \
+        -e 's|\.cursor/hooks\.json|.github/hooks/sessionStart.json|g' \
+        "$file"
+    rm -f "${file}.bak"
+}
+
+# --- Shared pin ---
+
+echo "-> Writing shared rosey/hindsight-pin..."
+mkdir -p rosey
+[ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ] && cp "$SOURCE_ROOT/.cursor/hindsight-pin" rosey/hindsight-pin
+
+# --- Cursor target ---
+
+install_cursor_tree() {
+    echo "-> Scaffolding .cursor folder..."
+    mkdir -p .cursor
+
+    [ -d "$SOURCE_ROOT/.cursor/rules" ] && cp -R "$SOURCE_ROOT/.cursor/rules" .cursor/
+    [ -d "$SOURCE_ROOT/.cursor/skills" ] && cp -R "$SOURCE_ROOT/.cursor/skills" .cursor/
+    [ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
+    [ -f "$SOURCE_ROOT/.cursor/mcp.json" ] && cp "$SOURCE_ROOT/.cursor/mcp.json" .cursor/
+    [ -f "$SOURCE_ROOT/.cursor/hooks.json" ] && cp "$SOURCE_ROOT/.cursor/hooks.json" .cursor/
+    if [ -d "$SOURCE_ROOT/.cursor/hooks" ]; then
+        mkdir -p .cursor/hooks
+        cp -R "$SOURCE_ROOT/.cursor/hooks/." .cursor/hooks/
+        chmod +x .cursor/hooks/*.sh 2>/dev/null || true
+    fi
+    # Cursor hook script: prefer shared rosey/hindsight-pin, fall back to .cursor/hindsight-pin.
+    if [ -f .cursor/hooks/ensure-hindsight-daemon.sh ]; then
+        sed -i.bak -E 's|local pin_file="\.cursor/hindsight-pin"|local pin_file="rosey/hindsight-pin"|; s|pin_file="\.cursor/hindsight-pin"|pin_file="rosey/hindsight-pin"|' .cursor/hooks/ensure-hindsight-daemon.sh
+        rm -f .cursor/hooks/ensure-hindsight-daemon.sh.bak
+    fi
+}
+
+# --- VS Code target ---
+
+install_vscode_tree() {
+    echo "-> Scaffolding .github and .vscode folders..."
+    mkdir -p .github/instructions .github/skills .github/agents .github/hooks .vscode
+
+    # MCP config (same shape, different location)
+    [ -f "$SOURCE_ROOT/.cursor/mcp.json" ] && cp "$SOURCE_ROOT/.cursor/mcp.json" .vscode/mcp.json
+
+    # Rules: alwaysApply -> concatenated copilot-instructions.md; others -> .instructions.md
+    local copilot_instructions=".github/copilot-instructions.md"
+    : > "$copilot_instructions"
+    {
+        echo "# Rosey Agentic Environment"
+        echo
+        echo "This repository uses the Rosey Agentic Environment."
+        echo "This file intentionally does not store user preferences."
+        echo
+        echo "Before non-trivial planning, implementation, or review work, follow the"
+        echo "always-on guidelines below, then use the on-demand Rosey resources:"
+        echo
+        echo "- \`.github/instructions/\` (on-demand rules)"
+        echo "- \`.github/skills/\` for Rosey workflows"
+        echo "- \`.github/agents/\` for specialist reviews"
+        echo "- Hindsight pin is shared at \`rosey/hindsight-pin\`"
+        echo
+        echo "---"
+        echo
+        echo "## Always-on guidelines"
+        echo
+        echo "Auto-generated from .cursor/rules/*.mdc with alwaysApply: true."
+        echo "Do not edit by hand; re-run install.sh to refresh."
+        echo
+    } >> "$copilot_instructions"
+
+    local mdc
+    for mdc in "$SOURCE_ROOT"/.cursor/rules/*.mdc; do
+        [ -f "$mdc" ] || continue
+        local name desc body
+        name="$(basename "$mdc" .mdc)"
+        desc="$(fm_field "$mdc" description)"
+        body="$(fm_body "$mdc")"
+        if fm_always_apply "$mdc"; then
+            {
+                echo "---"
+                echo "# $name"
+                echo "## $desc"
+                echo
+                printf '%s\n' "$body"
+                echo
+            } >> "$copilot_instructions"
+        else
+            local out=".github/instructions/${name}.instructions.md"
+            {
+                echo "---"
+                printf 'description: %s\n' "$desc"
+                echo "---"
+                echo
+                printf '%s\n' "$body"
+            } > "$out"
+            rewrite_cursor_refs "$out"
+        fi
+    done
+
+    # Skills: copy tree, rewrite refs in .md files
+    local skill_dir
+    for skill_dir in "$SOURCE_ROOT"/.cursor/skills/*/; do
+        [ -d "$skill_dir" ] || continue
+        local sname
+        sname="$(basename "$skill_dir")"
+        mkdir -p ".github/skills/$sname"
+        cp -R "$skill_dir/." ".github/skills/$sname/"
+        # Rewrite .cursor refs in all markdown files of the skill
+        find ".github/skills/$sname" -name '*.md' -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            rewrite_cursor_refs "$f"
+        done
+    done
+
+    # Agents: copy .md -> .agent.md, strip color, rewrite refs. Copy .schema.json as-is.
+    local agent_file
+    for agent_file in "$SOURCE_ROOT"/.cursor/agents/*; do
+        [ -e "$agent_file" ] || continue
+        local abase
+        abase="$(basename "$agent_file")"
+        case "$abase" in
+            *.md)
+                local aname
+                aname="${abase%.md}"
+                local out=".github/agents/${aname}.agent.md"
+                # Strip the `color:` frontmatter line, keep the rest.
+                grep -v '^color:' "$agent_file" > "$out"
+                rewrite_cursor_refs "$out"
+                ;;
+            *)
+                cp "$agent_file" ".github/agents/$abase"
+                ;;
+        esac
+    done
+
+    # Hooks: per-event JSON + script with rewritten pin path
+    if [ -f "$SOURCE_ROOT/.cursor/hooks/ensure-hindsight-daemon.sh" ]; then
+        cp "$SOURCE_ROOT/.cursor/hooks/ensure-hindsight-daemon.sh" .github/hooks/ensure-hindsight-daemon.sh
+        chmod +x .github/hooks/ensure-hindsight-daemon.sh
+        # Rewrite pin path to shared rosey/hindsight-pin
+        sed -i.bak -E 's|local pin_file="\.cursor/hindsight-pin"|local pin_file="rosey/hindsight-pin"|; s|pin_file="\.cursor/hindsight-pin"|pin_file="rosey/hindsight-pin"|' .github/hooks/ensure-hindsight-daemon.sh
+        rm -f .github/hooks/ensure-hindsight-daemon.sh.bak
+        rewrite_cursor_refs .github/hooks/ensure-hindsight-daemon.sh
+    fi
+    cat > .github/hooks/sessionStart.json <<'EOF'
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": ".github/hooks/ensure-hindsight-daemon.sh",
+        "timeout": 60
+      }
+    ]
+  }
+}
+EOF
+}
+
+install_cursor_tree
+install_vscode_tree
+
+# --- .gitignore ---
 
 echo "-> Updating .gitignore..."
 touch .gitignore
@@ -112,7 +291,7 @@ append_gitignore_if_missing() {
     fi
 }
 
-append_gitignore_if_missing ".cursor/"
+# Shared rosey/ artifacts (both targets)
 append_gitignore_if_missing "rosey/brainstorms/"
 append_gitignore_if_missing "rosey/plans/"
 append_gitignore_if_missing "rosey/designs/"
@@ -123,8 +302,24 @@ append_gitignore_if_missing "rosey/qa/"
 append_gitignore_if_missing "rosey/deepening/"
 append_gitignore_if_missing "rosey/agentic-env.json"
 append_gitignore_if_missing "rosey/maintainer-manifest.json"
+append_gitignore_if_missing "rosey/hindsight-pin"
 append_gitignore_if_missing "AGENTS.md"
 append_gitignore_if_missing "DESIGN.md"
+
+# Cursor target
+append_gitignore_if_missing ".cursor/"
+
+# VS Code target — gitignore the specific Rosey-managed paths under .github/ and .vscode/mcp.json.
+# Note: this ignores ALL of .github/instructions, .github/skills, .github/agents, .github/hooks.
+# If you commit other team content under those folders, review before pushing.
+append_gitignore_if_missing ".github/copilot-instructions.md"
+append_gitignore_if_missing ".github/instructions/"
+append_gitignore_if_missing ".github/skills/"
+append_gitignore_if_missing ".github/agents/"
+append_gitignore_if_missing ".github/hooks/"
+append_gitignore_if_missing ".vscode/mcp.json"
+
+# --- AGENTS.md ---
 
 write_agents_file_if_missing() {
     if [ "$CREATE_AGENTS" != true ] || [ -f AGENTS.md ]; then
@@ -132,24 +327,28 @@ write_agents_file_if_missing() {
     fi
 
     echo "-> Creating AGENTS.md..."
-    cat > AGENTS.md <<'EOF'
+    local cursor_section
+    cursor_section='- `.cursor/rules/rosey-workflow-gates.mdc`
+- `.cursor/rules/hindsight-memory.mdc`
+- `.cursor/rules/karpathy-guidelines.mdc`
+- `.cursor/rules/save-insights.mdc`'
+    cat > AGENTS.md <<EOF
 # Rosey Agent Guidance
 
-This repository uses the Rosey Agentic Environment installed under `.cursor/`.
+This repository uses the Rosey Agentic Environment.
 This file intentionally does not store user preferences.
 
 Before non-trivial planning, implementation, or review work, follow the installed
-Cursor rules, especially:
+Rosey rules and skills:
 
-- `.cursor/rules/rosey-workflow-gates.mdc`
-- `.cursor/rules/hindsight-memory.mdc`
-- `.cursor/rules/karpathy-guidelines.mdc`
-- `.cursor/rules/save-insights.mdc`
+$cursor_section
 
-Use `.cursor/skills/` for Rosey workflows and `.cursor/agents/` for specialist
-reviews.
+Use the installed skills for Rosey workflows and the installed agents for specialist
+reviews. Hindsight pin is shared at \`rosey/hindsight-pin\`.
 EOF
 }
+
+# --- agentic-env.json pin ---
 
 write_agentic_pin() {
     if [ "$WRITE_PIN" != true ]; then
@@ -158,12 +357,14 @@ write_agentic_pin() {
 
     echo "-> Writing rosey/agentic-env.json..."
     mkdir -p rosey
+    local installed_at
     installed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
     cat > rosey/agentic-env.json <<EOF
 {
   "installed_at": "$installed_at",
   "source": "$SOURCE_ROOT",
-  "version": "$INSTALL_VERSION"
+  "version": "$INSTALL_VERSION",
+  "targets": ["cursor","vscode"]
 }
 EOF
 }
@@ -201,12 +402,15 @@ install_npm_deps() {
 }
 
 echo "-> Installing skill dependencies (OpenDesign, etc.)..."
-if [ -d ".cursor/skills" ]; then
-    while IFS= read -r -d '' pkg; do
-        skill_dir="$(dirname "$pkg")"
-        install_npm_deps "$skill_dir" "skill $(basename "$skill_dir")"
-    done < <(find .cursor/skills -name package.json -not -path '*/node_modules/*' -print0 2>/dev/null)
-fi
+# Scan both .cursor/skills and .github/skills for package.json (whichever exist).
+for skills_root in .cursor/skills .github/skills; do
+    if [ -d "$skills_root" ]; then
+        while IFS= read -r -d '' pkg; do
+            skill_dir="$(dirname "$pkg")"
+            install_npm_deps "$skill_dir" "skill $(basename "$skill_dir")"
+        done < <(find "$skills_root" -name package.json -not -path '*/node_modules/*' -print0 2>/dev/null)
+    fi
+done
 
 echo "-> Installing app dependencies..."
 if [ -f "$INSTALL_ROOT/package.json" ]; then
@@ -262,9 +466,12 @@ hindsight_embed_configured() {
 }
 
 read_hindsight_pin() {
-    local pin_file="$SOURCE_ROOT/.cursor/hindsight-pin"
+    # Prefer shared rosey/hindsight-pin, fall back to source .cursor/hindsight-pin.
+    local pin_file="rosey/hindsight-pin"
     if [ -f "$pin_file" ]; then
         tr -d '[:space:]' <"$pin_file"
+    elif [ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ]; then
+        tr -d '[:space:]' <"$SOURCE_ROOT/.cursor/hindsight-pin"
     else
         echo "0.8.2"
     fi
@@ -340,7 +547,9 @@ check_hindsight_embed || true
 
 echo ""
 echo "Rosey Environment installed successfully!"
-echo "   .cursor/rules, .cursor/skills, .cursor/agents, and mcp.json are in place."
-echo "   rosey/agentic-env.json records the installed agentic environment version."
-echo "   Next: configure MCP secrets in .cursor/mcp.json."
+echo "   .cursor/rules, .cursor/skills, .cursor/agents, and .cursor/mcp.json are in place."
+echo "   .github/copilot-instructions.md, .github/instructions, .github/skills, .github/agents, .github/hooks, and .vscode/mcp.json are in place."
+echo "   rosey/agentic-env.json records the installed agentic environment version and targets."
+echo "   rosey/hindsight-pin is the shared Hindsight pin (read by both Cursor and VS Code hooks)."
+echo "   Next: configure MCP secrets in .cursor/mcp.json and .vscode/mcp.json."
 echo "   Optional local memory: uvx hindsight-embed@$(read_hindsight_pin) configure, then re-run install.sh."
