@@ -54,6 +54,14 @@ done
 echo "Installing Rosey Agentic Environment..."
 echo "-> Installing from $SOURCE_ROOT into $INSTALL_ROOT..."
 
+if [ "$INSTALL_ROOT" = "$SOURCE_ROOT" ] && [ "$CHECK_ONLY" = false ]; then
+    echo "Error: Cannot install the Rosey Agentic Environment into its own source repository." >&2
+    echo "   You are currently in the rosey-agentic-env source directory ($SOURCE_ROOT)." >&2
+    echo "   To install Rosey in a target project, run this script from the target project directory:" >&2
+    echo "   /path/to/rosey-agentic-env/install.sh" >&2
+    exit 1
+fi
+
 if [ ! -d "$SOURCE_ROOT/.cursor" ]; then
     echo "Error: Could not find .cursor directory in $SOURCE_ROOT"
     echo "   Run this script from the rosey-agentic-env repository (install.sh must live beside .cursor/)."
@@ -126,6 +134,9 @@ mkdir -p rosey
 # --- Cursor target ---
 
 install_cursor_tree() {
+    echo "-> Cleaning old .cursor files..."
+    rm -rf .cursor/rules .cursor/skills .cursor/agents .cursor/hooks .cursor/mcp.json .cursor/hooks.json
+
     echo "-> Scaffolding .cursor folder..."
     mkdir -p .cursor
 
@@ -149,6 +160,9 @@ install_cursor_tree() {
 # --- VS Code target ---
 
 install_vscode_tree() {
+    echo "-> Cleaning old VS Code/Copilot files..."
+    rm -rf .github/instructions .github/skills .github/agents .github/hooks .github/copilot-instructions.md .vscode/mcp.json
+
     echo "-> Scaffolding .github and .vscode folders..."
     mkdir -p .github/instructions .github/skills .github/agents .github/hooks .vscode
 
