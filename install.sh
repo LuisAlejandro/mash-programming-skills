@@ -129,6 +129,12 @@ skill_should_install() {
                     ;;
             esac
             ;;
+        rosey-maintainer-add | rosey-maintainer-sync)
+            [ "$INSTALL_ROOT_BASENAME" = "rosey-maintainer-tools" ]
+            ;;
+        tailor-cv)
+            [ "$INSTALL_ROOT_BASENAME" = "curriculum-vitae" ]
+            ;;
         *)
             return 0
             ;;
