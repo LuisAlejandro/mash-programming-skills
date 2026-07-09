@@ -2,6 +2,7 @@
 set -euo pipefail
 
 INSTALL_ROOT="$(pwd)"
+INSTALL_ROOT_BASENAME="$(basename "$INSTALL_ROOT")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_ROOT="${ROSEY_AGENTIC_ENV:-$SCRIPT_DIR}"
 VERSION_FILE="$SOURCE_ROOT/VERSION"
@@ -106,6 +107,34 @@ fm_body() {
     awk 'NR==1 && /^---$/ { fm=1; next } fm && /^---$/ { fm=0; body=1; next } body { print }' "$1"
 }
 
+# True when a skill should be installed into the current INSTALL_ROOT.
+# Project-specific skills declare which root folder basename they require.
+skill_should_install() {
+    local skill_name="$1"
+    case "$skill_name" in
+        rosey-dockershelf-maintainer)
+            [ "$INSTALL_ROOT_BASENAME" = "dockershelf" ]
+            ;;
+        add-debian-suite | add-go-version | add-node-version | add-python-version | discover-new-versions | retire-version)
+            [ "$INSTALL_ROOT_BASENAME" = "dockershelf-pipeline" ]
+            ;;
+        rosey-design-catalog | rosey-design-system | rosey-implement-design | rosey-token-resolution)
+            case "$INSTALL_ROOT_BASENAME" in
+                morphile | wholmaster | luisalejandro.org | landing-template | helpmarket | \
+                wholmaster-website | losa | nuncia | whol | collagelabs.org | luisalejandro.github.io)
+                    return 0
+                    ;;
+                *)
+                    return 1
+                    ;;
+            esac
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
 # Rewrite .cursor/* path references to their VS Code equivalents in a file.
 rewrite_cursor_refs() {
     local file="$1"
@@ -141,7 +170,19 @@ install_cursor_tree() {
     mkdir -p .cursor
 
     [ -d "$SOURCE_ROOT/.cursor/rules" ] && cp -R "$SOURCE_ROOT/.cursor/rules" .cursor/
-    [ -d "$SOURCE_ROOT/.cursor/skills" ] && cp -R "$SOURCE_ROOT/.cursor/skills" .cursor/
+    if [ -d "$SOURCE_ROOT/.cursor/skills" ]; then
+        mkdir -p .cursor/skills
+        local skill_dir sname
+        for skill_dir in "$SOURCE_ROOT"/.cursor/skills/*/; do
+            [ -d "$skill_dir" ] || continue
+            sname="$(basename "$skill_dir")"
+            if skill_should_install "$sname"; then
+                cp -R "$skill_dir" ".cursor/skills/$sname"
+            else
+                echo "   Skipping skill $sname (not for root folder $INSTALL_ROOT_BASENAME)"
+            fi
+        done
+    fi
     [ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
     [ -f "$SOURCE_ROOT/.cursor/mcp.json" ] && cp "$SOURCE_ROOT/.cursor/mcp.json" .cursor/
     [ -f "$SOURCE_ROOT/.cursor/hooks.json" ] && cp "$SOURCE_ROOT/.cursor/hooks.json" .cursor/
@@ -230,6 +271,10 @@ install_vscode_tree() {
         [ -d "$skill_dir" ] || continue
         local sname
         sname="$(basename "$skill_dir")"
+        if ! skill_should_install "$sname"; then
+            echo "   Skipping skill $sname (not for root folder $INSTALL_ROOT_BASENAME)"
+            continue
+        fi
         mkdir -p ".github/skills/$sname"
         cp -R "$skill_dir/." ".github/skills/$sname/"
         # Rewrite .cursor refs in all markdown files of the skill

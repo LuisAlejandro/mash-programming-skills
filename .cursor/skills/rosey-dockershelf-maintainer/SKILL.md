@@ -1,12 +1,12 @@
 ---
 name: rosey-dockershelf-maintainer
-description: Autonomously discovers upstream Python, Node, and Go versions, updates shelf lists under cap policy, regenerates the tree via update.py, then commits and pushes to develop. Use for periodic Dockershelf catalog maintenance, update-shelves, or shelf version bumps before a release. No manual version research required unless discovery fails. LaTeX is out of scope (fixed basic/full/extras variants).
-argument-hint: "[optional mode:check-only or explicit add/remove overrides]"
+description: Autonomously maintains Dockershelf catalogs: discovers upstream Python, Node, and Go versions, handles Debian release rolls when a new Debian stable is released, updates shelf lists and APT-suite metadata, regenerates the tree via update.py, then commits and pushes to develop. Use for periodic Dockershelf catalog maintenance, update-shelves, Debian stable/testing rolls, or shelf version bumps before a release. LaTeX is fixed basic/full/extras only.
+argument-hint: "[optional mode:check-only or explicit add/remove overrides; optional debian-release:<new-stable-codename>]"
 ---
 
 # Rosey Dockershelf Maintainer
 
-Autonomous shelf-catalog maintenance on `develop`: discover upstream versions, apply cap policy, regenerate the tree, commit, push. **Default:** invoke with no arguments — do not ask the user which versions to add.
+Autonomous shelf-catalog maintenance on `develop`: discover upstream runtime versions, handle Debian release rolls when live Debian suites move, apply cap policy, regenerate the tree, commit, push. **Default:** invoke with no arguments — do not ask the user which versions to add.
 
 **Out of scope:** git-flow release/hotfix (use [`rosey-release`](../rosey-release/SKILL.md)), debugging failed image builds, Docker Hub cleanup, local full-matrix builds.
 
@@ -24,17 +24,19 @@ Parse `$ARGUMENTS` for at most one mode token:
 | `mode:check-only`  | Run discovery and report; stop before editing files (no commit/push).                |
 | `mode:interactive` | Run discovery, show planned add/remove, wait for user confirmation before apply.     |
 
-Strip the mode token before parsing optional manual overrides (`add …` / `remove …`). Multiple mode tokens → stop and report conflict.
+Strip the mode token before parsing optional manual overrides (`add …` / `remove …`) or optional `debian-release:<new-stable-codename>` hints. Multiple mode tokens → stop and report conflict.
 
 **Manual overrides:** If `$ARGUMENTS` contains explicit `add` / `remove` hints, skip discovery and apply those edits to `scripts/utils.py` by hand (still honor cap + oldest-drop). Use only when overriding autonomous discovery.
+
+**Debian release hint:** If `$ARGUMENTS` contains `debian-release:<codename>`, still verify live Debian suite metadata and APT repo readiness. Treat the hint as expected stable codename, not as proof.
 
 ## Version source of truth
 
 | Shelf  | Manual config                                       | Live / generated                                                                                       |
 | ------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Python | `python_suites` in `scripts/utils.py`               | deadsnakes PPA (≥ 3.10); see `scripts/discover_shelf_versions.py`                                      |
-| Node   | `node_suites` in `scripts/utils.py`                 | nodejs.org index + NodeSource repo probe (even LTS majors ≥ 16)                                        |
-| Go     | `go_suites` in `scripts/utils.py`                   | golang telemetry minors; patches at regeneration                                                       |
+| Python | `python_suites` in `scripts/utils.py`               | Dockershelf APT `python3.X` packages; see `scripts/discover_shelf_versions.py`                         |
+| Node   | `node_suites` in `scripts/utils.py`                 | Dockershelf APT `nodejs-XX` packages (even LTS majors ≥ 16)                                            |
+| Go     | `go_suites` in `scripts/utils.py`                   | Dockershelf APT `golang-X.Y-go` packages; patch versions resolved from APT at regeneration             |
 | Debian | `debian_suites` in `scripts/utils.py` (suite names) | Codename per suite from `deb.debian.org` via `get_debian_versions()` (imported in `scripts/config.py`) |
 | LaTeX  | `latex_versions` in `scripts/config.py`             | Fixed `basic`, `full`, `extras` — do not edit in this skill                                            |
 
@@ -52,7 +54,7 @@ Dockershelf supports a **fixed maximum** of concurrent versions per **runtime** 
 | ------ | -------------- | --------------- | --------------------------------------------- |
 | Python | **5**          | `python_suites` | Drop oldest minor when adding a 6th           |
 | Node   | **5**          | `node_suites`   | Drop oldest major when adding a 6th           |
-| Go     | **6**          | `go_suites`     | Drop oldest minor when adding a 7th           |
+| Go     | **5**          | `go_suites`     | Drop oldest minor when adding a 6th           |
 | Debian | **4 suites**   | `debian_suites` | See Debian rules below — not a sliding window |
 
 **Cap policy (enforced by discovery script):** keep the **N newest** buildable upstream versions (N = current list length). Adding a newer release drops the oldest automatically (e.g. Node 26 in → Node 16 out).
@@ -66,6 +68,27 @@ Changing a cap (e.g. Python 5 → 6) is a **policy change** — update this tabl
 - Language shelves (Python, Node, Go) build **two images per runtime**: stable-suite codename + unstable-suite codename (e.g. `3.14-trixie` and `3.14-sid`, with `FROM dockershelf/debian:trixie` / `dockershelf/debian:sid`). Docker tags also expose `-stable` / `-unstable` aliases. Retiring a runtime removes both its codename dirs; **sid as a Debian base stays** for all remaining versions.
 - Do not manually delete `debian/sid/` or drop sid tags from the matrix — `update.py` regenerates it from `unstable` every run.
 - `oldstable`, `stable`, and `testing` codenames roll with Debian releases via `get_debian_versions()`; only **sid / unstable** is the permanent Dockershelf anchor.
+
+### Debian release rolls
+
+A new Debian version is a **suite promotion**, not a fifth Debian entry. When Debian promotes testing to stable:
+
+- `oldstable` becomes the previous `stable` codename.
+- `stable` becomes the previous `testing` codename.
+- `testing` becomes the new codename.
+- `unstable` stays `sid`.
+
+Example: if `forky` becomes stable, `bookworm` disappears from generated Debian outputs, `trixie` becomes oldstable, `forky` becomes stable, the next codename becomes testing, and `sid` stays unstable.
+
+Required manual inputs around a Debian release:
+
+- `debian_suites` stays `['oldstable', 'stable', 'testing', 'unstable']`; do not add the new codename there.
+- Update the Dockershelf APT scan suites from old stable codename to new stable codename in both places:
+  - `DOCKERSHELF_APT_SUITES` in `scripts/discover_shelf_versions.py`
+  - `dockershelf_apt_suites` in `scripts/utils.py`
+- Update `scripts/build-all-images.sh` `get_debian_suite()` codename mapping so local all-image builds classify oldstable/stable/testing correctly.
+- Before regenerating, verify `https://apt.dockershelf.com/dockershelf/dists/<new-stable-codename>/main/binary-amd64/Packages.gz` exists. Runtime image builds use the stable codename directly in their APT source; discovery will be incomplete until the dist exists.
+- Do not change LaTeX variants. LaTeX continues `FROM dockershelf/debian:stable`; it picks up the new stable only after that tag is rebuilt and pushed.
 
 ### LaTeX: fixed variants, passive updates
 
@@ -84,14 +107,15 @@ If the user asks to add/remove a LaTeX variant, stop — that is outside this sk
 
 Copy and track:
 
-```
+```text
 - [ ] 1. Branch prep (develop)
 - [ ] 2. Discover upstream versions
-- [ ] 3. Apply shelf list updates
-- [ ] 4. Regenerate tree
-- [ ] 5. Review diff
-- [ ] 6. Commit
-- [ ] 7. Push develop
+- [ ] 3. Detect Debian release roll
+- [ ] 4. Apply shelf list and Debian metadata updates
+- [ ] 5. Regenerate tree
+- [ ] 6. Review diff
+- [ ] 7. Commit
+- [ ] 8. Push develop
 ```
 
 ### 1. Branch prep
@@ -113,25 +137,48 @@ python3 -m pip install -r requirements.txt   # if needed
 python3 -m scripts.discover_shelf_versions --json
 ```
 
-Requires network (~1 min; deadsnakes PPA is slow). The script:
+Requires network. The script:
 
-| Shelf  | Upstream source                                           |
-| ------ | --------------------------------------------------------- |
-| Python | deadsnakes PPA packages (≥ 3.10)                          |
-| Node   | nodejs.org `index.json` + NodeSource `node_N.x` repo HEAD |
-| Go     | golang telemetry `config.json` minors                     |
+| Shelf  | Upstream source                                      |
+| ------ | ---------------------------------------------------- |
+| Python | Dockershelf APT `python3.X` packages (≥ 3.10)        |
+| Node   | Dockershelf APT `nodejs-XX` packages (even, ≥ 16)    |
+| Go     | Dockershelf APT `golang-X.Y-go` packages             |
 
-It compares upstream to `scripts/utils.py`, applies cap policy, and reports `add` / `remove` per shelf.
+It scans `DOCKERSHELF_APT_SUITES`, compares upstream to `scripts/utils.py`, applies cap policy, and reports `add` / `remove` per shelf. Debian codenames are **not** discovered here.
 
-- **All shelves `changed: false`** and `mode:check-only` → report “up to date” and stop.
-- **All shelves `changed: false`** otherwise → skip step 3, continue to step 4 (regenerate for incidental debian/go/latex drift).
+- **All shelves `changed: false`** → continue to step 3 before deciding whether to stop.
 - **Any `changed: true`** → proceed to step 3.
 
 In `mode:interactive`, print the JSON report and wait for confirmation before step 3.
 
 On discovery failure (network, parse error), report the error and stop — do not guess versions.
 
-### 3. Apply shelf list updates
+### 3. Detect Debian release roll
+
+Always check live Debian suites before deciding “up to date”:
+
+```bash
+python3 - <<'PY'
+from scripts.utils import get_debian_versions
+
+for codename, suite in get_debian_versions():
+    print(f'{suite}: {codename}')
+PY
+```
+
+Compare the live `stable` codename to the first element of both Dockershelf APT suite tuples:
+
+- `DOCKERSHELF_APT_SUITES` in `scripts/discover_shelf_versions.py`
+- `dockershelf_apt_suites` in `scripts/utils.py`
+
+If live `stable` differs, a Debian release roll is in scope. Continue even if Python/Node/Go discovery reports no changes.
+
+For `debian-release:<codename>`, require live `stable == <codename>`. If not, stop and report that Debian has not promoted yet.
+
+If `mode:check-only`, report the runtime discovery plus Debian suite status and stop after this step.
+
+### 4. Apply shelf list and Debian metadata updates
 
 **Autonomous path** (no manual overrides):
 
@@ -139,16 +186,40 @@ On discovery failure (network, parse error), report the error and stop — do no
 python3 -m scripts.discover_shelf_versions --apply
 ```
 
-This:
-
-1. Writes recommended lists to `scripts/utils.py`
-2. Extends `python/build-image.sh` elif chains when a new Python minor is in deadsnakes but not yet in the build script (e.g. `3.15`)
+This writes recommended Python, Node, and Go lists to `scripts/utils.py`.
 
 **Manual override path:** edit `scripts/utils.py` only (`python_suites`, `node_suites`, `go_suites`). Do not edit `scripts/config.py` or `latex_versions`.
 
-**Never:** remove `'unstable'` from `debian_suites` or retire Debian sid.
+**Debian release-roll path:** after discovery/apply, make these hand edits before regeneration:
 
-### 4. Regenerate tree
+1. In `scripts/discover_shelf_versions.py`, set `DOCKERSHELF_APT_SUITES = ('<live-stable-codename>', 'unstable')`.
+2. In `scripts/utils.py`, set `dockershelf_apt_suites = ('<live-stable-codename>', 'unstable')`.
+3. In `scripts/build-all-images.sh`, update `get_debian_suite()` so:
+   - previous oldstable codename is removed
+   - previous stable codename maps to `oldstable`
+   - live stable codename maps to `stable`
+   - live testing codename maps to `testing`
+   - `sid` maps to `unstable`
+4. Probe the new Dockershelf APT dist before regeneration:
+
+```bash
+python3 - <<'PY'
+import gzip
+from urllib.request import urlopen
+
+codename = '<live-stable-codename>'
+url = f'https://apt.dockershelf.com/dockershelf/dists/{codename}/main/binary-amd64/Packages.gz'
+with urlopen(url, timeout=30) as response:
+    gzip.decompress(response.read())
+print(f'OK: {url}')
+PY
+```
+
+If the new APT dist is missing, stop and report the blocker. Do not regenerate language shelves against a stable codename whose Dockershelf APT packages are unavailable.
+
+**Never:** remove `'unstable'` from `debian_suites`, retire Debian sid, or add codename literals to `debian_suites`.
+
+### 5. Regenerate tree
 
 **Preferred** (matches maintainer Makefile):
 
@@ -165,7 +236,7 @@ python3 -m pip install -r requirements.txt
 python3 update.py
 ```
 
-Requires network (Debian Release files, golang telemetry JSON).
+Requires network (Debian Release files and Dockershelf APT package indexes).
 
 `update.py` regenerates:
 
@@ -175,12 +246,19 @@ Requires network (Debian Release files, golang telemetry JSON).
 
 Re-run until exit 0. On failure, report stderr; do not commit partial regeneration.
 
-### 5. Review diff
+### 6. Review diff
 
 Confirm:
 
 - Version list edits match intent
 - New version dirs appear; removed version dirs are gone
+- For Debian release rolls:
+  - previous oldstable codename dirs are deleted
+  - previous stable codename remains only as Debian oldstable output, not as language stable output
+  - live stable codename becomes Debian stable and all Python/Node/Go stable image dirs
+  - live testing codename appears under `debian/` only
+  - `debian/sid/` and all runtime `*-sid` dirs remain
+  - `stable` / `latest-stable` aliases now point at the live stable codename in workflow matrices and README tag tables
 - Workflow matrix entries match new/removed images
 - Incidental `debian/` or `go/` changes are expected (codename roll-forward, Go patch bumps) — not mistaken for mistakes
 - No edits outside regenerated catalog files
@@ -194,20 +272,27 @@ git diff
 
 PR CI only checks that `update.py` **exits 0** — it does not fail on a dirty tree. Locally, a second run may still produce diff if Go telemetry or Debian metadata changed between runs; that is normal.
 
-### 6. Commit
+### 7. Commit
 
-Stage `scripts/utils.py`, `python/build-image.sh` (if discovery extended it), and all regenerated files. Do not stage unrelated changes or `scripts/config.py` unless edited for an unrelated reason.
+Stage `scripts/utils.py`, `scripts/discover_shelf_versions.py`, `scripts/build-all-images.sh` (only when edited for a Debian release roll), `python/build-image.sh` (if discovery extended it), and all regenerated files. Do not stage unrelated changes or `scripts/config.py` unless edited for an unrelated reason.
 
 **Message style** (match `HISTORY.md`):
 
-```
+```text
 Adding support for <new versions>. Removing support for <removed versions>.
 ```
 
 Omit the removing clause if nothing was removed. One or two sentences, focus on why.
 
+For Debian release rolls, prefer:
+
+```text
+Adding support for Debian <new-stable-codename>. Removing support for Debian <dropped-oldstable-codename>.
+```
+
 ```bash
-git add scripts/utils.py python/build-image.sh \
+git add scripts/utils.py scripts/discover_shelf_versions.py \
+  scripts/build-all-images.sh python/build-image.sh \
   debian/ python/ node/ go/ latex/ \
   README.md .github/workflows/trigger-develop.yml \
   .github/workflows/clean-develop.yml .github/workflows/push-master.yml \
@@ -222,13 +307,13 @@ EOF
 
 Use `-S` only if the repo convention on this branch expects signed commits.
 
-### 7. Push develop
+### 8. Push develop
 
 ```bash
 git push origin develop
 ```
 
-Report push result. `pr.yml` runs `update.py` only on **pull requests** to `develop` (exit-code check, not committed-output diff). Direct pushes to `develop` skip it — local regeneration in step 3 is mandatory. Pushing `develop` does **not** trigger image builds (`trigger-develop.yml` is manual `workflow_dispatch` only).
+Report push result. `pr.yml` runs `update.py` only on **pull requests** to `develop` (exit-code check, not committed-output diff). Direct pushes to `develop` skip it — local regeneration in step 5 is mandatory. Pushing `develop` does **not** trigger image builds (`trigger-develop.yml` is manual `workflow_dispatch` only).
 
 ## Argument hints
 
@@ -237,6 +322,7 @@ Report push result. `pr.yml` runs `update.py` only on **pull requests** to `deve
 | _(empty)_                            | Full autonomous run (discover → apply if needed → regenerate → commit → push) |
 | `mode:check-only`                    | Discovery report only                                                         |
 | `add python 3.15` / `remove node 16` | Skip discovery; manual override (honor cap policy)                            |
+| `debian-release:forky`               | Verify live Debian stable is `forky`; apply Debian release-roll steps         |
 | `add latex …` / `remove latex …`     | **Reject** — LaTeX variants are fixed                                         |
 
 ## Handoff
@@ -244,6 +330,7 @@ Report push result. `pr.yml` runs `update.py` only on **pull requests** to `deve
 When done, report:
 
 - Discovery summary (upstream vs recommended; or “up to date”)
+- Debian suite summary (`oldstable`, `stable`, `testing`, `unstable`) and whether a release roll was applied
 - Versions added/removed per shelf
 - Regeneration method used (`make update-shelves` vs `python3 update.py`)
 - Commit hash and `origin/develop` push status

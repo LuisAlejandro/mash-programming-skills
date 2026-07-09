@@ -38,7 +38,7 @@ Maximum concurrent versions per **runtime** shelf (current policy):
 |-------|-----|
 | Python | 5 |
 | Node | 5 |
-| Go | 6 |
+| Go | 5 |
 
 When adding would exceed the cap, remove the **oldest** list entry first, then append the new one. Retirement is by **slot count**, not upstream EOL calendars.
 
