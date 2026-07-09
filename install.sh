@@ -79,7 +79,7 @@ if [ "$CHECK_ONLY" = true ]; then
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
     if [ "$CREATE_AGENTS" = true ] && [ ! -f AGENTS.md ]; then
-        echo "missing: AGENTS.md"
+        echo "missing: AGENTS.md (re-run install.sh to write it)"
         missing=$((missing + 1))
     fi
     if [ "$missing" -eq 0 ]; then
@@ -386,30 +386,78 @@ append_gitignore_if_missing ".vscode/mcp.json"
 
 # --- AGENTS.md ---
 
-write_agents_file_if_missing() {
-    if [ "$CREATE_AGENTS" != true ] || [ -f AGENTS.md ]; then
+write_agents_file() {
+    if [ "$CREATE_AGENTS" != true ]; then
         return 0
     fi
 
-    echo "-> Creating AGENTS.md..."
-    local cursor_section
-    cursor_section='- `.cursor/rules/rosey-workflow-gates.mdc`
-- `.cursor/rules/hindsight-memory.mdc`
-- `.cursor/rules/karpathy-guidelines.mdc`
-- `.cursor/rules/save-insights.mdc`'
-    cat > AGENTS.md <<EOF
+    echo "-> Writing AGENTS.md..."
+    cat > AGENTS.md <<'EOF'
 # Rosey Agent Guidance
 
 This repository uses the Rosey Agentic Environment.
-This file intentionally does not store user preferences.
+This file intentionally does not store user preferences inline.
+
+Detect which IDE you are running in, then follow **only** that IDE's paths below.
+Do not follow Cursor paths when running in VS Code / Copilot, and do not follow
+VS Code paths when running in Cursor.
+
+## If Cursor
 
 Before non-trivial planning, implementation, or review work, follow the installed
 Rosey rules and skills:
 
-$cursor_section
+- `.cursor/rules/rosey-workflow-gates.mdc`
+- `.cursor/rules/hindsight-memory.mdc`
+- `.cursor/rules/karpathy-guidelines.mdc`
+- `.cursor/rules/save-insights.mdc`
 
-Use the installed skills for Rosey workflows and the installed agents for specialist
-reviews. Hindsight pin is shared at \`rosey/hindsight-pin\`.
+Use `.cursor/skills/` for Rosey workflows and `.cursor/agents/` for specialist
+reviews. Full Hindsight CLI contract: `.cursor/skills/rosey-hindsight/SKILL.md`.
+
+## If VS Code / GitHub Copilot
+
+Before non-trivial planning, implementation, or review work, follow the installed
+Rosey guidelines and skills:
+
+- Always-on guidelines: `.github/copilot-instructions.md`
+  (includes workflow gates, Hindsight, Karpathy, and save-insights)
+- On-demand rules: `.github/instructions/`
+- Skills: `.github/skills/`
+- Agents: `.github/agents/`
+
+Do not open or follow `.cursor/rules/`, `.cursor/skills/`, or `.cursor/agents/`
+from VS Code — those paths are Cursor-only.
+
+Full Hindsight CLI contract: `.github/skills/rosey-hindsight/SKILL.md`.
+
+## Preferences, insights, and memory
+
+User preferences and durable project context live **outside** this file:
+
+| Store | Path / tool | What it holds |
+| ----- | ----------- | ------------- |
+| Curated insights | `rosey/insights/*.md` | Durable repo lessons (architecture rules, workflow gotchas, “do not do this”) |
+| Curated solutions | `rosey/solutions/` | Institutional how-tos / past fixes |
+| Cross-session memory | Hindsight (`hindsight-embed`) | Preferences, procedure outcomes, task discoveries |
+
+**Consult insights:** read `rosey/insights/` (and use `rosey-learnings-researcher` when available) before non-trivial planning or implementation in a documented area.
+
+**Consult Hindsight memory** (before plan / work / QA):
+
+```bash
+export PATH="${HOME}/.local/bin:${PATH}"
+hindsight-embed daemon status
+bank="${HINDSIGHT_EMBED_BANK_ID:-$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9][^a-z0-9]*/-/g; s/^-//; s/-$//')}"
+hindsight-embed memory recall "$bank" "Task summary, modules, preferences, and risks"
+```
+
+If the daemon is unavailable, continue the workflow and record `Hindsight: unavailable`.
+Do not store secrets in Hindsight or insight files.
+
+## Shared
+
+Hindsight version pin: `rosey/hindsight-pin`.
 EOF
 }
 
@@ -434,7 +482,7 @@ write_agentic_pin() {
 EOF
 }
 
-write_agents_file_if_missing
+write_agents_file
 write_agentic_pin
 
 # --- npm install helpers ---
