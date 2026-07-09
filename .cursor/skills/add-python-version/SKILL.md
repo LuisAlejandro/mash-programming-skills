@@ -1,6 +1,6 @@
 ---
 name: add-python-version
-description: 'Add a new Python major/minor version to the Dockershelf packaging pipeline. Use when: adding py3.15, py3.16, new python version, bootstrapping new python packaging repo, registering new python release line, setting up new python debian packages. Automates seed, materialize, build, publish workflow. Discovery of new upstream versions is OUT OF SCOPE.'
+description: "Add a new Python major/minor version to the Dockershelf packaging pipeline. Use when adding py3.15, py3.16, a new python version, bootstrapping a new python packaging repo, registering a new python release line, or setting up new python debian packages. Automates seed, materialize, build, publish workflow. Discovery of new upstream versions is OUT OF SCOPE."
 argument-hint: 'Python minor version (e.g., 3.15)'
 ---
 

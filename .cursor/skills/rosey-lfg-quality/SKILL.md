@@ -1,6 +1,6 @@
 ---
 name: rosey-lfg-quality
-description: Run the autonomous Rosey quality and shipping pipeline from a rosey-lfg-code handoff: QA autofix, post-review lint when needed, residual durability, and PR creation or update. Use only when explicitly continuing from rosey-lfg-code.
+description: "Run the autonomous Rosey quality and shipping pipeline from a rosey-lfg-code handoff — QA autofix, post-review lint when needed, residual durability, and PR creation or update. Use only when explicitly continuing from rosey-lfg-code."
 argument-hint: "[PLAN_PATH plus rosey-work handoff context]"
 disable-model-invocation: true
 ---

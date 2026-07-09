@@ -1,6 +1,6 @@
 ---
 name: rosey-lint
-description: Runs lint, format, type-check, and build commands for the current repository by intelligently discovering the project's tooling (e.g., package.json scripts, Makefiles, pyproject.toml). Use when the user asks to lint or format the codebase, fix linter errors, or invokes rosey-lint.
+description: "Runs lint, format, type-check, and build commands for the current repository by intelligently discovering the project's tooling (for example package.json scripts, Makefiles, pyproject.toml). Use when the user asks to lint or format the codebase, fix linter errors, or invokes rosey-lint."
 disable-model-invocation: true
 ---
 

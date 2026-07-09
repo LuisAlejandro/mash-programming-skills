@@ -1,6 +1,6 @@
 ---
 name: add-debian-suite
-description: 'Add a new Debian suite/codename to the Dockershelf packaging pipeline (Python, Node.js, Go). Use when: Debian releases a new stable, trixie becomes oldstable, adding forky, adding a new Debian distro/suite, suite transition, updating DOCKERSHELF_SUITES, regenerating builder images, extending reprepro. Seeds debiandirs/changelogs, updates CI dists-json, APT config, and optionally shifts active targets away from the old suite. Does NOT delete packages from the APT repository.'
+description: "Add a new Debian suite/codename to the Dockershelf packaging pipeline (Python, Node.js, Go). Use when Debian releases a new stable, trixie becomes oldstable, adding forky, adding a new Debian distro/suite, suite transition, updating DOCKERSHELF_SUITES, regenerating builder images, or extending reprepro. Seeds debiandirs/changelogs, updates CI dists-json, APT config, and optionally shifts active targets away from the old suite. Does NOT delete packages from the APT repository."
 argument-hint: 'New suite codename and optional source suite (e.g., forky from trixie)'
 ---
 

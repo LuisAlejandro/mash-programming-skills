@@ -1,6 +1,6 @@
 ---
 name: rosey-dockershelf-maintainer
-description: Autonomously maintains Dockershelf catalogs: discovers upstream Python, Node, and Go versions, handles Debian release rolls when a new Debian stable is released, updates shelf lists and APT-suite metadata, regenerates the tree via update.py, then commits and pushes to develop. Use for periodic Dockershelf catalog maintenance, update-shelves, Debian stable/testing rolls, or shelf version bumps before a release. LaTeX is fixed basic/full/extras only.
+description: "Autonomously maintains Dockershelf catalogs — discovers upstream Python, Node, and Go versions, handles Debian release rolls when a new Debian stable is released, updates shelf lists and APT-suite metadata, regenerates the tree via update.py, then commits and pushes to develop. Use for periodic Dockershelf catalog maintenance, update-shelves, Debian stable/testing rolls, or shelf version bumps before a release. LaTeX is fixed basic/full/extras only."
 argument-hint: "[optional mode:check-only or explicit add/remove overrides; optional debian-release:<new-stable-codename>]"
 ---
 

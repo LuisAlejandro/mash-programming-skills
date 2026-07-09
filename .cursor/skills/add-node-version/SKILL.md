@@ -1,6 +1,6 @@
 ---
 name: add-node-version
-description: 'Add a new Node.js major version to the Dockershelf packaging pipeline. Use when: adding node26, node28, new nodejs major version, bootstrapping new node packaging repo, registering new node major line, setting up new node debian packages. Automates seed, materialize, build, publish workflow. Discovery of new upstream versions is OUT OF SCOPE.'
+description: "Add a new Node.js major version to the Dockershelf packaging pipeline. Use when adding node26, node28, a new nodejs major version, bootstrapping a new node packaging repo, registering a new node major line, or setting up new node debian packages. Automates seed, materialize, build, publish workflow. Discovery of new upstream versions is OUT OF SCOPE."
 argument-hint: 'Node.js major version number (e.g., 26)'
 ---
 

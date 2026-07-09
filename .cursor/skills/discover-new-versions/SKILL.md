@@ -1,6 +1,6 @@
 ---
 name: discover-new-versions
-description: 'Monitor for new major/minor versions of Node.js, Python, or Go and orchestrate the appropriate add-version skill. Use when: checking for new upstream releases, automating version discovery, planning pipeline updates, determining if node26/py3.15/go1.26 exists. Queries upstream APIs/repos to detect new release lines not yet in the pipeline. For Node.js, only even-numbered versions are considered (LTS policy).'
+description: "Monitor for new major/minor versions of Node.js, Python, or Go and orchestrate the appropriate add-version skill. Use when checking for new upstream releases, automating version discovery, planning pipeline updates, or determining if node26/py3.15/go1.26 exists. Queries upstream APIs/repos to detect new release lines not yet in the pipeline. For Node.js, only even-numbered versions are considered (LTS policy)."
 argument-hint: 'Optional: specific language (node, python, go) or check all'
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: rosey-lfg-code
-description: Run the autonomous Rosey code-production pipeline: brainstorm requirements, create a plan, implement it with rosey-work, run lint/build through rosey-work, and emit handoff context for rosey-lfg-quality. Use only when explicitly requested for hands-off code-stage execution of a software task.
+description: "Run the autonomous Rosey code-production pipeline — brainstorm requirements, create a plan, implement it with rosey-work, run lint/build through rosey-work, and emit handoff context for rosey-lfg-quality. Use only when explicitly requested for hands-off code-stage execution of a software task."
 argument-hint: "[feature description]"
 disable-model-invocation: true
 ---

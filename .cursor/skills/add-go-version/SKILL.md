@@ -1,6 +1,6 @@
 ---
 name: add-go-version
-description: 'Add a new Go minor version to the Dockershelf packaging pipeline. Use when: adding go1.26, go1.27, new golang version, bootstrapping new go packaging repo, registering new go release line, setting up new golang debian packages. Automates seed, materialize, build, publish workflow. Discovery of new upstream versions is OUT OF SCOPE.'
+description: "Add a new Go minor version to the Dockershelf packaging pipeline. Use when adding go1.26, go1.27, a new golang version, bootstrapping a new go packaging repo, registering a new go release line, or setting up new golang debian packages. Automates seed, materialize, build, publish workflow. Discovery of new upstream versions is OUT OF SCOPE."
 argument-hint: 'Go minor version (e.g., 1.26)'
 ---
 

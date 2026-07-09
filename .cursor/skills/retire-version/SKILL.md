@@ -1,6 +1,6 @@
 ---
 name: retire-version
-description: 'Retire/decommission a Python, Node.js, or Go version from active maintenance. Use when: ending support for node16, py3.10, go1.20, marking version EOL, stopping automated builds, archiving repository. Disables workflows, removes from pipeline Makefile, archives GitHub repo. Does NOT delete packages from APT repository.'
+description: "Retire/decommission a Python, Node.js, or Go version from active maintenance. Use when ending support for node16, py3.10, go1.20, marking version EOL, stopping automated builds, or archiving a repository. Disables workflows, removes from pipeline Makefile, archives GitHub repo. Does NOT delete packages from APT repository."
 argument-hint: 'Language and version (e.g., node16, py3.10, go1.20)'
 ---
 
