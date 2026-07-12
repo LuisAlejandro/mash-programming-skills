@@ -142,13 +142,22 @@ EOF
 )"
 ```
 
+Then bring the feature branch up to date with the base branch to avoid "behind" merge blocks:
+
+```bash
+git fetch origin <base>
+git merge origin/<base>
+```
+
+If the merge produces conflicts: in interactive mode, stop and report them to the user. In non-interactive mode, abort the merge (`git merge --abort`), skip the update, push the branch as-is, and note in the final status that the feature branch is behind `<base>` due to conflicts — the auto-merge workflow will attempt `updateBranch` as a fallback.
+
 Then push:
 
 ```bash
 git push -u origin HEAD
 ```
 
-If the working tree is clean and all commits are already pushed, this step is a no-op.
+If the working tree is clean and all commits are already pushed, the fetch/merge/push sequence is still required to ensure the branch is not behind `<base>` before the PR is created or updated.
 
 ## Step 4: Compose the PR title and body
 
