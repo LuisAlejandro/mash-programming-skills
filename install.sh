@@ -75,7 +75,8 @@ if [ "$CHECK_ONLY" = true ]; then
     missing=0
     for path in .cursor/rules .cursor/skills .cursor/agents .cursor/mcp.json \
                 .github/copilot-instructions.md .github/instructions .github/skills \
-                .github/agents .vscode/mcp.json rosey/agentic-env.json; do
+                .github/agents .github/hooks/ensure-hindsight-daemon.sh \
+                .vscode/mcp.json .vscode/tasks.json rosey/agentic-env.json; do
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
     if [ "$CREATE_AGENTS" = true ] && [ ! -f AGENTS.md ]; then
@@ -171,9 +172,57 @@ rewrite_cursor_refs() {
         -e 's|\.cursor/hooks/|.github/hooks/|g' \
         -e 's|\.cursor/mcp\.json|.vscode/mcp.json|g' \
         -e 's|\.cursor/hindsight-pin|rosey/hindsight-pin|g' \
-        -e 's|\.cursor/hooks\.json|.github/hooks/sessionStart.json|g' \
+        -e 's|\.cursor/hooks\.json|.vscode/tasks.json|g' \
         "$file"
     rm -f "${file}.bak"
+}
+
+# Upsert Rosey Hindsight folderOpen task into .vscode/tasks.json (merge-safe).
+# Copilot Chat has no Cursor-style sessionStart hooks; folder open is the VS Code stand-in.
+upsert_vscode_hindsight_task() {
+    local tasks_file=".vscode/tasks.json"
+    local label="Rosey: ensure Hindsight daemon"
+    mkdir -p .vscode
+    python3 - "$tasks_file" "$label" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+label = sys.argv[2]
+rosey_task = {
+    "label": label,
+    "type": "shell",
+    "command": "${workspaceFolder}/.github/hooks/ensure-hindsight-daemon.sh",
+    "problemMatcher": [],
+    "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "showReuseMessage": False,
+        "close": True,
+    },
+    "runOptions": {"runOn": "folderOpen"},
+}
+
+if path.is_file():
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        data = {"version": "2.0.0", "tasks": []}
+else:
+    data = {"version": "2.0.0", "tasks": []}
+
+if not isinstance(data, dict):
+    data = {"version": "2.0.0", "tasks": []}
+data.setdefault("version", "2.0.0")
+tasks = data.get("tasks")
+if not isinstance(tasks, list):
+    tasks = []
+tasks = [t for t in tasks if not (isinstance(t, dict) and t.get("label") == label)]
+tasks.append(rosey_task)
+data["tasks"] = tasks
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
 }
 
 # --- Shared pin ---
@@ -233,8 +282,21 @@ install_vscode_tree() {
     echo "-> Scaffolding .github and .vscode folders..."
     mkdir -p .github/instructions .github/skills .github/agents .github/hooks .vscode
 
-    # MCP config (same shape, different location)
-    [ -f "$SOURCE_ROOT/.cursor/mcp.json" ] && cp "$SOURCE_ROOT/.cursor/mcp.json" .vscode/mcp.json
+    # MCP config: Cursor uses mcpServers; VS Code / Copilot uses servers.
+    if [ -f "$SOURCE_ROOT/.cursor/mcp.json" ]; then
+        python3 - "$SOURCE_ROOT/.cursor/mcp.json" .vscode/mcp.json <<'PY'
+import json
+import sys
+from pathlib import Path
+
+src = Path(sys.argv[1])
+dst = Path(sys.argv[2])
+data = json.loads(src.read_text())
+if isinstance(data, dict) and "mcpServers" in data and "servers" not in data:
+    data["servers"] = data.pop("mcpServers")
+dst.write_text(json.dumps(data, indent=2) + "\n")
+PY
+    fi
 
     # Rules: alwaysApply -> concatenated copilot-instructions.md; others -> .instructions.md
     local copilot_instructions=".github/copilot-instructions.md"
@@ -334,28 +396,18 @@ install_vscode_tree() {
         esac
     done
 
-    # Hooks: per-event JSON + script with rewritten pin path
+    # Hindsight warm-start for VS Code: Copilot has no sessionStart hooks.
+    # Install the shared script under .github/hooks/ and register a folderOpen task.
     if [ -f "$SOURCE_ROOT/.cursor/hooks/ensure-hindsight-daemon.sh" ]; then
+        mkdir -p .github/hooks
         cp "$SOURCE_ROOT/.cursor/hooks/ensure-hindsight-daemon.sh" .github/hooks/ensure-hindsight-daemon.sh
         chmod +x .github/hooks/ensure-hindsight-daemon.sh
         # Rewrite pin path to shared rosey/hindsight-pin
         sed -i.bak -E 's|local pin_file="\.cursor/hindsight-pin"|local pin_file="rosey/hindsight-pin"|; s|pin_file="\.cursor/hindsight-pin"|pin_file="rosey/hindsight-pin"|' .github/hooks/ensure-hindsight-daemon.sh
         rm -f .github/hooks/ensure-hindsight-daemon.sh.bak
         rewrite_cursor_refs .github/hooks/ensure-hindsight-daemon.sh
+        upsert_vscode_hindsight_task
     fi
-    cat > .github/hooks/sessionStart.json <<'EOF'
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "type": "command",
-        "command": ".github/hooks/ensure-hindsight-daemon.sh",
-        "timeout": 60
-      }
-    ]
-  }
-}
-EOF
 }
 
 install_cursor_tree
@@ -685,8 +737,10 @@ check_hindsight_embed || true
 echo ""
 echo "Rosey Environment installed successfully!"
 echo "   .cursor/rules, .cursor/skills, .cursor/agents, and .cursor/mcp.json are in place."
-echo "   .github/copilot-instructions.md, .github/instructions, .github/skills, .github/agents, .github/hooks, and .vscode/mcp.json are in place."
+echo "   .github/copilot-instructions.md, .github/instructions, .github/skills, .github/agents,"
+echo "   .github/hooks/ensure-hindsight-daemon.sh, .vscode/tasks.json, and .vscode/mcp.json are in place."
 echo "   rosey/agentic-env.json records the installed agentic environment version and targets."
-echo "   rosey/hindsight-pin is the shared Hindsight pin (read by both Cursor and VS Code hooks)."
+echo "   rosey/hindsight-pin is the shared Hindsight pin (Cursor sessionStart hook + VS Code folderOpen task)."
 echo "   Next: configure MCP secrets in .cursor/mcp.json and .vscode/mcp.json."
+echo "   VS Code: allow automatic tasks once (Tasks: Manage Automatic Tasks) so the Hindsight folderOpen task can run."
 echo "   Optional local memory: uvx hindsight-embed@$(read_hindsight_pin) configure, then re-run install.sh."

@@ -66,7 +66,12 @@ uvx "hindsight-embed@${pin}" configure
 
 Then re-run `install.sh` to install the tool and start the daemon.
 
-Daemon warm-restart is handled by the project hook `.cursor/hooks/ensure-hindsight-daemon.sh` (registered in `.cursor/hooks.json` on `sessionStart`). Do not run `daemon start` manually during Rosey workflows; use `daemon status` only.
+Daemon warm-restart:
+
+- **Cursor:** `.cursor/hooks/ensure-hindsight-daemon.sh` via `.cursor/hooks.json` `sessionStart`
+- **VS Code:** same script at `.github/hooks/ensure-hindsight-daemon.sh` via `.vscode/tasks.json` `runOn: folderOpen` (Copilot Chat has no session-start hooks). Allow automatic tasks once per workspace (`Tasks: Manage Automatic Tasks`)
+
+Do not run `daemon start` manually during Rosey workflows; use `daemon status` only.
 
 If status still fails after the hook runs, check `~/.hindsight/hook-last-run.log` (often "re-run install.sh" when the tool is missing). Record `Hindsight: unavailable — <reason>` and continue.
 

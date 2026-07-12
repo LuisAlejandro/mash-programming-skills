@@ -59,6 +59,9 @@ Rosey can use [Hindsight](https://github.com/hindsight/hindsight) for cross-sess
 
    The first install may take 30–60+ minutes while large dependencies download. Subsequent installs are fast.
 
-4. On each Cursor session, `.cursor/hooks/ensure-hindsight-daemon.sh` performs a fast daemon health check and warm restart via the installed `hindsight-embed` binary.
+4. Warm-start the daemon when the IDE opens:
+
+   - **Cursor:** `.cursor/hooks/ensure-hindsight-daemon.sh` on `sessionStart` (via `.cursor/hooks.json`)
+   - **VS Code:** the same script under `.github/hooks/`, via a `.vscode/tasks.json` task with `"runOn": "folderOpen"` (Copilot has no session-start hooks). Allow automatic tasks once: **Tasks: Manage Automatic Tasks**
 
 Routine agent commands use `hindsight-embed` with `PATH="${HOME}/.local/bin:${PATH}"`. See `.cursor/skills/rosey-hindsight/SKILL.md` for the full contract.

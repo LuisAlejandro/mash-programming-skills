@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Rosey sessionStart hook: ensure Hindsight embed daemon is running when configured.
-# Fail open — Hindsight is optional; never block the Cursor session on startup errors.
+# Rosey Hindsight warm-start: ensure embed daemon is running when configured.
+# Cursor: registered via .cursor/hooks.json sessionStart.
+# VS Code: registered via .vscode/tasks.json runOn folderOpen (Copilot has no session hooks).
+# Fail open — Hindsight is optional; never block the IDE session on startup errors.
 #
 # Requires `uv tool install hindsight-embed==<pin> --with hindsight-api==<pin>`
 # (run by install.sh when Hindsight is configured). No uvx fallback — cold starts
-# belong in install, not sessionStart.
+# belong in install, not warm-start.
 
 exec 0</dev/null
 
