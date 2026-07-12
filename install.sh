@@ -373,6 +373,9 @@ PY
         find ".github/skills/$sname" -name '*.md' -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
             rewrite_cursor_refs "$f"
         done
+        if [ "$sname" = "rosey-design-candidates" ] && [ ! -f ".github/skills/$sname/.env" ]; then
+            echo "   ⚠️  rosey-design-candidates installed without .env (CURSOR_API_KEY missing in source skill)"
+        fi
     done
 
     # Agents: copy .md -> .agent.md, strip color, rewrite refs. Copy .schema.json as-is.

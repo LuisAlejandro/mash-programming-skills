@@ -9,6 +9,7 @@
 .cursor/skills/**/node_modules/
 .cursor/skills/**/.venv/
 .cursor/skills/**/.pytest_cache/
+.cursor/skills/**/.env
 
 # Rosey Agentic Environment
 rosey/brainstorms/

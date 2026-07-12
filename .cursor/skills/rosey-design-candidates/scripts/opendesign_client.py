@@ -13,7 +13,7 @@ from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
-SKILL_ID = "web-prototype"
+PLUGIN_ID = "example-web-prototype"
 SKIP_DISCOVERY_PREFIX = "skip questions, just build. no questions, go.\n\n"
 OPENDESIGN_RUN_AGENT = "cursor-agent"
 OPENDESIGN_RUN_POLL_INTERVAL_S = 5
@@ -29,6 +29,24 @@ OUTPUT_CONTRACT = """Output contract (hard requirements):
 """
 
 
+SKILL_DIR = Path(__file__).resolve().parent.parent
+DOTENV_PATH = SKILL_DIR / ".env"
+
+
+def _load_dotenv(path: Path) -> dict[str, str]:
+    """Parse a simple KEY=VALUE .env file (no quotes handling beyond strip)."""
+    env: dict[str, str] = {}
+    if not path.is_file():
+        return env
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        env[key.strip()] = value.strip()
+    return env
+
+
 class OpenDesignClient:
     def __init__(
         self,
@@ -39,6 +57,16 @@ class OpenDesignClient:
         self.opendesign_bin = opendesign_bin
         self.daemon_url = daemon_url.rstrip("/")
         self._run_fn = run_fn
+        self._subprocess_env = self._build_env()
+
+    def _build_env(self) -> dict[str, str]:
+        """Merge os.environ with skill .env file. .env values win."""
+        env = dict(os.environ)
+        dotenv = _load_dotenv(DOTENV_PATH)
+        for key, value in dotenv.items():
+            if value:  # skip empty values
+                env[key] = value
+        return env
 
     def preflight(self) -> tuple[bool, str]:
         import shutil
@@ -59,6 +87,7 @@ class OpenDesignClient:
                     return False, f"OpenDesign daemon not reachable at {self.daemon_url}"
         except Exception as exc:
             return False, f"OpenDesign daemon not reachable at {self.daemon_url}: {exc}"
+
         return True, ""
 
     def run(self, *args: str) -> str:
@@ -66,7 +95,7 @@ class OpenDesignClient:
             return self._run_fn(*args)
         cmd = [self.opendesign_bin, *args]
         logger.info("Running: %s", " ".join(cmd))
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, env=self._subprocess_env)
         if result.returncode != 0:
             logger.error("opendesign stderr: %s", result.stderr)
             raise RuntimeError(f"opendesign failed: {result.stderr}")
@@ -84,8 +113,8 @@ class OpenDesignClient:
             "create",
             "--name",
             name,
-            "--skill",
-            SKILL_ID,
+            "--plugin",
+            PLUGIN_ID,
             "--design-system",
             design_system_id,
             "--json",
@@ -148,7 +177,12 @@ class OpenDesignClient:
                 if state in ("complete", "completed", "succeeded"):
                     return run_id
                 if state in ("failed", "cancelled"):
-                    raise RuntimeError(f"Run {run_id} failed with state: {state}")
+                    error_msg = status.get("error", "")
+                    error_code = status.get("errorCode", "")
+                    raise RuntimeError(
+                        f"Run {run_id} failed with state: {state}"
+                        f" (errorCode={error_code}, error={error_msg})"
+                    )
             except RuntimeError:
                 raise
             except Exception as exc:

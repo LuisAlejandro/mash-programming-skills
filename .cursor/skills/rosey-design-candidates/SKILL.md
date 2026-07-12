@@ -52,6 +52,8 @@ python3 -m venv .cursor/skills/rosey-design-candidates/.venv
 .cursor/skills/rosey-design-candidates/.venv/bin/playwright install chromium
 ```
 
+Optional: copy `.cursor/skills/rosey-design-candidates/.env.example` to `.env` in that skill folder and set `CURSOR_API_KEY` if OpenDesign runs need it (loaded by `opendesign_client.py`; never commit `.env`).
+
 Repo must already have a published design system, or run **`rosey-design-system`** first so:
 
 - `rosey/design-system/DESIGN.md` exists

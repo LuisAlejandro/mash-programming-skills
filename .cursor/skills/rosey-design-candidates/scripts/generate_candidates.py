@@ -14,19 +14,11 @@ from datetime import datetime
 from pathlib import Path
 
 from opendesign_client import OUTPUT_CONTRACT, OpenDesignClient
-from paths import (
-    NUM_VARIATIONS,
-    candidate_html_path,
-    candidate_preview_path,
-    candidate_project_meta_path,
-    candidate_variation_dir,
-    candidates_dir,
-    candidates_json_path,
-    design_system_design_md,
-    design_system_manifest_path,
-    rel_to_repo,
-    variation_plan_path,
-)
+from paths import (NUM_VARIATIONS, candidate_html_path, candidate_preview_path,
+                   candidate_project_meta_path, candidate_variation_dir,
+                   candidates_dir, candidates_json_path,
+                   design_system_design_md, design_system_manifest_path,
+                   rel_to_repo, variation_plan_path)
 from screenshot_html import screenshot_html
 from variation_plan import load_and_validate_variation_plan
 
