@@ -7,6 +7,8 @@
 
 # Local skill dependencies
 .cursor/skills/**/node_modules/
+.cursor/skills/**/.venv/
+.cursor/skills/**/.pytest_cache/
 
 # Rosey Agentic Environment
 rosey/brainstorms/

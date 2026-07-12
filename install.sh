@@ -118,10 +118,11 @@ skill_should_install() {
         add-debian-suite | add-go-version | add-node-version | add-python-version | discover-new-versions | retire-version)
             [ "$INSTALL_ROOT_BASENAME" = "dockershelf-pipeline" ]
             ;;
-        rosey-design-catalog | rosey-design-system | rosey-implement-design | rosey-token-resolution)
+        rosey-design-catalog | rosey-design-system | rosey-implement-design | rosey-design-candidates | rosey-design-pipeline | rosey-token-resolution)
             case "$INSTALL_ROOT_BASENAME" in
                 morphile | wholmaster | luisalejandro.org | landing-template | helpmarket | \
-                wholmaster-website | losa | nuncia | whol | collagelabs.org | luisalejandro.github.io)
+                wholmaster-website | losa | nuncia | whol | collagelabs.org | luisalejandro.github.io | \
+                dockershelf-website | saas-template)
                     return 0
                     ;;
                 *)
@@ -134,6 +135,21 @@ skill_should_install() {
             ;;
         tailor-cv)
             [ "$INSTALL_ROOT_BASENAME" = "curriculum-vitae" ]
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
+# True when a skill should be installed for the given IDE tree (cursor|vscode).
+# Default: both. VS Code-only skills skip the Cursor tree.
+skill_install_for_ide() {
+    local skill_name="$1"
+    local ide="$2"
+    case "$skill_name" in
+        rosey-design-candidates | rosey-design-pipeline)
+            [ "$ide" = "vscode" ]
             ;;
         *)
             return 0
@@ -182,11 +198,15 @@ install_cursor_tree() {
         for skill_dir in "$SOURCE_ROOT"/.cursor/skills/*/; do
             [ -d "$skill_dir" ] || continue
             sname="$(basename "$skill_dir")"
-            if skill_should_install "$sname"; then
-                cp -R "$skill_dir" ".cursor/skills/$sname"
-            else
+            if ! skill_should_install "$sname"; then
                 echo "   Skipping skill $sname (not for root folder $INSTALL_ROOT_BASENAME)"
+                continue
             fi
+            if ! skill_install_for_ide "$sname" cursor; then
+                echo "   Skipping skill $sname (Cursor tree; VS Code only)"
+                continue
+            fi
+            cp -R "$skill_dir" ".cursor/skills/$sname"
         done
     fi
     [ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
@@ -279,6 +299,10 @@ install_vscode_tree() {
         sname="$(basename "$skill_dir")"
         if ! skill_should_install "$sname"; then
             echo "   Skipping skill $sname (not for root folder $INSTALL_ROOT_BASENAME)"
+            continue
+        fi
+        if ! skill_install_for_ide "$sname" vscode; then
+            echo "   Skipping skill $sname (VS Code tree; Cursor only)"
             continue
         fi
         mkdir -p ".github/skills/$sname"

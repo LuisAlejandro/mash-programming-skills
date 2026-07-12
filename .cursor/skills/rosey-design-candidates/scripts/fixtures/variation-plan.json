@@ -1,0 +1,23 @@
+{
+  "source": "agent",
+  "surface": "landing-hero",
+  "plannerAgent": "cursor-agent",
+  "plannerModel": null,
+  "variations": [
+    {
+      "title": "Direct",
+      "directive": "Conservative single-hero layout with clear primary CTA.",
+      "rationale": "Baseline brief reading."
+    },
+    {
+      "title": "Strong Hierarchy",
+      "directive": "Bold type scale and stronger contrast on the primary action.",
+      "rationale": "Hierarchy exploration."
+    },
+    {
+      "title": "Dense Interactive",
+      "directive": "Tighter modules with secondary actions near the hero.",
+      "rationale": "Density exploration."
+    }
+  ]
+}
