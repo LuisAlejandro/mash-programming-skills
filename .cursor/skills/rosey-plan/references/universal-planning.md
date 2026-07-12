@@ -8,7 +8,7 @@ The detection stub in SKILL.md routes here for anything that isn't clearly softw
 
 - **Is this actually a software task?** The key distinction is task-type, not topic-domain. A study guide about Rust is non-software (producing educational content). A Rust library refactor is software (modifying code). If this is actually software, return to Phase 0.2 in the main SKILL.md.
 - **Is this a quick-help request, not a planning task?** Error messages, factual questions, and single-step tasks don't need a plan. Respond directly and exit. Examples: "zsh: command not found: brew", "what's the capital of France."
-- **Non-interactive mode?** If `mode:non-interactive` is active: output "This is a non-software task. The LFG code pipeline requires rosey-work, which only supports software tasks. Use `/rosey-plan` directly for non-software planning." and stop.
+- **Non-interactive mode?** If `mode:non-interactive` is active: output "This is a non-software task. The autonomous code pipeline requires rosey-work, which only supports software tasks. Use `/rosey-plan` directly for non-software planning." and stop.
 
 Once past these checks, commit to producing a plan. Do not exit because the task looks like a "lookup" or "research question" — the user invoked `rosey-plan` because they want a structured output.
 

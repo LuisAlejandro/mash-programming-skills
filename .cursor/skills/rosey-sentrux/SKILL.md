@@ -11,7 +11,7 @@ description: Shared Sentrux MCP contract for topology-aware planning and structu
 
 **Topology boundary:** Caveman ultra applies to chat/status prose, not topology artifacts, Sentrux metrics, MCP request/response payloads, handoff fields, or exact commands.
 
-Single source of truth for Sentrux integration across **rosey-plan**, **rosey-work**, **rosey-qa**, and **rosey-lfg-quality**. Read this skill when any Rosey skill references Sentrux, topology artifacts, or structural handoff context.
+Single source of truth for Sentrux integration across **rosey-plan**, **rosey-work**, and **rosey-qa**. Read this skill when any Rosey skill references Sentrux, topology artifacts, or structural handoff context.
 
 ## Prerequisites
 
@@ -69,7 +69,7 @@ If the binary or MCP server is missing:
 - Set `status: "unavailable"` in the topology artifact
 - **rosey-plan:** still writes the plan; omit numeric signals; note unavailability in the Architecture Baseline (Sentrux) section
 - **rosey-work:** skip session gate; document reason in review brief; do **not** block handoff context preparation
-- **rosey-qa / rosey-lfg-quality:** proceed with `SENTRUX_REVIEW_CONTEXT` marked unavailable
+- **rosey-qa:** proceed with `SENTRUX_REVIEW_CONTEXT` marked unavailable
 
 ## Repository scope
 

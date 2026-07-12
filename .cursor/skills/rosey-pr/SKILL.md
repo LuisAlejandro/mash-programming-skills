@@ -24,7 +24,7 @@ This skill follows the Rosey-native commit/push/PR workflow, with Rosey transpor
 - For app repos: push the current feature branch and create or update a pull request against `develop`.
 - Use `develop` as the fixed Rosey workspace integration/base branch unless the user explicitly overrides with `base:<branch>` for an exceptional manual case. PRs not targeting `develop` are out of `pr-auto-merge.yml` scope (gate skips).
 - Integration PR head branches must be `feature/<slug>` (git-flow) so static-synced auto-merge head filters match. Dependabot uses `dependabot/**`.
-- Receive completed work after `rosey-work` and usually after `rosey-qa`, or as the PR stage inside `rosey-lfg-quality`.
+- Receive completed work after `rosey-work` and usually after `rosey-qa`.
 - Stop at PR create/update. Do not merge PRs, watch or fix CI, create milestones, or run releases; auto-merge workflows and `rosey-release` own those later steps.
 - Create PRs **ready for review** only (`draft: false`). Never open draft PRs — `pr.yml` and `pr-auto-merge.yml` expect a normal PR on `feature/*` → `develop`. If the user asks for a draft, explain and create ready-for-review instead.
 - Do not use the old product-document mode. Prefer `plan:<path>` metadata when supplied; otherwise derive title/body from branch commits and diff.

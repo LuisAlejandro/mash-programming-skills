@@ -23,8 +23,7 @@ irreversible warnings, user confusion, or when the user asks for normal wording.
 
 `rosey-release` is the publishing endpoint after features land on `develop`:
 
-- Upstream: `rosey-lfg-code` and `rosey-lfg-quality` (or `rosey-work`, `rosey-qa`,
-  `rosey-pr`), then app PRs auto-merge into `develop`.
+- Upstream: `rosey-work`, `rosey-qa`, `rosey-pr`, then app PRs auto-merge into `develop`.
 - Owned steps: release readiness checks, retroactive milestone documentation,
   `make release-*` execution, branch CI verification, Publish Release workflow
   verification, PyPI/package asset verification, milestone closure, and handoff.

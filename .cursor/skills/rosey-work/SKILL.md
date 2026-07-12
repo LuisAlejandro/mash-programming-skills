@@ -34,7 +34,7 @@ In non-interactive mode, resolve implementation-time unknowns conservatively fro
 This skill follows the Rosey-native work workflow with Rosey Sentrux and handoff boundaries:
 
 - For app repos, implement on a git-flow `feature/<slug>` branch. **Default:** new plan → new branch from `develop`. Continue on the current branch only when the plan slug matches, the plan explicitly extends that branch, or the user confirms carryover in interactive mode.
-- `rosey-work` does **not** own QA, PR creation, merge, or release. Those belong downstream to `rosey-qa`, `rosey-pr`, `rosey-lfg-quality`, auto-merge workflows, and `rosey-release`.
+- `rosey-work` does **not** own QA, PR creation, merge, or release. Those belong downstream to `rosey-qa`, `rosey-pr`, auto-merge workflows, and `rosey-release`.
 - Read [`rosey-sentrux`](../rosey-sentrux/SKILL.md) when a plan has a topology artifact or when executing a `rosey-plan` plan.
 - Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) before substantive implementation so cross-session memory can inform the work.
 - Recall relevant Hindsight context before the first implementation task; retain durable discoveries during work and a session summary at handoff.
@@ -454,7 +454,7 @@ When all Phase 2 tasks are complete:
    - Use [`rosey-hindsight`](../rosey-hindsight/SKILL.md) to retain a concise but rich summary with plan path, changed files, completed work, verification commands, blockers, and important decisions.
    - If Hindsight is unavailable or not configured, skip retain and record the status in the handoff envelope.
 5. **Prepare handoff context**:
-   - Emit a compact, stable envelope. Keep the legacy field names below so `rosey-lfg-code` and `rosey-lfg-quality` can consume the handoff without parsing prose:
+   - Emit a compact, stable envelope. Keep the field names below so downstream skills (`rosey-qa`, `rosey-pr`) can consume the handoff without parsing prose:
 
      ```text
      ROSEY_WORK_HANDOFF
@@ -508,7 +508,7 @@ When all Phase 2 tasks are complete:
 - Follow existing patterns
 - Write or update tests when the test-runner prerequisite is satisfied
 - Run relevant lint/build checks while implementing
-- Prepare complete handoff context so `rosey-qa` and `rosey-lfg-quality` can review the change
+- Prepare complete handoff context so `rosey-qa` can review the change
 
 ### Complete Implementation
 
@@ -524,6 +524,6 @@ When all Phase 2 tasks are complete:
 - **Testing at the end** - Test continuously or suffer later
 - **Forgetting to track progress** - Update task status as you go or lose track of what's done
 - **80% done syndrome** - Finish the feature, don't move on early
-- **Skipping handoff context** - `rosey-qa` and `rosey-lfg-quality` need the plan, changed files, implementation summary, and Sentrux context
+- **Skipping handoff context** - `rosey-qa` needs the plan, changed files, implementation summary, and Sentrux context
 - **Branch carryover** - A meaningful branch name for a prior plan (e.g. `feature/seo-phase-1`) is not permission to implement a new plan on it. Match plan slug or get explicit carryover confirmation before editing
 - **Re-scoping the plan into human-time phases** - The plan's Implementation Units define the scope of execution. Do not estimate human-hours per unit, propose multi-day breakdowns, or ask the user to pick a subset of units for "this session". Agents execute at agent speed, and context-window pressure is addressed by subagent dispatch (Phase 1 Step 4), not by phased sessions. If a plan-file input is genuinely too large for a single execution, say so plainly and suggest the user return to `/rosey-plan` to reduce scope — don't invent session phases as a workaround. For bare-prompt input, Phase 0's Large routing already handles oversized work
