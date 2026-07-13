@@ -1,5 +1,5 @@
 ---
-description: Hard gates for Rosey skills — Hindsight, Karpathy, and Caveman cannot be skipped
+description: Hard gates for Rosey skills — Hindsight, Karpathy, Caveman, and Docker-via-Make cannot be skipped
 alwaysApply: true
 ---
 
@@ -14,8 +14,9 @@ Rosey skill active **or** user continuing brainstorm → plan → work → qa pi
 1. **Hindsight gate** — see `.cursor/rules/hindsight-memory.mdc`
 2. **Karpathy brief** — see `.cursor/rules/karpathy-guidelines.mdc` (assumptions + `step → verify`; proof line or `Karpathy: trivial, skipped`)
 3. **Caveman lite** for status prose — see `.cursor/rules/caveman.mdc`
+4. **Docker via Make** — see `.cursor/rules/docker-via-make.mdc` (run apps/tooling in containers; never host npm/pip/node/python)
 
-Order: Hindsight → Karpathy brief → caveman-lite status → edits.
+Order: Hindsight → Karpathy brief → caveman-lite status → edits (with Docker-via-Make for any run/install/test).
 
 ## Forbidden
 
@@ -24,6 +25,8 @@ Order: Hindsight → Karpathy brief → caveman-lite status → edits.
 - First file edit without Karpathy proof line (unless `Karpathy: trivial, skipped`)
 - Silent speculative extras beyond the stated request
 - Long-form essay-style status updates during Rosey skills
+- Host `npm` / `pip` / `node` / `python` (or similar) for project deps or app commands — use `make` / `docker compose` per `docker-via-make.mdc`
+- Running `brew` install/upgrade/uninstall without confirming with the user first
 
 ## Handoff
 

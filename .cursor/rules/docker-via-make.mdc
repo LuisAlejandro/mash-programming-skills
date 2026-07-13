@@ -1,0 +1,56 @@
+---
+description: Run apps only through Docker — prefer make targets, never host npm/pip/node/python installs
+alwaysApply: true
+---
+
+# Docker via Make (no host runtimes)
+
+All Rosey product repos ship Docker Compose + Makefile targets. Agents must run apps and tooling **inside containers**, not on the host.
+
+## Order of preference
+
+1. **`make <target>`** — preferred for every supported operation
+2. **`docker compose …`** — only when no Make target covers the need
+3. **Never** run app/runtime commands directly on the host
+
+## Forbidden on the host
+
+- `npm` / `yarn` / `pnpm` / `npx` (install, run, test, lint, build)
+- `pip` / `pip3` / `uv pip` / `python -m pip` / host `virtualenv` for project deps
+- `node`, `python`, `python3`, `go run`, `cargo` for project app code
+- Editing or creating host site-packages / global tool installs for project work
+- “Host-only” shortcuts that bypass Compose when Docker is available
+
+## Use Make equivalents
+
+Check the repo `Makefile` first. Common mappings:
+
+| Intent | Prefer |
+| ------ | ------ |
+| Install deps | `make dependencies` |
+| Build images | `make image` |
+| Start services | `make start` |
+| Run app(s) | `make serve` / `make serve-backend` / `make serve-frontend` |
+| Lint | `make lint` |
+| Format | `make format` |
+| Test | `make test` |
+| Shell in container | `make console` (when defined) |
+
+If a target name differs, use the repo’s Makefile — do not invent host commands.
+
+## When Make has no target
+
+Use Compose against the repo’s compose file(s), e.g.:
+
+```bash
+docker compose run --rm <service> <command>
+docker compose exec <service> <command>
+```
+
+Still never install Node/Python deps on the host; install/run inside the service container.
+
+## Exceptions
+
+- Git, `gh`, editor/IDE, and Hindsight (`hindsight-embed`) stay on the host.
+- `brew install` (and other Homebrew commands) are allowed on the host for machine tooling, but **confirm with the user before running** any `brew` install/upgrade/uninstall.
+- Host package managers only when the user explicitly asks to change the machine itself (Docker Engine, system packages) — not for app dependencies.
