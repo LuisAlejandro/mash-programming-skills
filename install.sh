@@ -486,10 +486,11 @@ VS Code paths when running in Cursor.
 Before non-trivial planning, implementation, or review work, follow the installed
 Rosey rules and skills:
 
+- `.cursor/rules/caveman.mdc`
 - `.cursor/rules/rosey-workflow-gates.mdc`
 - `.cursor/rules/hindsight-memory.mdc`
 - `.cursor/rules/karpathy-guidelines.mdc`
-- `.cursor/rules/save-insights.mdc`
+- `.cursor/rules/docker-via-make.mdc`
 
 Use `.cursor/skills/` for Rosey workflows and `.cursor/agents/` for specialist
 reviews. Full Hindsight CLI contract: `.cursor/skills/rosey-hindsight/SKILL.md`.
