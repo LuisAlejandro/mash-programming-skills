@@ -17,7 +17,7 @@ Local replacement for OpenClaw DesignCandidates generation (no Discord).
 
 1. Ensure design system exists (`rosey/design-system/DESIGN.md` + `rosey/designs/design-system.json`).
 2. Plan exactly **3** variation directives (agent step).
-3. Run OpenDesign `web-prototype` create → run → export → screenshot via Python scripts.
+3. Run OpenDesign `example-web-prototype` plugin create → run → export → screenshot via Python scripts.
 4. Emit `DESIGN_CANDIDATES_HANDOFF`.
 
 Does **not** implement app UI. Downstream: human pick → `select_winner.py` → `rosey-design-catalog` (or full `rosey-design-pipeline`).

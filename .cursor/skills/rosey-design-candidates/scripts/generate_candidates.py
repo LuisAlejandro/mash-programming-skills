@@ -127,7 +127,7 @@ def write_variation_project_metadata(
             "plannerAgent": variation_plan.get("plannerAgent"),
             "plannerModel": variation_plan.get("plannerModel"),
         },
-        "skill": "web-prototype",
+        "plugin": "example-web-prototype",
         "outputContract": "single index.html",
         "skipDiscoveryBrief": True,
     }
