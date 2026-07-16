@@ -116,11 +116,22 @@ Use GitHub MCP `search_pull_requests` to detect an existing open PR for the curr
 
 ## Step 2: Determine conventions
 
-Match repo style for commit messages and PR titles (project instructions in context > recent commits > conventional commits as default). With conventional commits, default to `fix:` over `feat:` when ambiguous — adding code to remedy broken or missing behavior is `fix:`. Reserve `feat:` for capabilities the user could not previously accomplish. The user may override.
+Match repo style for commit messages and PR titles in this order: project instructions in context → if `.gitchangelog.rc` exists at repo root, use gitchangelog tags → recent commits → Conventional Commits as fallback. The user may override.
+
+**When `.gitchangelog.rc` exists** (Rosey product repos that ship HISTORY):
+
+- Commit subjects: `[ADD]` / `[FIX]` / `[REF]` / `[DEL]` plus an imperative user-facing summary (see `.cursor/rules/gitchangelog-commits.mdc`).
+- Ambiguous ADD vs FIX → default to `[FIX]`.
+- Non-user-facing work → append `!cosmetic` / `!refactor` / `!wip`, or use a `CI:` prefix, so gitchangelog ignores them.
+- PR titles may stay Conventional-style (`type: description`); only commit subjects feed HISTORY / release notes.
+
+**Otherwise (Conventional Commits fallback):**
+
+- Default to `fix:` over `feat:` when ambiguous — adding code to remedy broken or missing behavior is `fix:`. Reserve `feat:` for capabilities the user could not previously accomplish.
 
 Commit messages follow Caveman-commit principles:
 
-- Subject: terse imperative conventional commit, ideally <=50 chars and hard-capped at 72.
+- Subject: terse imperative (gitchangelog-tagged when applicable, else conventional), ideally <=50 chars and hard-capped at 72.
 - Body: omit unless the why is non-obvious.
 - Always include a body for breaking changes, security fixes, data migrations, reversions, and migration notes.
 - Do not add AI attribution, filler phrases, or file-by-file restatements.

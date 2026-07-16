@@ -1,0 +1,65 @@
+---
+description: Commit subjects use [ADD]/[FIX]/[REF]/[DEL] when the repo ships HISTORY via gitchangelog
+alwaysApply: true
+---
+
+# Gitchangelog commit messages
+
+## When this applies
+
+Repo root has `.gitchangelog.rc`. Commit subjects become HISTORY sections, then GitHub release “What’s new” via `make release-*` / `scripts/release.sh`.
+
+## Format
+
+```text
+[TAG] Imperative user-facing summary.
+```
+
+| Tag | HISTORY section | Use for |
+| --- | --- | --- |
+| `[ADD]` | Added | New capability the user did not have |
+| `[FIX]` | Fixed | Bug or broken behavior |
+| `[REF]` | Changed | Behavior/API/UX change that is not a new feature |
+| `[DEL]` | Removed | Removal of a feature or path |
+
+When ADD vs FIX is ambiguous, default to `[FIX]`.
+
+## Exclude from changelog
+
+Non-user-facing work (deps, lint, prettier, fleet sync, CI plumbing) must not inflate release notes:
+
+- Append `!cosmetic`, `!refactor`, or `!wip` to the subject, **or**
+- Use a `CI:` prefix (already ignored by `.gitchangelog.rc`).
+
+Example: `Sync maintainer ops from fleet. !cosmetic`
+
+## Subject craft
+
+- User-visible outcome, not a file inventory.
+- Terse imperative; ideally <=50 chars, hard-capped at 72 (including the tag).
+- Sentence case; trailing period is fine (gitchangelog applies `ucfirst` + final dot).
+- No AI attribution, filler, or diff restatement.
+
+## PR titles
+
+PR titles may stay `type: description` (Conventional-style). Only **commit subjects** feed gitchangelog / HISTORY.
+
+## Examples
+
+Good:
+
+```text
+[ADD] X Aggregator utility for timeline exports.
+[FIX] Spanish copy and grammar in X Aggregator.
+[REF] Redesign homepage content sections.
+[DEL] Remove legacy MCP card build path.
+chore: sync maintainer ops !cosmetic
+```
+
+Bad (land in Other or clutter release notes):
+
+```text
+fix: pin eslint to ^9.28.0
+Chore: apply rosey-maintainer fleet sync.
+Fixing bugs
+```

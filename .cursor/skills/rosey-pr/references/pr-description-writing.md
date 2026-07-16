@@ -80,6 +80,7 @@ For small + non-trivial bugfixes, the 3-5 sentence target still needs a user-vis
 - Scope (optional): narrowest useful label. Omit when no single label adds clarity.
 - Description: imperative, lowercase, under 72 chars, no trailing period.
 - Match repo conventions visible in recent commits.
+- PR titles are independent of HISTORY / gitchangelog tags — only **commit subjects** use `[ADD]`/`[FIX]`/`[REF]`/`[DEL]` when `.gitchangelog.rc` exists.
 - **Never use `!` or `BREAKING CHANGE:` without explicit user confirmation** — they trigger automated major-version bumps.
 
 ---

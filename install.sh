@@ -491,6 +491,7 @@ Rosey rules and skills:
 - `.cursor/rules/hindsight-memory.mdc`
 - `.cursor/rules/karpathy-guidelines.mdc`
 - `.cursor/rules/docker-via-make.mdc`
+- `.cursor/rules/gitchangelog-commits.mdc`
 
 Use `.cursor/skills/` for Rosey workflows and `.cursor/agents/` for specialist
 reviews. Full Hindsight CLI contract: `.cursor/skills/rosey-hindsight/SKILL.md`.
