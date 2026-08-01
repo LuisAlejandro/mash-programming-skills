@@ -4,6 +4,7 @@
 
 # Local Rosey stack (secrets and runtime logs)
 /.env
+.cursor/mcp.json
 
 # Local skill dependencies
 .cursor/skills/**/node_modules/
