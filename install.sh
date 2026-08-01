@@ -158,6 +158,78 @@ skill_install_for_ide() {
     esac
 }
 
+# Read KEY=value from a dotenv-style file (last match). Strips optional quotes.
+rosey_dotenv_get() {
+    local file="$1" key="$2" line val
+    [ -f "$file" ] || return 1
+    line="$(grep -E "^[[:space:]]*${key}=" "$file" 2>/dev/null | tail -n1)" || return 1
+    [ -n "$line" ] || return 1
+    val="${line#*=}"
+    val="${val%$'\r'}"
+    if [[ "$val" =~ ^\".*\"$ ]]; then
+        val="${val:1:${#val}-2}"
+    elif [[ "$val" =~ ^\'.*\'$ ]]; then
+        val="${val:1:${#val}-2}"
+    fi
+    printf '%s' "$val"
+}
+
+# Resolve KEY: process environment, then SOURCE_ROOT/.env, then INSTALL_ROOT/.env.
+rosey_resolve_env_value() {
+    local key="$1" val=""
+    if [ -n "${!key+x}" ] && [ -n "${!key}" ]; then
+        printf '%s' "${!key}"
+        return 0
+    fi
+    val="$(rosey_dotenv_get "$SOURCE_ROOT/.env" "$key" 2>/dev/null || true)"
+    if [ -z "$val" ]; then
+        val="$(rosey_dotenv_get "$INSTALL_ROOT/.env" "$key" 2>/dev/null || true)"
+    fi
+    printf '%s' "$val"
+}
+
+# Seed dest from example: copy comments/blank lines; fill each KEY= from rosey_resolve_env_value.
+# Never overwrites an existing dest. Returns 1 if example missing or a required key is empty.
+seed_dotenv_from_example() {
+    local example="$1" dest="$2" required_key="${3:-}"
+    local line key val missing=0
+
+    if [ -f "$dest" ]; then
+        return 0
+    fi
+    if [ ! -f "$example" ]; then
+        return 1
+    fi
+
+    mkdir -p "$(dirname "$dest")"
+    {
+        echo "# Seeded by Rosey install.sh from $(basename "$example") at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        while IFS= read -r line || [ -n "$line" ]; do
+            if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
+                printf '%s\n' "$line"
+                continue
+            fi
+            if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+                key="${BASH_REMATCH[1]}"
+                val="$(rosey_resolve_env_value "$key")"
+                printf '%s=%s\n' "$key" "$val"
+                if [ -n "$required_key" ] && [ "$key" = "$required_key" ] && [ -z "$val" ]; then
+                    missing=1
+                fi
+            else
+                printf '%s\n' "$line"
+            fi
+        done <"$example"
+    } >"$dest"
+    chmod 600 "$dest"
+
+    if [ "$missing" -eq 1 ]; then
+        rm -f "$dest"
+        return 1
+    fi
+    return 0
+}
+
 # Rewrite .cursor/* path references to their VS Code equivalents in a file.
 rewrite_cursor_refs() {
     local file="$1"
@@ -230,6 +302,7 @@ PY
 echo "-> Writing shared rosey/hindsight-pin..."
 mkdir -p rosey
 [ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ] && cp "$SOURCE_ROOT/.cursor/hindsight-pin" rosey/hindsight-pin
+[ -f "$SOURCE_ROOT/.cursor/hindsight-embed.example" ] && cp "$SOURCE_ROOT/.cursor/hindsight-embed.example" rosey/hindsight-embed.example
 
 # --- Cursor target ---
 
@@ -259,7 +332,7 @@ install_cursor_tree() {
         done
     fi
     [ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
-    [ -f "$SOURCE_ROOT/.cursor/mcp.json" ] && cp "$SOURCE_ROOT/.cursor/mcp.json" .cursor/
+    # mcp.json is seeded from mcp.json.example + SOURCE_ROOT/.env (see seed_mcp_json_configs).
     [ -f "$SOURCE_ROOT/.cursor/hooks.json" ] && cp "$SOURCE_ROOT/.cursor/hooks.json" .cursor/
     if [ -d "$SOURCE_ROOT/.cursor/hooks" ]; then
         mkdir -p .cursor/hooks
@@ -282,21 +355,7 @@ install_vscode_tree() {
     echo "-> Scaffolding .github and .vscode folders..."
     mkdir -p .github/instructions .github/skills .github/agents .github/hooks .vscode
 
-    # MCP config: Cursor uses mcpServers; VS Code / Copilot uses servers.
-    if [ -f "$SOURCE_ROOT/.cursor/mcp.json" ]; then
-        python3 - "$SOURCE_ROOT/.cursor/mcp.json" .vscode/mcp.json <<'PY'
-import json
-import sys
-from pathlib import Path
-
-src = Path(sys.argv[1])
-dst = Path(sys.argv[2])
-data = json.loads(src.read_text())
-if isinstance(data, dict) and "mcpServers" in data and "servers" not in data:
-    data["servers"] = data.pop("mcpServers")
-dst.write_text(json.dumps(data, indent=2) + "\n")
-PY
-    fi
+    # .vscode/mcp.json is seeded from mcp.json.example + SOURCE_ROOT/.env (see seed_mcp_json_configs).
 
     # Rules: alwaysApply -> concatenated copilot-instructions.md; others -> .instructions.md
     local copilot_instructions=".github/copilot-instructions.md"
@@ -373,9 +432,6 @@ PY
         find ".github/skills/$sname" -name '*.md' -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
             rewrite_cursor_refs "$f"
         done
-        if [ "$sname" = "rosey-design-candidates" ] && [ ! -f ".github/skills/$sname/.env" ]; then
-            echo "   ⚠️  rosey-design-candidates installed without .env (CURSOR_API_KEY missing in source skill)"
-        fi
     done
 
     # Agents: copy .md -> .agent.md, strip color, rewrite refs. Copy .schema.json as-is.
@@ -416,6 +472,107 @@ PY
 install_cursor_tree
 install_vscode_tree
 
+# Seed MCP configs from .cursor/mcp.json.example + GITHUB_TOKEN / OBSIDIAN_API_KEY in SOURCE_ROOT/.env.
+seed_mcp_json_configs() {
+    local example="$SOURCE_ROOT/.cursor/mcp.json.example"
+    local github_token obsidian_key
+
+    if [ ! -f "$example" ]; then
+        echo "   ⚠️  No .cursor/mcp.json.example; skipping MCP seed"
+        return 0
+    fi
+
+    github_token="$(rosey_resolve_env_value GITHUB_TOKEN)"
+    obsidian_key="$(rosey_resolve_env_value OBSIDIAN_API_KEY)"
+
+    if [ -z "$github_token" ] && [ -z "$obsidian_key" ]; then
+        echo "   ⚠️  GITHUB_TOKEN and OBSIDIAN_API_KEY missing; MCP seed will leave placeholders"
+    fi
+
+    _seed_one_mcp_json() {
+        local dest="$1" vscode_shape="$2"
+        # Source checkout: never overwrite an existing local mcp.json.
+        if [ "$dest" = "$SOURCE_ROOT/.cursor/mcp.json" ] && [ -f "$dest" ]; then
+            return 0
+        fi
+        python3 - "$example" "$dest" "$vscode_shape" "$github_token" "$obsidian_key" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+example, dest, vscode_shape, github_token, obsidian_key = sys.argv[1:6]
+data = json.loads(Path(example).read_text())
+
+def walk(obj):
+    if isinstance(obj, dict):
+        return {k: walk(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [walk(v) for v in obj]
+    if isinstance(obj, str):
+        return (
+            obj.replace("$GITHUB_TOKEN", github_token).replace("$OBSIDIAN_API_KEY", obsidian_key)
+        )
+    return obj
+
+data = walk(data)
+if vscode_shape == "1" and isinstance(data, dict) and "mcpServers" in data and "servers" not in data:
+    data["servers"] = data.pop("mcpServers")
+
+Path(dest).parent.mkdir(parents=True, exist_ok=True)
+Path(dest).write_text(json.dumps(data, indent=2) + "\n")
+PY
+        chmod 600 "$dest" 2>/dev/null || true
+        echo "-> Seeded $dest"
+    }
+
+    _seed_one_mcp_json "$SOURCE_ROOT/.cursor/mcp.json" "0"
+    # Target trees were wiped; always write fresh seeded MCP configs when .cursor/ exists.
+    if [ -d .cursor ]; then
+        _seed_one_mcp_json ".cursor/mcp.json" "0"
+    fi
+    if [ -d .vscode ]; then
+        _seed_one_mcp_json ".vscode/mcp.json" "1"
+    fi
+}
+
+seed_mcp_json_configs
+
+# Seed skill-local .env files from *.env.example + SOURCE_ROOT/.env (never overwrite existing).
+seed_design_candidates_env_if_needed() {
+    local example="$SOURCE_ROOT/.cursor/skills/rosey-design-candidates/.env.example"
+    local dest
+
+    if [ ! -f "$example" ]; then
+        return 0
+    fi
+
+    # Source checkout (agentic-env) so the skill can run locally without install-into-self.
+    dest="$SOURCE_ROOT/.cursor/skills/rosey-design-candidates/.env"
+    if [ ! -f "$dest" ]; then
+        if seed_dotenv_from_example "$example" "$dest" "CURSOR_API_KEY"; then
+            echo "-> Seeded rosey-design-candidates .env (source skill)"
+        else
+            echo "   ⚠️  Could not seed source rosey-design-candidates .env (CURSOR_API_KEY missing in $SOURCE_ROOT/.env)"
+        fi
+    fi
+
+    for dest in \
+        ".cursor/skills/rosey-design-candidates/.env" \
+        ".github/skills/rosey-design-candidates/.env"; do
+        [ -d "$(dirname "$dest")" ] || continue
+        if [ -f "$dest" ]; then
+            continue
+        fi
+        if seed_dotenv_from_example "$example" "$dest" "CURSOR_API_KEY"; then
+            echo "-> Seeded $dest"
+        else
+            echo "   ⚠️  Could not seed $dest (CURSOR_API_KEY missing in env / $SOURCE_ROOT/.env)"
+        fi
+    done
+}
+
+seed_design_candidates_env_if_needed
+
 # --- .gitignore ---
 
 echo "-> Updating .gitignore..."
@@ -447,6 +604,7 @@ append_gitignore_if_missing "rosey/deepening/"
 append_gitignore_if_missing "rosey/agentic-env.json"
 append_gitignore_if_missing "rosey/maintainer-manifest.json"
 append_gitignore_if_missing "rosey/hindsight-pin"
+append_gitignore_if_missing "rosey/hindsight-embed.example"
 append_gitignore_if_missing "AGENTS.md"
 append_gitignore_if_missing "DESIGN.md"
 
@@ -611,15 +769,22 @@ if [ -f "$INSTALL_ROOT/package.json" ]; then
     install_npm_deps "$INSTALL_ROOT" "workspace root"
 fi
 
+# --- Machine-once tool installs (Sentrux + Hindsight) ---
+# Per-user/machine, not per target repo. Detect by probing the CLI; skip install if it responds.
+
 # --- Sentrux ---
 
+sentrux_available() {
+    command -v sentrux >/dev/null 2>&1 && sentrux --version >/dev/null 2>&1
+}
+
 install_sentrux() {
-    if command -v sentrux >/dev/null 2>&1; then
-        echo "-> Sentrux already installed ($(sentrux --version 2>/dev/null || echo ok))"
+    if sentrux_available; then
+        echo "-> Sentrux already on this machine ($(sentrux --version 2>/dev/null || echo ok)); skipping install"
         return 0
     fi
 
-    echo "-> Installing Sentrux CLI (required for rosey-plan / rosey-work / rosey-qa)..."
+    echo "-> Installing Sentrux CLI once on this machine (required for rosey-plan / rosey-work / rosey-qa)..."
     case "$(uname -s)" in
         Darwin)
             if command -v brew >/dev/null 2>&1; then
@@ -646,7 +811,7 @@ install_sentrux() {
             ;;
     esac
 
-    if command -v sentrux >/dev/null 2>&1; then
+    if sentrux_available; then
         echo "   Sentrux installed: $(sentrux --version 2>/dev/null || true)"
     fi
 }
@@ -671,6 +836,56 @@ read_hindsight_pin() {
     fi
 }
 
+hindsight_embed_template_path() {
+    if [ -f "$SOURCE_ROOT/.cursor/hindsight-embed.example" ]; then
+        echo "$SOURCE_ROOT/.cursor/hindsight-embed.example"
+    elif [ -f "rosey/hindsight-embed.example" ]; then
+        echo "rosey/hindsight-embed.example"
+    else
+        return 1
+    fi
+}
+
+# Seed ~/.hindsight/embed from template when missing. Fills every KEY= from SOURCE_ROOT/.env
+# (then process env / INSTALL_ROOT/.env). Never overwrites existing config.
+seed_hindsight_embed_if_needed() {
+    local template dest provider
+
+    if hindsight_embed_configured; then
+        return 0
+    fi
+
+    if ! template="$(hindsight_embed_template_path)"; then
+        echo "   ⚠️  No hindsight-embed.example template found; cannot seed config."
+        return 1
+    fi
+
+    provider="$(rosey_resolve_env_value HINDSIGHT_API_LLM_PROVIDER)"
+    provider="${provider:-openai}"
+
+    dest="${HOME}/.hindsight/embed"
+    case "$provider" in
+        ollama | vertexai)
+            if ! seed_dotenv_from_example "$template" "$dest" ""; then
+                echo "   ⚠️  Failed to seed ~/.hindsight/embed from template."
+                return 1
+            fi
+            ;;
+        *)
+            if ! seed_dotenv_from_example "$template" "$dest" "HINDSIGHT_API_LLM_API_KEY"; then
+                echo "   Hindsight not configured yet (no API key for seed)."
+                echo "      Set HINDSIGHT_* keys in $SOURCE_ROOT/.env (see .cursor/hindsight-embed.example),"
+                echo "      then re-run install.sh to seed ~/.hindsight/embed."
+                echo "      Or run interactive setup: uvx hindsight-embed@$(read_hindsight_pin) configure"
+                return 1
+            fi
+            ;;
+    esac
+
+    echo "   Seeded ~/.hindsight/embed from template (provider=${provider})."
+    return 0
+}
+
 hindsight_path() {
     PATH="${HOME}/.local/bin:${PATH}"
     export PATH
@@ -681,16 +896,41 @@ hindsight_cli() {
     hindsight-embed "$@"
 }
 
+# True when hindsight-embed is on PATH and responds (installed on this machine).
+hindsight_cli_available() {
+    hindsight_path
+    command -v hindsight-embed >/dev/null 2>&1 && hindsight-embed --help >/dev/null 2>&1
+}
+
+# Install Hindsight CLI once per machine (skip when CLI already responds).
+# Sets HINDSIGHT_TOOL_ACTION=installed|skipped for callers.
 install_hindsight_tool() {
     local pin="$1"
-    echo "   Installing Hindsight embed + api (pinned ${pin})..."
+    HINDSIGHT_TOOL_ACTION="skipped"
+
+    if hindsight_cli_available; then
+        echo "   Hindsight tool already on this machine; skipping install"
+        return 0
+    fi
+
+    echo "   Installing Hindsight embed + api once on this machine (pinned ${pin})..."
     echo "   First install may take 30–60+ minutes while large dependencies download."
-    uv tool install "hindsight-embed==${pin}" --with "hindsight-api==${pin}"
+    if ! uv tool install "hindsight-embed==${pin}" --with "hindsight-api==${pin}"; then
+        return 1
+    fi
+
+    if ! hindsight_cli_available; then
+        return 1
+    fi
+
+    HINDSIGHT_TOOL_ACTION="installed"
+    return 0
 }
 
 check_hindsight_embed() {
     local pin
     pin="$(read_hindsight_pin)"
+    HINDSIGHT_TOOL_ACTION="skipped"
 
     echo "-> Checking optional Hindsight embed CLI..."
 
@@ -700,22 +940,34 @@ check_hindsight_embed() {
         if hindsight_embed_configured; then
             echo "      After installing uv, re-run this install script."
         else
-            echo "      Then run: uvx hindsight-embed@${pin} configure"
-            echo "      Re-run install.sh after configure to install the persistent tool."
+            echo "      Set HINDSIGHT_API_LLM_API_KEY or OPENAI_API_KEY, then re-run install.sh to seed config."
+            echo "      Or: uvx hindsight-embed@${pin} configure"
         fi
         return 0
     fi
 
+    # Seed once from template when possible; interactive configure remains a fallback.
     if ! hindsight_embed_configured; then
-        echo "   ⚠️  Hindsight embed is optional and not configured yet."
-        echo "      Run once when you want local memory: uvx hindsight-embed@${pin} configure"
-        echo "      Re-run install.sh after configure to install the persistent tool and start the daemon."
+        seed_hindsight_embed_if_needed || return 0
+    fi
+
+    if ! hindsight_embed_configured; then
         return 0
     fi
 
     if ! install_hindsight_tool "$pin"; then
         echo "   ⚠️  Hindsight tool install failed."
         echo "      Retry: uv tool install hindsight-embed==${pin} --with hindsight-api==${pin}"
+        return 0
+    fi
+
+    # Daemon start only on fresh tool install; later repo installs rely on IDE hooks.
+    if [ "${HINDSIGHT_TOOL_ACTION}" = "skipped" ]; then
+        if hindsight_cli daemon status >/dev/null 2>&1; then
+            echo "   Hindsight embed daemon is running."
+        else
+            echo "   Hindsight tool present; daemon start left to IDE session hooks."
+        fi
         return 0
     fi
 
@@ -741,11 +993,11 @@ check_hindsight_embed || true
 
 echo ""
 echo "Rosey Environment installed successfully!"
-echo "   .cursor/rules, .cursor/skills, .cursor/agents, and .cursor/mcp.json are in place."
-echo "   .github/copilot-instructions.md, .github/instructions, .github/skills, .github/agents,"
-echo "   .github/hooks/ensure-hindsight-daemon.sh, .vscode/tasks.json, and .vscode/mcp.json are in place."
-echo "   rosey/agentic-env.json records the installed agentic environment version and targets."
-echo "   rosey/hindsight-pin is the shared Hindsight pin (Cursor sessionStart hook + VS Code folderOpen task)."
-echo "   Next: configure MCP secrets in .cursor/mcp.json and .vscode/mcp.json."
-echo "   VS Code: allow automatic tasks once (Tasks: Manage Automatic Tasks) so the Hindsight folderOpen task can run."
-echo "   Optional local memory: uvx hindsight-embed@$(read_hindsight_pin) configure, then re-run install.sh."
+echo "   Trees: .cursor/ (rules, skills, agents, hooks, mcp.json) and .github/ + .vscode/ equivalents."
+echo "   Version pin: rosey/agentic-env.json; Hindsight pin: rosey/hindsight-pin."
+echo "   Seeded from agentic-env .env (when keys present):"
+echo "     - .cursor/mcp.json and .vscode/mcp.json (GITHUB_TOKEN, OBSIDIAN_API_KEY)"
+echo "     - rosey-design-candidates skill .env (CURSOR_API_KEY)"
+echo "     - ~/.hindsight/embed once (HINDSIGHT_*); CLI install skipped if hindsight-embed already responds"
+echo "   Sentrux install skipped if sentrux --version already responds."
+echo "   VS Code: allow automatic tasks once (Tasks: Manage Automatic Tasks) for Hindsight folderOpen warm-start."

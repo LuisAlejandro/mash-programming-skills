@@ -22,25 +22,16 @@ No line → gate not run. "Unavailable" requires a failed `daemon status` — no
 
 Rosey uses Hindsight through the local `hindsight-embed` CLI. This is a CLI-only integration: do not add a Hindsight server to `.cursor/mcp.json` for this flow.
 
-## Pinned CLI version
+## CLI usage
 
-Version pin lives in `.cursor/hindsight-pin`. Bump that file and re-run `install.sh` when upgrading Hindsight deliberately.
+The pin in `rosey/hindsight-pin` (fallback: `.cursor/hindsight-pin`) records the expected Hindsight version for this checkout. Agents do not install or upgrade Hindsight from this skill.
 
-**Routine commands** use the `hindsight-embed` binary installed by `install.sh` (`uv tool install hindsight-embed==<pin> --with hindsight-api==<pin>`). Prepend the uv tool shim directory — Cursor shells and hooks may omit it:
+**Routine commands** use the `hindsight-embed` binary on the machine (`PATH` often needs the uv tool shim — Cursor shells and hooks may omit it):
 
 ```bash
 export PATH="${HOME}/.local/bin:${PATH}"
 hindsight-embed <command> ...
 ```
-
-**One-time setup** (before `~/.hindsight/` exists): use pinned `uvx` for interactive configure only (read pin from `.cursor/hindsight-pin`):
-
-```bash
-pin="$(tr -d '[:space:]' < .cursor/hindsight-pin)"
-uvx "hindsight-embed@${pin}" configure
-```
-
-Then re-run `install.sh` to install the persistent tool and start the daemon.
 
 Hindsight memory complements, but does not replace, curated `rosey/solutions/` learnings or Sentrux topology data:
 
@@ -57,23 +48,21 @@ export PATH="${HOME}/.local/bin:${PATH}"
 hindsight-embed daemon status
 ```
 
-If the command fails because Hindsight is not configured, tell the user to run the interactive setup once (pin from `.cursor/hindsight-pin`):
+If status fails (CLI missing, not configured, or daemon down):
 
-```bash
-pin="$(tr -d '[:space:]' < .cursor/hindsight-pin)"
-uvx "hindsight-embed@${pin}" configure
-```
+1. Record `Hindsight: unavailable — <reason>` in the first status message.
+2. Continue the Rosey workflow without memory.
+3. Do not attempt to install, configure, or upgrade Hindsight from this skill.
+4. Optionally note that local memory is unavailable and the user can enable it via their Rosey agentic-env setup outside this repo — do not invent install steps here.
 
-Then re-run `install.sh` to install the tool and start the daemon.
-
-Daemon warm-restart:
+Daemon warm-restart (already wired when Rosey was installed into the repo):
 
 - **Cursor:** `.cursor/hooks/ensure-hindsight-daemon.sh` via `.cursor/hooks.json` `sessionStart`
-- **VS Code:** same script at `.github/hooks/ensure-hindsight-daemon.sh` via `.vscode/tasks.json` `runOn: folderOpen` (Copilot Chat has no session-start hooks). Allow automatic tasks once per workspace (`Tasks: Manage Automatic Tasks`)
+- **VS Code:** same script at `.github/hooks/ensure-hindsight-daemon.sh` via `.vscode/tasks.json` `runOn: folderOpen` (Copilot has no session-start hooks). Allow automatic tasks once per workspace (`Tasks: Manage Automatic Tasks`)
 
 Do not run `daemon start` manually during Rosey workflows; use `daemon status` only.
 
-If status still fails after the hook runs, check `~/.hindsight/hook-last-run.log` (often "re-run install.sh" when the tool is missing). Record `Hindsight: unavailable — <reason>` and continue.
+If status still fails after the hook runs, check `~/.hindsight/hook-last-run.log` for clues. Record `Hindsight: unavailable — <reason>` and continue.
 
 Do not block Rosey planning, implementation, QA, or handoff when Hindsight is unavailable. Continue the workflow and record `HINDSIGHT: unavailable` where a handoff envelope asks for memory status.
 
@@ -149,3 +138,4 @@ Use reflect sparingly; recall is cheaper and sufficient for most workflow entry 
 - Do not duplicate full `rosey/solutions/` documents into memory. Store a short pointer and the outcome if it helps future recall.
 - Do not let Hindsight failures block Rosey workflows.
 - Do not assume memory is complete or authoritative; verify against the current repository before acting.
+- Do not install, configure, or upgrade Hindsight from this skill (that lives in the agentic-env installer, not in app repos).
