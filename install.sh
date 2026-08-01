@@ -52,6 +52,18 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
+# Agent-home / OpenClaw / Hermes installs use .cursorrules instead of AGENTS.md.
+uses_cursorrules_instead_of_agents() {
+    case "$INSTALL_ROOT_BASENAME" in
+        .hermes | .openclaw | rosey-hermes | rosey-openclaw | winston-openclaw)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 echo "Installing Rosey Agentic Environment..."
 echo "-> Installing from $SOURCE_ROOT into $INSTALL_ROOT..."
 
@@ -79,9 +91,16 @@ if [ "$CHECK_ONLY" = true ]; then
                 .vscode/mcp.json .vscode/tasks.json rosey/agentic-env.json; do
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
-    if [ "$CREATE_AGENTS" = true ] && [ ! -f AGENTS.md ]; then
-        echo "missing: AGENTS.md (re-run install.sh to write it)"
-        missing=$((missing + 1))
+    if [ "$CREATE_AGENTS" = true ]; then
+        if uses_cursorrules_instead_of_agents; then
+            if [ ! -f .cursorrules ]; then
+                echo "missing: .cursorrules (re-run install.sh to write it)"
+                missing=$((missing + 1))
+            fi
+        elif [ ! -f AGENTS.md ]; then
+            echo "missing: AGENTS.md (re-run install.sh to write it)"
+            missing=$((missing + 1))
+        fi
     fi
     if [ "$missing" -eq 0 ]; then
         echo "Rosey Agentic Environment installed ($INSTALL_VERSION)"
@@ -302,7 +321,6 @@ PY
 echo "-> Writing shared rosey/hindsight-pin..."
 mkdir -p rosey
 [ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ] && cp "$SOURCE_ROOT/.cursor/hindsight-pin" rosey/hindsight-pin
-[ -f "$SOURCE_ROOT/.cursor/hindsight-embed.example" ] && cp "$SOURCE_ROOT/.cursor/hindsight-embed.example" rosey/hindsight-embed.example
 
 # --- Cursor target ---
 
@@ -604,8 +622,11 @@ append_gitignore_if_missing "rosey/deepening/"
 append_gitignore_if_missing "rosey/agentic-env.json"
 append_gitignore_if_missing "rosey/maintainer-manifest.json"
 append_gitignore_if_missing "rosey/hindsight-pin"
-append_gitignore_if_missing "rosey/hindsight-embed.example"
-append_gitignore_if_missing "AGENTS.md"
+if uses_cursorrules_instead_of_agents; then
+    append_gitignore_if_missing ".cursorrules"
+else
+    append_gitignore_if_missing "AGENTS.md"
+fi
 append_gitignore_if_missing "DESIGN.md"
 
 # Cursor target
@@ -621,10 +642,62 @@ append_gitignore_if_missing ".github/agents/"
 append_gitignore_if_missing ".github/hooks/"
 append_gitignore_if_missing ".vscode/mcp.json"
 
-# --- AGENTS.md ---
+# --- AGENTS.md / .cursorrules ---
 
 write_agents_file() {
     if [ "$CREATE_AGENTS" != true ]; then
+        return 0
+    fi
+
+    if uses_cursorrules_instead_of_agents; then
+        echo "-> Writing .cursorrules (agent-home target; skipping AGENTS.md)..."
+        cat > .cursorrules <<'EOF'
+# Rosey Agent Guidance
+
+This workspace uses the Rosey Agentic Environment.
+This file intentionally does not store user preferences inline.
+
+Before non-trivial planning, implementation, or review work, follow the installed
+Rosey rules and skills:
+
+- `.cursor/rules/caveman.mdc`
+- `.cursor/rules/rosey-workflow-gates.mdc`
+- `.cursor/rules/hindsight-memory.mdc`
+- `.cursor/rules/karpathy-guidelines.mdc`
+- `.cursor/rules/docker-via-make.mdc`
+- `.cursor/rules/gitchangelog-commits.mdc`
+
+Use `.cursor/skills/` for Rosey workflows and `.cursor/agents/` for specialist
+reviews. Full Hindsight CLI contract: `.cursor/skills/rosey-hindsight/SKILL.md`.
+
+## Preferences, insights, and memory
+
+User preferences and durable project context live **outside** this file:
+
+| Store | Path / tool | What it holds |
+| ----- | ----------- | ------------- |
+| Curated insights | `rosey/insights/*.md` | Durable repo lessons (architecture rules, workflow gotchas, “do not do this”) |
+| Curated solutions | `rosey/solutions/` | Institutional how-tos / past fixes |
+| Cross-session memory | Hindsight (`hindsight-embed`) | Preferences, procedure outcomes, task discoveries |
+
+**Consult insights:** read `rosey/insights/` (and use `rosey-learnings-researcher` when available) before non-trivial planning or implementation in a documented area.
+
+**Consult Hindsight memory** (before plan / work / QA):
+
+```bash
+export PATH="${HOME}/.local/bin:${PATH}"
+hindsight-embed daemon status
+bank="${HINDSIGHT_EMBED_BANK_ID:-$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9][^a-z0-9]*/-/g; s/^-//; s/-$//')}"
+hindsight-embed memory recall "$bank" "Task summary, modules, preferences, and risks"
+```
+
+If the daemon is unavailable, continue the workflow and record `Hindsight: unavailable`.
+Do not store secrets in Hindsight or insight files.
+
+## Shared
+
+Hindsight version pin: `rosey/hindsight-pin`.
+EOF
         return 0
     fi
 
@@ -839,8 +912,6 @@ read_hindsight_pin() {
 hindsight_embed_template_path() {
     if [ -f "$SOURCE_ROOT/.cursor/hindsight-embed.example" ]; then
         echo "$SOURCE_ROOT/.cursor/hindsight-embed.example"
-    elif [ -f "rosey/hindsight-embed.example" ]; then
-        echo "rosey/hindsight-embed.example"
     else
         return 1
     fi

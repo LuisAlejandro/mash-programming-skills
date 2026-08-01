@@ -26,7 +26,10 @@ ROSEY_AGENTIC_ENV=/Users/luisalejandro/Development/rosey-agentic-env \
 2. Creates and populates the `.cursor/rules` and `.cursor/skills` folders in your target repository.
 3. Automatically updates your `.gitignore` to keep Rosey-local artifacts out of version control: `.cursor/`, `rosey/brainstorms/`, `rosey/plans/`, `rosey/designs/`, `rosey/solutions/`, `rosey/insights/`, `rosey/design-system/`, `rosey/qa/`, `rosey/deepening/`, `rosey/agentic-env.json`, and `rosey/maintainer-manifest.json`.
 4. Creates `rosey/agentic-env.json` so orchestrators can detect the installed version.
-5. Always writes a minimal `AGENTS.md` (overwrites on each install unless `--no-agents`). It does not store preferences; it gives IDE-conditional paths for Cursor (`.cursor/…`) and VS Code / Copilot (`.github/…`, `.vscode/…`).
+5. Always writes agent guidance (overwrites on each install unless `--no-agents`):
+   - Default: minimal `AGENTS.md` with IDE-conditional paths for Cursor (`.cursor/…`) and VS Code / Copilot (`.github/…`, `.vscode/…`).
+   - Agent-home targets (folder basename `.hermes`, `.openclaw`, `rosey-hermes`, `rosey-openclaw`, or `winston-openclaw`): writes `.cursorrules` instead of `AGENTS.md` (does not delete an existing `AGENTS.md`).
+   Neither file stores preferences.
 6. Seeds `rosey-design-candidates` skill `.env` from `.env.example` using `CURSOR_API_KEY` in `rosey-agentic-env/.env` (never overwrites an existing skill `.env`).
 7. Seeds `.cursor/mcp.json` and `.vscode/mcp.json` from `.cursor/mcp.json.example`, substituting `GITHUB_TOKEN` and `OBSIDIAN_API_KEY` from `rosey-agentic-env/.env`. The example is tracked; seeded `mcp.json` files stay local (gitignored under `.cursor/` / `.vscode/mcp.json`).
 
@@ -36,9 +39,9 @@ To update the rules and skills in a target repository, simply run the install co
 ## Orchestration flags
 
 - `--version`: print the agentic environment version.
-- `--check`: verify `.cursor/`, `rosey/agentic-env.json`, and `AGENTS.md` exist in the target repo.
+- `--check`: verify `.cursor/`, `rosey/agentic-env.json`, and `AGENTS.md` (or `.cursorrules` on agent-home targets) exist in the target.
 - `--write-pin` / `--no-write-pin`: enable or disable writing `rosey/agentic-env.json`.
-- `--agents` / `--no-agents`: enable or disable writing `AGENTS.md` (default: always overwrite).
+- `--agents` / `--no-agents`: enable or disable writing `AGENTS.md` / `.cursorrules` (default: always overwrite).
 
 ## Optional: Hindsight local memory
 
