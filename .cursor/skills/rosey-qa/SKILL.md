@@ -453,13 +453,13 @@ Pass the path list in a `<standards-paths>` block. The persona reads only releva
 
 ### Stage 4: Spawn sub-agents
 
-#### Model tiering
+#### Model inheritance
 
-Three reviewers inherit the session model with no override: `rosey-correctness-reviewer`, `rosey-security-reviewer`, and `rosey-adversarial-reviewer`. They cover highest-stakes logic, security, and adversarial failures.
+**Never override the model on reviewer or validator sub-agents.** Always inherit the parent session model (agent frontmatter `model: inherit`, and omit any `model` / model-slug parameter on the dispatch primitive).
 
-All other persona sub-agents and Rosey agents use the platform's mid-tier model when supported to reduce cost and latency.
+This applies to every persona, Rosey agent, and Stage 5b validator — including correctness, security, adversarial, testing, maintainability, and the rest. Do not pass mid-tier, sonnet, mini, sol, xhigh, or any other model slug to reduce or increase cost (or perceived review quality).
 
-The orchestrator inherits the session model for intent discovery, reviewer selection, merge/dedup, and synthesis.
+The orchestrator also inherits the session model for intent discovery, reviewer selection, merge/dedup, and synthesis.
 
 #### Run ID
 
@@ -478,7 +478,7 @@ Pass `{run_id}` to every persona sub-agent so they can write their full analysis
 
 Omit the `mode` parameter when dispatching sub-agents so the user's configured permission settings apply. Do not pass `mode: "auto"`.
 
-**Model override at dispatch time.** Pass the platform's mid-tier model on every dispatch except `rosey-correctness-reviewer`, `rosey-security-reviewer`, and `rosey-adversarial-reviewer`, which inherit the session model. In Claude Code, add `model: "sonnet"` to the `Agent` tool call. In Codex, pass the equivalent mid-tier on `spawn_agent` (e.g., `gpt-5.4-mini` as of April 2026). In Pi, pass the equivalent on `subagent` via the `pi-subagents` extension. If the primitive lacks model override or model names are unknown, omit it; working review beats broken dispatch.
+**Model at dispatch time.** Do not set `model` (or any model-slug argument) on Task / Agent / spawn_agent / subagent calls. Leave inheritance to the harness and each agent's `model: inherit` frontmatter so reviewers run on the same model as the parent session (e.g. Grok 4.5 when that is the session model).
 
 **Bounded parallel dispatch.** Respect the current harness's active-subagent limit. Queue selected reviewers, dispatch only as many as the harness accepts, and fill freed slots as reviewers complete. Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure: leave the reviewer queued and retry after a slot frees. Record a reviewer as failed only after a successful dispatch times out/fails, or when dispatch fails for a non-capacity reason.
 
@@ -621,7 +621,7 @@ When Stage 5b does not run, the merged finding set from Stage 5 flows through to
    - `validated: true` -> finding survives unchanged into the next phase (Stage 6 for headless/autofix, dispatch for interactive)
    - `validated: false` -> finding is dropped; record the validator's reason in Coverage
    - Validator failure (timeout, dispatch error, malformed JSON) -> drop the finding with reason "validator failed"; conservative bias is correct
-5. **Use mid-tier model for validators.** Same model class (sonnet) the persona reviewers use. Validators are read-only — same constraints as persona reviewers. They may use non-mutating inspection commands and GitHub MCP read tools.
+5. **Validators inherit the session model.** Same rule as persona reviewers — no model override. Validators are read-only — same constraints as persona reviewers. They may use non-mutating inspection commands and GitHub MCP read tools.
 6. **Record metrics for Coverage.** Total dispatched, validated true count, validated false count (with reasons), failures, and over-budget drops.
 
 **Why per-finding bounded dispatch (not batched):** Independence is the point. A single batched validator looking at all findings together pattern-matches across them and recreates the persona-bias problem. Per-finding dispatch preserves fresh context while the scheduler respects harness limits. Per-file batching is a plausible future optimization for reviews with many findings clustered in few files; not implemented today.
