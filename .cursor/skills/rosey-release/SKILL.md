@@ -168,7 +168,7 @@ Five gates:
 | ------------------ | ----------------------------------------- | -------------------- |
 | 1 Local preflight  | `make release-preflight`                  | Script exit          |
 | 2 Branch push      | `release/<version>` pushed                | Remote branch        |
-| 3 Branch CI        | Push workflow + `Release Gate`            | `gh run watch`       |
+| 3 Branch CI        | Whole Push workflow (`push.yml`) at exact SHA | `gh run watch`   |
 | 4 Tag + GH release | git-flow finish, tag, `gh release create` | Remote tag + release |
 | 5 Publish verify   | `release.yml` before PyPI                 | `gh run view`        |
 
@@ -178,11 +178,18 @@ Five gates:
 | `minor` | `make release-minor` | `NON_INTERACTIVE=true make release-minor` |
 | `major` | `make release-major` | `NON_INTERACTIVE=true make release-major` |
 
+**Gate 3 detail:** Wait on the entire Push workflow run for `push.yml` at the
+exact release-branch SHA. Do not look up or require a job named `Release Gate`.
+
 ### 6b. Abort and Roll Back on Failure
 
 On any failure, **always** run `VERSION=<version> make undo-release`, halt, report
 what failed, confirm rollback, and tell the user to fix on `develop` and invoke
 `rosey-release` again.
+
+Rollback order is **cancel-before-delete**: cancel matching in-progress workflow
+runs → wait until those runs are terminal → then delete refs/metadata. Matching
+workflows: Push, Publish Release, and when applicable Wholmaster Artifacts.
 
 ### 7. Verify Branch CI And Publish Workflow
 
