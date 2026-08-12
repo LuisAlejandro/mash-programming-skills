@@ -27,7 +27,7 @@ on:
 2. Ensure the Push workflow's CI jobs run on `release/**` the same way they run on `develop`
    (same job names / required checks you want Gate 3 to observe).
 
-3. Bump all `runs-on: ubuntu-22.04` → `ubuntu-24.04` in `push.yml` while editing (or route
+3. Bump all `runs-on: ubuntu-24.04` → `ubuntu-24.04` in `push.yml` while editing (or route
    Linux jobs to `tetra-linux` for Tetra cutovers).
 
 4. Confirm `scripts/lib.sh` waits on the whole workflow + exact SHA (synced template):
