@@ -1,6 +1,11 @@
-# Push Workflow — Release Gate (Manual Patch)
+# Push Workflow — Whole-Run Release Gate (Manual Patch)
 
-Static `rosey-maintain sync` does **not** write `.github/workflows/push.yml`. Patch each repo manually so `release.sh` Gate 3 can wait on the **Release Gate** job.
+Static `rosey-maintain sync` does **not** write `.github/workflows/push.yml`.
+Patch each repo manually so `scripts/lib.sh` `release_wait_for_branch_ci` can wait on the
+**entire Push workflow** at the exact release-branch SHA.
+
+Do **not** add a job named `Release Gate`. Release tooling discovers the workflow by name
+(`Push` / `push.yml` via `RELEASE_CI_WORKFLOW`) and `--commit "$commit_sha"`.
 
 ## When Required
 
@@ -19,40 +24,28 @@ on:
       - "release/**"
 ```
 
-2. Append a terminal job after all existing CI jobs:
+2. Ensure the Push workflow's CI jobs run on `release/**` the same way they run on `develop`
+   (same job names / required checks you want Gate 3 to observe).
 
-```yaml
-  release-gate:
-    name: Release Gate
-    runs-on: ubuntu-24.04
-    needs: [<final_ci_job>]
-    steps:
-      - name: Confirm all release checks passed
-        run: |
-          echo "Release gate passed for ${{ github.ref_name }}"
+3. Bump all `runs-on: ubuntu-22.04` → `ubuntu-24.04` in `push.yml` while editing (or route
+   Linux jobs to `tetra-linux` for Tetra cutovers).
+
+4. Confirm `scripts/lib.sh` waits on the whole workflow + exact SHA (synced template):
+
+```bash
+grep -E 'RELEASE_CI_WORKFLOW|--commit "\$commit_sha"|Release Gate' scripts/lib.sh
+# expect: workflow + commit present; no Release Gate job name
 ```
 
-3. Set `needs:` to the **last** CI job in the workflow (before approve/merge if those exist in `pr.yml` only — `push.yml` typically ends with `build`, `checks`, or `finish`).
+## Rollback
 
-4. Bump all `runs-on: ubuntu-22.04` → `ubuntu-24.04` in `push.yml` while editing.
-
-## Reference
-
-Canonical full example: read-only [`Development/agoras/.github/workflows/push.yml`](file:///Users/luisalejandro/Development/agoras/.github/workflows/push.yml) (`needs: finish`).
-
-Fleet target to update: [`rosey/agoras`](file:///Users/luisalejandro/Development/rosey/agoras) — copy/adapt from reference; do not edit the reference tree.
-
-## Common `needs` Values
-
-| Repo pattern | Typical final job |
-|--------------|-------------------|
-| agoras (full CI) | `finish` |
-| dockershelf, simple matrix | `build` |
-| nuncia, whol, helpmarket | `checks` or `build` |
-| wholmaster (multi-job) | last job in chain |
+`scripts/rollback.sh` cancels matching non-terminal **Push**, **Publish Release**, and
+**Artifacts** runs for the release branch and version tag, waits for terminal status, then
+deletes refs. Do not delete tags/branches before cancel-wait completes.
 
 ## Verification
 
 ```bash
-grep -E 'release/\*\*|release-gate' .github/workflows/push.yml
+grep -E 'release/\*\*' .github/workflows/push.yml
+grep -E 'release_wait_for_branch_ci|release_cancel_matching_runs' scripts/lib.sh scripts/rollback.sh
 ```

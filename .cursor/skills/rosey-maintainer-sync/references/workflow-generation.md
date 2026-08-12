@@ -9,9 +9,11 @@ When the repo profile includes `ci-base`:
 ## Do Not Edit (static sync owns)
 
 - `.github/workflows/pr-auto-merge.yml` — managed by static sync; do not hand-edit in app repos
-- `.github/workflows/keepalive.yml`
+- `.github/workflows/cache-cleanup.yml`
 - `.github/dependabot.yml`
 - Custom workflows with other names (e.g. `artifacts.yml`, GHCR publish workflows)
+
+Keepalive workflows are no longer generated; delete stale `.github/workflows/keepalive.yml` on sync.
 
 ## Do Not Edit (repo-owned)
 
@@ -31,7 +33,7 @@ Run untrusted PR code in a **sandboxed** `pull_request` workflow. Auto-approve a
 |------|---------|---------------|
 | `pr.yml` | `pull_request` only (no `workflow_dispatch`) | Yes (sandboxed; fork PRs have no repo secrets) |
 | `pr.yml` → job **Code Quality** | same workflow | Yes (Semgrep OSS; repo-owned) |
-| `pr-auto-merge.yml` | `workflow_run` after **Pull Request** on `feature/**` or `dependabot/**` | **No** (GitHub API only) |
+| `pr-auto-merge.yml` | `workflow_run` after **Pull Request** (and same-SHA **E2E and User Manual** when registry `e2e_path_globs` match changed files) on `feature/**` or `dependabot/**` | **No** (GitHub API only) |
 
 There is **no** separate `code-quality.yml` workflow.
 
@@ -76,6 +78,10 @@ Dynamic generation **must verify** the job exists; static sync does not inject i
 
 Written by `rosey-maintain sync` from `templates/workflows/pr-auto-merge.yml.j2`.
 
+Registry `overrides.e2e_path_globs` are baked into the workflow. Matching PR paths also require
+a successful **E2E and User Manual** workflow run at the **same head SHA** before mutate.
+Keep glob updates atomic with the app workflow paths those globs evaluate.
+
 Do not duplicate approve/merge into `pr.yml`.
 
 ## Generation Order
@@ -86,4 +92,5 @@ Run `pr.yml` security patching **last**, after `.env.example`, Docker files, and
 
 **Never** overwrite `pr.yml` or `push.yml` completely. Patch-only for CI trigger/checkout and removal of approve/merge jobs.
 
-For `push.yml` release-branch CI gate, see `push-release-gate.md` (manual patch; not static sync).
+For `push.yml` release-branch CI, see `push-release-gate.md` (manual patch; whole Push workflow
+at exact SHA — not a `Release Gate` job; not static sync).
