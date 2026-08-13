@@ -18,6 +18,11 @@ release-preflight:
 `scripts/release.sh` (via `scripts/lib.sh`) runs **`make release-preflight`** once, then
 **stops** if the working tree is dirty afterward (preflight must not leave uncommitted changes).
 
+That Makefile order (build, then write-format, then lint/test) is for **local release**. PR CI
+on tetra node apps is `make image` → `make dependencies` → `make lint` → `make test` →
+`make build` (fail cheap). Do not reorder Makefile preflight to match CI, or CI to match
+Makefile.
+
 Each sub-target must exit non-zero on failure. Typical roles:
 
 1. **`make image`** — build dev Compose image(s).
@@ -64,11 +69,13 @@ orchestrator. Reference repos: `agoras`, `spices`.
 | `format` | Prettier / eslint --fix in Docker |
 | `test` | Jest/Vitest, `go test`, or `tsc --noEmit` |
 
-## Semgrep (repo-owned)
+## Semgrep (repo-owned, verify-only)
 
-When the repo uses Semgrep on PRs:
+When the repo uses Semgrep on PRs, verify it is present. Do **not** add a named **Code Quality**
+job if Semgrep already runs as a step inside **Repository Checks**.
 
-- `.github/workflows/pr.yml` must include a **Code Quality** job (or equivalent).
+- Named **Code Quality** job: agoras, agoras-actions, dockershelf, spices, luisalejandro.org
+- Semgrep inside **Repository Checks**: helpmarket, morphile, nuncia, whol, wholmaster, wholmaster-website
 - `.semgrepignore` is repo-owned (not synced).
 
 ## Post-bump hooks

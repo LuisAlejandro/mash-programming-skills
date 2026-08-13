@@ -41,7 +41,7 @@ virtualenv/bin/rosey-maintain add myapp ../rosey/myapp --profile python
 2. Inserts the repo folder into `rosey.code-workspace` (before `rosey-agentic-env`).
 3. Syncs that repo: managed ops files, `rosey/maintainer-manifest.json` (gitignored), agentic install.
 
-**Makefile**, **`.github/workflows/pr.yml`**, and **`.semgrepignore`** are repo-owned. Dynamic generation must verify docker/release/preflight targets and the Semgrep **Code Quality** job exist (see `preflight-conventions.md`, `workflow-generation.md`). CodeQL is **not** used.
+**Makefile**, **`.github/workflows/pr.yml`**, and **`.semgrepignore`** are repo-owned. Dynamic generation must verify docker/release/preflight targets and that **Semgrep is present** in `pr.yml` — a named **Code Quality** job *or* a Semgrep step inside **Repository Checks**, per `workflow-generation.md`. Do **not** add a named Code Quality job when Semgrep already runs in Repository Checks (CollageLabs tetra-linux). CodeQL is **not** used.
 
 ## After add (python / node)
 
@@ -51,7 +51,7 @@ Remind the user to apply GitHub rulesets once the repo is on GitHub Pro (or publ
 bash scripts/rosey-maintain.sh protect-github --apply --repo <name>
 ```
 
-Use `--owner <org>` when the registry entry overrides `github_owner` (e.g. Dockershelf). Rulesets require **Code Quality** and PR job checks only — no `code_scanning` / CodeQL merge rule.
+Use `--owner <org>` when the registry entry overrides `github_owner` (e.g. Dockershelf). Rulesets must match **actual `pr.yml` job names** (named **Code Quality**, or **Repository Checks** when Semgrep lives there). No `code_scanning` / CodeQL merge rule. Do not invent a Code Quality required check for tetra CollageLabs apps.
 
 ## Workflow
 
@@ -59,7 +59,7 @@ Use `--owner <org>` when the registry entry overrides `github_owner` (e.g. Docke
 2. Confirm **name**, **path**, and **profile** with the user if not provided in `$ARGUMENTS`.
 3. Verify the path exists and is a git repo (recommended, not enforced by CLI).
 4. Run `bash scripts/rosey-maintain.sh add …`.
-5. Summarize: registry entry, workspace folder added (or already present), sync output (including managed **Code Quality** block in `pr.yml` when profile is python/node).
+5. Summarize: registry entry, workspace folder added (or already present), sync output, and Semgrep placement in repo-owned `pr.yml` (named Code Quality job **or** Repository Checks step) when profile is python/node. Static sync does **not** write that job.
 6. For python/node repos, remind the user to run `protect-github --apply` on GitHub when ready (see **After add** above).
 7. Remind the user to commit in this repo (`registry/repos.yaml`, `rosey.code-workspace`) when ready. Do not commit unless asked.
 

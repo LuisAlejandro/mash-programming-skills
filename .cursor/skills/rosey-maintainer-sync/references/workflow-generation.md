@@ -3,8 +3,8 @@
 When the repo profile includes `ci-base`:
 
 - **Static sync** writes `.github/workflows/pr-auto-merge.yml` (approve/merge after CI; API-only).
-- **Repo-owned:** `.github/workflows/pr.yml` including the **Code Quality** Semgrep job and `.semgrepignore`.
-- The dynamic phase may **patch** `.github/workflows/pr.yml` for security (trigger/checkout, remove approve/merge). It must **not** rewrite `pr.yml` or `push.yml` wholesale.
+- **Repo-owned:** `.github/workflows/pr.yml` (Semgrep as a named **Code Quality** job *or* a step inside **Repository Checks**) and `.semgrepignore`.
+- The dynamic phase may **patch** `.github/workflows/pr.yml` for security (trigger/checkout, remove approve/merge). It must **not** rewrite `pr.yml` or `push.yml` wholesale. It must **not** strip cost-opt structure (see Preserve below).
 
 ## Do Not Edit (static sync owns)
 
@@ -20,7 +20,7 @@ Keepalive workflows are no longer generated; delete stale `.github/workflows/kee
 - `.github/workflows/push.yml` — never overwrite or regenerate
 - `.github/workflows/release.yml` — each repo maintains publish/verify jobs
 - Existing build/lint/test jobs in `pr.yml` — repo maintains them
-- **Code Quality** Semgrep job in `pr.yml`
+- Semgrep placement in `pr.yml` (named **Code Quality** job, or a Semgrep step inside **Repository Checks**)
 - `.semgrepignore`
 
 ## Goal
@@ -32,7 +32,7 @@ Run untrusted PR code in a **sandboxed** `pull_request` workflow. Auto-approve a
 | File | Trigger | Runs PR code? |
 |------|---------|---------------|
 | `pr.yml` | `pull_request` only (no `workflow_dispatch`) | Yes (sandboxed; fork PRs have no repo secrets) |
-| `pr.yml` → job **Code Quality** | same workflow | Yes (Semgrep OSS; repo-owned) |
+| `pr.yml` → Semgrep | same workflow (named **Code Quality** job *or* a step in **Repository Checks**) | Yes (Semgrep OSS; repo-owned) |
 | `pr-auto-merge.yml` | `workflow_run` after **Pull Request** (and same-SHA **E2E and User Manual** when registry `e2e_path_globs` match changed files) on `feature/**` or `dependabot/**` | **No** (GitHub API only) |
 
 There is **no** separate `code-quality.yml` workflow.
@@ -60,6 +60,20 @@ Skip (report "pr.yml workflows untouched") when:
 
 Do **not** change action versions, matrices, Docker steps, caches, or terminal commands in existing CI jobs unless fixing a security issue.
 
+## Preserve on `pr.yml` (cost-opt — do not strip)
+
+Every fleet `pr.yml` already has this shape. Dynamic generation must leave it intact:
+
+- hosted `filter` job and matching `*-skip` twins
+- `if: github.event.pull_request.draft == false` on paid jobs
+- `timeout-minutes` on jobs
+- `concurrency` with `cancel-in-progress`
+- `pull_request` types including `ready_for_review`
+- docs filter using `git diff --name-status` (include deletes/renames)
+- tetra node CI step order: `make image` → `make dependencies` → `make lint` → `make test` → `make build`
+
+Do **not** add `workflow_dispatch` to `pr.yml`. Do **not** add `develop` to Push except **agoras-actions**. Do **not** add GHA Docker `type=gha` cache on tetra-linux. Do **not** insert `actions/cache` npm blocks on tetra (see `ci-npm-cache.md`).
+
 ## Forbidden (security)
 
 - **`pull_request_target` for CI**
@@ -67,12 +81,20 @@ Do **not** change action versions, matrices, Docker steps, caches, or terminal c
 - **Approve/merge jobs in `pr.yml`**
 - **Passing `secrets.GITHUB_TOKEN` or PAT into test/lint/tox env** on PR workflows
 
-## Code Quality job (repo-owned)
+## Semgrep (repo-owned, verify-only)
 
-Each python/node repo should keep a **Code Quality** job in `pr.yml` when using Semgrep.
-Use `github.event.pull_request.base.sha` for baseline on PR workflows.
+Do **not** implement a missing named **Code Quality** job. Report placement; leave it where it is.
 
-Dynamic generation **must verify** the job exists; static sync does not inject it.
+| Placement | Repos |
+|-----------|-------|
+| Named **Code Quality** job | agoras, agoras-actions, dockershelf, spices, luisalejandro.org |
+| Semgrep step inside **Repository Checks** | helpmarket, morphile, nuncia, whol, wholmaster, wholmaster-website |
+
+CollageLabs tetra-linux node repos keep Semgrep in **Repository Checks** for PR speed. Extracting it onto `ubuntu-24.04` slows the pipeline and changes required-check names.
+
+Use `github.event.pull_request.base.sha` for baseline on PR workflows. Static sync does not inject Semgrep.
+
+Do **not** run `protect-github --apply` during fleet sync. Required-check names now include **Filter** and skip twins that share display names; applying blindly is an operator decision.
 
 ## `pr-auto-merge.yml` (static sync)
 

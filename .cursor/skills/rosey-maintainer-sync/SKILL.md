@@ -74,7 +74,8 @@ Every registered repo should use **`python`** or **`node`** (see `profiles/*.yam
 
 Preflight is **repo-owned** via Makefile `release-preflight` (chains `image` → `dependencies` →
 `build` → `format` → `lint` → `test`). `scripts/lib.sh` calls that target once and fails if the
-working tree is dirty afterward.
+working tree is dirty afterward. PR CI uses a different order (lint/test before build) — do not
+reorder either sequence to match the other.
 
 ### Doc-format family
 
@@ -107,7 +108,8 @@ Registry `release_template` documents which release workflow shape the repo uses
 
 - Set `profile: python` or `profile: node` — prefer fixing the repo over per-repo preflight overrides.
 - `bundles:` on a repo entry **replaces** the profile's bundle list entirely.
-- **Allowed overrides:** `history_file`, `release_template`, `pypi_packages`, `dependabot_extra_directories`.
+- **Allowed overrides:** `history_file`, `release_template`, `pypi_packages`, `dependabot_updates`, `dependabot_extra_directories`.
+- **`dependabot_updates`:** list of `{ecosystem, directory}` (replaces the default root entry). Use for nested manifests or mixed ecosystems (`npm` + `gomod`). `dependabot_extra_directories` still appends same-ecosystem folders when `dependabot_updates` is unset.
 - **Deprecated overrides** (do not add): `post_bump_commands` — use `.bumpversion.cfg` `[rosey-maintainer]` instead.
 
 The legacy **`minimal`** profile remains in `profiles/minimal.yaml` for edge cases; fleet repos should not use it.
@@ -119,8 +121,12 @@ Repos with **`open_source: true`** in registry get OSS PR/issue templates on sta
 Python and node profiles share the same **release preflight** shape (repo-owned Makefile):
 
 `release-preflight` chains `make image` → `make dependencies` → `make build` → `make format` →
-`make lint` → `make test`. `scripts/release.sh` runs **`make release-preflight`** via `lib.sh`,
-then **stops** if the working tree is dirty — otherwise release continues to bumpversion.
+`make lint` → `make test`. That local sequence writes format then verifies. PR CI on tetra node
+apps is `make image` → `make dependencies` → `make lint` → `make test` → `make build` (fail cheap).
+Do not reorder Makefile preflight to match CI, or CI to match Makefile.
+
+`scripts/release.sh` runs **`make release-preflight`** via `lib.sh`, then **stops** if the working
+tree is dirty — otherwise release continues to bumpversion.
 
 - **Python:** `make test` runs **coverage** (typically `tox -e coverage`); `make dependencies` may be `@:`.
 - **Node:** tools are repo-specific (ESLint, Prettier, `tsc`, Jest, `go test`, etc.).
@@ -139,7 +145,7 @@ See `references/preflight-conventions.md` and `references/makefile-dedup.md`.
 - legal files (`ops-legal`: LICENSE, `.editorconfig`, `AUTHORS.rst`/`.md`, `CLA.rst`/`.md` per `history_file`)
 - `.vscode/settings.json` (`ops-vscode` — python vs node template)
 - Python tooling config when `ops-python` in bundles: `setup.cfg`, `pyproject.toml`
-- GitHub workflows: `keepalive.yml`, `dependabot.yml`, `pr-auto-merge.yml` (`ci-base`)
+- GitHub workflows: `cache-cleanup.yml`, `dependabot.yml`, `pr-auto-merge.yml` (`ci-base`)
 - open-source PR and issue templates when `open_source: true` (always Markdown)
 - `rosey/maintainer-manifest.json` (local drift manifest; gitignored)
 - `.gitignore` — adds `# Rosey Maintainer Tools` header and `rosey/maintainer-manifest.json` when missing
@@ -148,7 +154,7 @@ If the manifest was previously committed, run `git rm --cached rosey/maintainer-
 
 - `.bumpversion.cfg` bootstrap stub when missing (minimal; not the full file list)
 
-**Repo-owned (not static sync):** `Makefile` (docker, release, preflight targets), `.github/workflows/pr.yml` (including **Code Quality** Semgrep job), `.github/workflows/push.yml`, `.github/workflows/release.yml`, `.semgrepignore`.
+**Repo-owned (not static sync):** `Makefile` (docker, release, preflight targets), `.github/workflows/pr.yml` (including Semgrep — named **Code Quality** job *or* a Semgrep step inside **Repository Checks**), `.github/workflows/push.yml`, `.github/workflows/release.yml`, `.semgrepignore`.
 
 `pr-auto-merge.yml` is static-synced (`ci-base`). The dynamic phase may **patch** existing `pr.yml` for CI trigger/checkout security only; it must not rewrite workflow jobs wholesale.
 
@@ -174,14 +180,22 @@ Each subagent should overwrite or create these repo-specific files (paths from r
 - Delete orphan `scripts/hotfix.sh` (replaced by `rollback.sh` + `make undo-release`)
 - Remove `hotfix` / `make hotfix` from README, CONTRIBUTING, and non-managed Makefile help
 - Delete orphan `MAINTAINER.*`, `README.*`, `RELEASE_DESCRIPTION.*` in the wrong extension for resolved `history_file`
+- Delete stale `.github/workflows/keepalive.yml` if present (no longer generated)
 
-**Semgrep:** **Code Quality** job in `pr.yml` and `.semgrepignore` are **repo-owned**. Verify they exist after sync; do not recreate CodeQL or separate `code-quality.yml`. Use required check **Code Quality** from `pr.yml` (`protect-github --apply`).
+**Semgrep (verify-only — do not implement a missing named job):**
+
+| Placement | Repos |
+|-----------|-------|
+| Named **Code Quality** job | agoras, agoras-actions, dockershelf, spices, luisalejandro.org |
+| Semgrep step inside **Repository Checks** | helpmarket, morphile, nuncia, whol, wholmaster, wholmaster-website |
+
+`.semgrepignore` is **repo-owned**. Do not recreate CodeQL or a separate `code-quality.yml`. Do **not** extract Semgrep from tetra **Repository Checks** onto GitHub-hosted runners. Do **not** run `protect-github --apply` during fleet sync — that is operator follow-up after reviewing required-check names.
 
 If a file already exists, replace it with the regenerated version after preserving any still-accurate project-specific details.
 
 For `.bumpversion.cfg`, always overwrite with the complete discovered file list. For `Makefile`, implement or verify required targets; remove duplicate definitions only.
 
-Makefile target bodies stay repo-specific. Do not rewrite existing CI workflow jobs to call `make lint` / `make test` unless the user asks — but preflight and CI should stay aligned where practical.
+Makefile target bodies stay repo-specific. Do not rewrite existing CI workflow jobs to call `make lint` / `make test` unless the user asks. Do not reorder CI `lint`/`test`/`build` to match Makefile preflight.
 
 ## Subagent Run Order
 
@@ -208,6 +222,7 @@ For each repo subagent, include:
 - contents of `references/repo-generation-prompt.md`
 - contents of `references/preflight-conventions.md` when profile is `python` or `node`
 - contents of `references/workflow-generation.md` when profile includes `ci-base`
+- contents of `references/ci-npm-cache.md` when profile is `node` (verify-only; do not insert caches)
 - contents of `references/bumpversion-generation.md` when profile includes `ops-release`
 - contents of `references/makefile-dedup.md` when profile is `python` or `node`
 - contents of `references/contributing-baseline.md` when `open_source: true`
@@ -222,7 +237,7 @@ Subagents must return:
 - preflight targets present (image/dependencies/build/lint/format/test/release-preflight Y/N); docker/release targets present (Y/N); tools used for each
 - Makefile targets removed as duplicates (list names)
 - orphan files removed (`hotfix.sh`, wrong-extension doc-family files) (Y/N)
-- `pr.yml` patched (Y/N), trigger is `pull_request` only (no `workflow_dispatch`) (Y/N), approve/merge removed (Y/N), Code Quality job present (Y/N), `pr-auto-merge.yml` synced (Y/N); Cursor automation retrigger is `synchronize` (Y/N); `protect-github --apply` run after sync (Y/N)
+- `pr.yml` patched (Y/N), trigger is `pull_request` only (no `workflow_dispatch`) (Y/N), approve/merge removed (Y/N), Semgrep present as named Code Quality job **or** Repository Checks step (Y/N), placement matches repo family (Y/N), cost-opt PR structure preserved (filter / skip twins / draft `if` / timeouts / concurrency) (Y/N), `pr-auto-merge.yml` synced (Y/N); Cursor automation retrigger is `synchronize` (Y/N); `protect-github --apply` skipped (operator follow-up) (Y/N)
 - `push.yml` left untouched (confirm)
 - assumptions or blockers
 
@@ -253,7 +268,8 @@ If a repo blocks on missing context or an ambiguous destructive change, leave th
 
 - Registering new repos (`rosey-maintainer-add`)
 - Invoking LLMs from Python or `rosey-maintain`
-- Rewriting `keepalive.yml` or `dependabot.yml` (static sync)
+- Rewriting `dependabot.yml` or `cache-cleanup.yml` (static sync); creating a keepalive workflow
+- Running `protect-github --apply` during fleet sync (operator follow-up)
 - Registry `post_bump_commands` overrides (use `.bumpversion.cfg` instead)
 - Rewriting or creating `pr.yml`, `push.yml`, or `release.yml` CI jobs (patch CI trigger/checkout on existing `pr.yml` only; never edit `pr-auto-merge.yml` by hand in app repos)
 - Regenerating `MAINTAINER.md` / `MAINTAINER.rst` in the dynamic phase

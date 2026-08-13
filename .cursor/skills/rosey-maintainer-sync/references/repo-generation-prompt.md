@@ -89,9 +89,10 @@ Inspect the repo before writing:
 - Run **last** after `.env.example`, Docker files, and Makefile work.
 - **Do not** rewrite or create `pr.yml` / `push.yml` CI jobs. **Do not** edit `push.yml`.
 - Patch existing `pr.yml` only: switch trigger to `pull_request`, remove PR-head checkout `ref:`, remove `approve`/`merge` jobs (auto-merge is static-synced in `pr-auto-merge.yml`).
-- **Verify** a **Code Quality** Semgrep job exists in `pr.yml` when the repo uses Semgrep; implement if missing (repo-owned).
+- **Verify** Semgrep exists in `pr.yml` (named **Code Quality** job *or* a step in **Repository Checks**). Do **not** implement a missing named job. Do **not** extract tetra Semgrep out of **Repository Checks**.
+- **Preserve** filter / `*-skip` twins / draft `if` / `timeout-minutes` / concurrency / `ready_for_review`. Do not add `workflow_dispatch`. Do not add `develop` to Push except agoras-actions.
 - If `pr.yml` is missing, skip workflows and report — do not create a new workflow file.
-- Do not edit `pr-auto-merge.yml`, `keepalive.yml`, `dependabot.yml`, or repo-owned `release.yml`.
+- Do not edit `pr-auto-merge.yml`, `dependabot.yml`, `cache-cleanup.yml`, or repo-owned `release.yml`. Delete stale `keepalive.yml` if present.
 
 ### Hotfix and doc-family cleanup (when migrating fleet)
 
@@ -111,6 +112,6 @@ Return:
 - preflight targets present (image/dependencies/build/lint/format/test Y/N); tools used for each
 - Makefile duplicate targets removed
 - orphan files removed (hotfix.sh, wrong-extension doc-family files) (Y/N)
-- `pr.yml` patched (Y/N), trigger is `pull_request` (Y/N), approve/merge removed (Y/N), Code Quality job present (Y/N), `pr-auto-merge.yml` present from static sync (Y/N), `push.yml` untouched (Y/N)
+- `pr.yml` patched (Y/N), trigger is `pull_request` (Y/N), approve/merge removed (Y/N), Semgrep present as named Code Quality job **or** Repository Checks step (Y/N), placement matches repo family (Y/N), cost-opt PR structure preserved (Y/N), `pr-auto-merge.yml` present from static sync (Y/N), `push.yml` untouched (Y/N), `protect-github --apply` skipped (Y/N)
 - Docker assumptions
 - blockers or follow-up tasks

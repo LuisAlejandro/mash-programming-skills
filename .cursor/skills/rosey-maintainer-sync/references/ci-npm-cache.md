@@ -1,42 +1,30 @@
-# CI npm cache (Docker-based node repos)
+# CI npm cache (verify-only)
 
-Use on GHA **before** `make image` / `make start` / `make dependencies`. Do **not** use `actions/setup-node` — installs run inside Docker.
+Dynamic generation **must not** insert `actions/cache` or GHA Docker layer cache. Report what
+exists; leave it.
 
-## Why
+## Tetra (self-hosted `tetra-linux`)
 
-`docker-compose.yml` bind-mounts `~/.npm` into the container. Restoring `~/.npm` on the runner via `actions/cache` speeds CI and avoids cold npm downloads.
+Docker layers persist on the runner disk between jobs. Do **not**:
 
-## Standard block
+- add `actions/cache` for `~/.npm` or `node_modules` on `pr.yml` / `push.yml`
+- add Buildx `cache-from` / `cache-to` `type=gha`
+- replace `actions/setup-node` with `package-manager-cache: false` (valid on tetra; e.g. wholmaster)
 
-Insert after checkout, before env vars / Docker steps:
+`mkdir -p ~/.npm` is enough when Compose bind-mounts that path into the container.
 
-```yaml
-      - name: Restore npm cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json', '**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
+## GitHub-hosted jobs
 
-      - name: Restore node_modules cache
-        uses: actions/cache@v6
-        with:
-          path: |
-            node_modules
-            */node_modules
-            */*/node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json', '**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-modules-
-```
+If a hosted job already restores `~/.npm` via `actions/cache`, leave it. Do not add a cache
+block because this file exists. `release.yml` is repo-owned, not template-synced.
 
-## Requirements
+## Why this is verify-only
 
-- Commit `package-lock.json` (do not gitignore) so cache keys are stable.
-- Use `npm ci` in Makefile `dependencies` when a lockfile is present.
-- `release.yml`, `push.yml`, and `pr.yml`: maintained per repo (not static sync).
+Adding GHA cache on tetra uploads and downloads bytes on top of a cache that already lives on
+the runner. That usually costs more than it saves.
 
-## Apply to
+## Report
 
-`push.yml`, `pr.yml`, and release workflow (via template sync) for node-profile repos that run quality checks through Docker.
+- npm / Docker cache present (Y/N)
+- runner: tetra-linux or ubuntu-hosted
+- caches added this pass: **none** (required)
