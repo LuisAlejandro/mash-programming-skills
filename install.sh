@@ -105,6 +105,73 @@ apply_livehome_rules() {
     fi
 }
 
+# Write the always-apply Cursor rules into a per-IDE destination, rewriting Cursor
+# paths to that IDE's native paths. Used by OpenCode (.opencode/rules/*.mdc) and Pi
+# (.pi/APPEND_SYSTEM.md). The rewrite function is passed as $2.
+write_always_apply_rules() {
+    local dest_dir="$1"
+    local rewrite_fn="$2"
+    [ -d "$SOURCE_ROOT/.cursor/rules" ] || return 0
+    mkdir -p "$dest_dir"
+    local mdc
+    for mdc in "$SOURCE_ROOT"/.cursor/rules/*.mdc; do
+        [ -f "$mdc" ] || continue
+        local rname
+        rname="$(basename "$mdc" .mdc)"
+        if is_livehome_install && [ "$rname" = "docker-via-make" ]; then
+            continue
+        fi
+        if is_livehome_install && [ -f "$SOURCE_ROOT/.cursor/rules-livehome/${rname}.mdc" ]; then
+            mdc="$SOURCE_ROOT/.cursor/rules-livehome/${rname}.mdc"
+        fi
+        if fm_always_apply "$mdc"; then
+            cp "$mdc" "$dest_dir/$rname.mdc"
+            "$rewrite_fn" "$dest_dir/$rname.mdc"
+        fi
+    done
+}
+
+# Write the always-apply Cursor rules into a single destination file (e.g.
+# .pi/APPEND_SYSTEM.md), rewriting Cursor paths via the given rewrite function.
+write_always_apply_rules_to_file() {
+    local dest="$1" rewrite_fn="$2"
+    [ -d "$SOURCE_ROOT/.cursor/rules" ] || return 0
+    : > "$dest"
+    {
+        echo "# Rosey Agentic Environment — always-on rules"
+        echo
+        echo "Auto-generated from .cursor/rules/*.mdc with alwaysApply: true."
+        echo "Do not edit by hand; re-run install.sh to refresh."
+        echo
+    } >> "$dest"
+    local mdc
+    for mdc in "$SOURCE_ROOT"/.cursor/rules/*.mdc; do
+        [ -f "$mdc" ] || continue
+        local rname
+        rname="$(basename "$mdc" .mdc)"
+        if is_livehome_install && [ "$rname" = "docker-via-make" ]; then
+            continue
+        fi
+        if is_livehome_install && [ -f "$SOURCE_ROOT/.cursor/rules-livehome/${rname}.mdc" ]; then
+            mdc="$SOURCE_ROOT/.cursor/rules-livehome/${rname}.mdc"
+        fi
+        if fm_always_apply "$mdc"; then
+            local rdesc rbody
+            rdesc="$(fm_field "$mdc" description)"
+            rbody="$(fm_body "$mdc")"
+            {
+                echo "---"
+                echo "# $rname"
+                echo "## $rdesc"
+                echo
+                printf '%s\n' "$rbody"
+                echo
+            } >> "$dest"
+        fi
+    done
+    "$rewrite_fn" "$dest"
+}
+
 echo "Installing Rosey Agentic Environment..."
 echo "-> Installing from $SOURCE_ROOT into $INSTALL_ROOT..."
 
@@ -132,7 +199,7 @@ if [ "$CHECK_ONLY" = true ]; then
                 .vscode/mcp.json .vscode/tasks.json rosey/agentic-env.json; do
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
-    for path in .opencode/skills .opencode/agents .pi/skills .pi/agents; do
+    for path in .opencode/skills .opencode/agents .opencode/rules .pi/skills .pi/agents .pi/APPEND_SYSTEM.md; do
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
     if [ "$CREATE_AGENTS" = true ]; then
@@ -349,6 +416,25 @@ rewrite_cursor_refs_pi() {
     rm -f "${file}.bak"
 }
 
+# Rewrite .cursor/* path references for the Pi APPEND_SYSTEM.md file. Rules are
+# concatenated into this single file, so sibling .cursor/rules/*.mdc references
+# point back to .pi/APPEND_SYSTEM.md rather than a .pi/rules/ directory.
+rewrite_pi_append_refs() {
+    local file="$1"
+    sed -i.bak -E \
+        -e 's|\.cursor/rules/([A-Za-z0-9._-]+)\.mdc|.pi/APPEND_SYSTEM.md|g' \
+        -e 's|\.cursor/skills/([A-Za-z0-9._-]+)/SKILL\.md|.pi/skills/\1/SKILL.md|g' \
+        -e 's|\.cursor/agents/([A-Za-z0-9._-]+)\.md|.pi/agents/\1.md|g' \
+        -e 's|\.cursor/skills/|.pi/skills/|g' \
+        -e 's|\.cursor/agents/|.pi/agents/|g' \
+        -e 's|\.cursor/hooks/|.pi/hooks/|g' \
+        -e 's|\.cursor/mcp\.json|.pi/mcp.json|g' \
+        -e 's|\.cursor/hooks\.json|.pi/hooks.json|g' \
+        -e 's|\.cursor/hindsight-pin|rosey/hindsight-pin|g' \
+        "$file"
+    rm -f "${file}.bak"
+}
+
 # Upsert Rosey Hindsight folderOpen task into .vscode/tasks.json (merge-safe).
 # Copilot Chat has no Cursor-style sessionStart hooks; folder open is the VS Code stand-in.
 upsert_vscode_hindsight_task() {
@@ -520,6 +606,9 @@ install_vscode_tree() {
         fi
     done
 
+    # Rewrite Cursor paths in the concatenated always-on guidelines to .github/ paths.
+    rewrite_cursor_refs "$copilot_instructions"
+
     # Skills: copy tree, rewrite refs in .md files
     local skill_dir
     for skill_dir in "$SOURCE_ROOT"/.cursor/skills/*/; do
@@ -582,9 +671,13 @@ install_vscode_tree() {
 
 install_opencode_tree() {
     echo "-> Cleaning old OpenCode files..."
-    rm -rf .opencode/skills .opencode/agents
+    rm -rf .opencode/skills .opencode/agents .opencode/rules
     echo "-> Scaffolding .opencode folder..."
-    mkdir -p .opencode/skills .opencode/agents
+    mkdir -p .opencode/skills .opencode/agents .opencode/rules
+
+    # Rules: alwaysApply -> .opencode/rules/*.mdc (opencode-cursor-rules plugin),
+    # with Cursor paths rewritten to .opencode/ paths.
+    write_always_apply_rules .opencode/rules rewrite_cursor_refs_opencode
 
     # Skills: copy tree, rewrite refs in .md files
     local skill_dir
@@ -658,9 +751,13 @@ install_opencode_tree() {
 
 install_pi_tree() {
     echo "-> Cleaning old Pi files..."
-    rm -rf .pi/skills .pi/agents
+    rm -rf .pi/skills .pi/agents .pi/APPEND_SYSTEM.md
     echo "-> Scaffolding .pi folder..."
     mkdir -p .pi/skills .pi/agents
+
+    # Rules: alwaysApply -> .pi/APPEND_SYSTEM.md (project-local, takes precedence
+    # over ~/.pi/agent/APPEND_SYSTEM.md), with Cursor paths rewritten to .pi/ paths.
+    write_always_apply_rules_to_file .pi/APPEND_SYSTEM.md rewrite_pi_append_refs
 
     # Skills: copy tree, rewrite refs in .md files
     local skill_dir
@@ -1130,8 +1227,9 @@ Full Hindsight CLI contract: `.github/skills/rosey-hindsight/SKILL.md`.
 ## If OpenCode
 
 Before non-trivial planning, implementation, or review work, follow the installed
-Rosey skills and agents:
+Rosey rules and skills:
 
+- Rules: `.opencode/rules/` (via the `opencode-cursor-rules` plugin)
 - Skills: `.opencode/skills/`
 - Agents: `.opencode/agents/`
 
@@ -1143,8 +1241,9 @@ Full Hindsight CLI contract: `.opencode/skills/rosey-hindsight/SKILL.md`.
 ## If Pi
 
 Before non-trivial planning, implementation, or review work, follow the installed
-Rosey skills and agents:
+Rosey rules and skills:
 
+- Rules: `.pi/APPEND_SYSTEM.md`
 - Skills: `.pi/skills/`
 - Agents: `.pi/agents/` (enabled by the `pi-subagents` extension, installed once by `install.sh` when the `pi` CLI is present)
 

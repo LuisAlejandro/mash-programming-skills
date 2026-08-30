@@ -29,6 +29,7 @@ ROSEY_AGENTIC_ENV=/Users/luisalejandro/Development/rosey-agentic-env \
 5. Always writes agent guidance (overwrites on each install unless `--no-agents`):
    - Default: minimal `AGENTS.md` with IDE-conditional paths for Cursor (`.cursor/…`), VS Code / Copilot (`.github/…`, `.vscode/…`), OpenCode (`.opencode/…`), and Pi (`.pi/…`).
    - Agent-home targets (folder basename `.hermes`, `.openclaw`, `rudi-hermes`, or `winston-openclaw`): writes `.cursorrules` instead of `AGENTS.md` (does not delete an existing `AGENTS.md`).
+   - Always-on Cursor rules (`alwaysApply: true`) are distributed per IDE: `.github/copilot-instructions.md` (VS Code/Copilot), `.opencode/rules/*.mdc` (OpenCode, via the `opencode-cursor-rules` plugin), and `.pi/APPEND_SYSTEM.md` (Pi, project-local). Cursor paths inside each are rewritten to that IDE's native paths.
    Neither file stores preferences.
 6. Seeds `rosey-design-candidates` skill `.env` from `.env.example` using `CURSOR_API_KEY` in `rosey-agentic-env/.env` (never overwrites an existing skill `.env`).
 7. Seeds MCP configs from `.cursor/mcp.json.example`, substituting `GITHUB_TOKEN` and `OBSIDIAN_API_KEY` from `rosey-agentic-env/.env`: `.cursor/mcp.json` (Cursor), `.vscode/mcp.json` (VS Code), `.opencode/mcp.json` (OpenCode, `mcp.servers` with `type: local|remote`), and `.pi/settings.json` (Pi, `mcp.servers` merged into existing settings). The example is tracked; seeded files stay local (gitignored).
