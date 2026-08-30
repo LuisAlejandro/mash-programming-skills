@@ -2,7 +2,6 @@
 name: rosey-design-reviewer
 description: Reviews Rosey OpenDesign-to-code implementations. Use after implementing OpenDesign HTML to compare rendered baseline artifacts against the live app and report visual, DOM, CSS, accessibility, and control-inventory gaps.
 model: inherit
-readonly: false
 ---
 
 # Rosey Design Reviewer

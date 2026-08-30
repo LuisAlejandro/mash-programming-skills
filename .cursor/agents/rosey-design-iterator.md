@@ -2,7 +2,6 @@
 name: rosey-design-iterator
 description: Iterates Rosey OpenDesign-to-code review and sync cycles. Use when visual parity needs multiple passes after initial implementation.
 model: inherit
-readonly: false
 ---
 
 # Rosey Design Iterator

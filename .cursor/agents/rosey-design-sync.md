@@ -2,7 +2,6 @@
 name: rosey-design-sync
 description: Fixes Rosey OpenDesign-to-code visual and semantic discrepancies reported by rosey-design-reviewer. Use after review findings identify gaps between exported OpenDesign HTML and the live app.
 model: inherit
-readonly: false
 ---
 
 # Rosey Design Sync

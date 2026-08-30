@@ -132,6 +132,9 @@ if [ "$CHECK_ONLY" = true ]; then
                 .vscode/mcp.json .vscode/tasks.json rosey/agentic-env.json; do
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
+    for path in .opencode/skills .opencode/agents .pi/skills .pi/agents; do
+        if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
+    done
     if [ "$CREATE_AGENTS" = true ]; then
         if is_livehome_install; then
             if [ ! -f .cursorrules ]; then
@@ -206,8 +209,8 @@ skill_should_install() {
     esac
 }
 
-# True when a skill should be installed for the given IDE tree (cursor|vscode).
-# Default: both. VS Code-only skills skip the Cursor tree.
+# True when a skill should be installed for the given IDE tree (cursor|vscode|opencode|pi).
+# Default: all. VS Code-only skills skip the Cursor/OpenCode/Pi trees.
 skill_install_for_ide() {
     local skill_name="$1"
     local ide="$2"
@@ -308,6 +311,40 @@ rewrite_cursor_refs() {
         -e 's|\.cursor/mcp\.json|.vscode/mcp.json|g' \
         -e 's|\.cursor/hindsight-pin|rosey/hindsight-pin|g' \
         -e 's|\.cursor/hooks\.json|.vscode/tasks.json|g' \
+        "$file"
+    rm -f "${file}.bak"
+}
+
+# Rewrite .cursor/* path references to their OpenCode equivalents in a file.
+rewrite_cursor_refs_opencode() {
+    local file="$1"
+    sed -i.bak -E \
+        -e 's|\.cursor/skills/([A-Za-z0-9._-]+)/SKILL\.md|.opencode/skills/\1/SKILL.md|g' \
+        -e 's|\.cursor/agents/([A-Za-z0-9._-]+)\.md|.opencode/agents/\1.md|g' \
+        -e 's|\.cursor/rules/|.opencode/rules/|g' \
+        -e 's|\.cursor/skills/|.opencode/skills/|g' \
+        -e 's|\.cursor/agents/|.opencode/agents/|g' \
+        -e 's|\.cursor/hooks/|.opencode/hooks/|g' \
+        -e 's|\.cursor/mcp\.json|.opencode/mcp.json|g' \
+        -e 's|\.cursor/hooks\.json|.opencode/hooks.json|g' \
+        -e 's|\.cursor/hindsight-pin|rosey/hindsight-pin|g' \
+        "$file"
+    rm -f "${file}.bak"
+}
+
+# Rewrite .cursor/* path references to their Pi equivalents in a file.
+rewrite_cursor_refs_pi() {
+    local file="$1"
+    sed -i.bak -E \
+        -e 's|\.cursor/skills/([A-Za-z0-9._-]+)/SKILL\.md|.pi/skills/\1/SKILL.md|g' \
+        -e 's|\.cursor/agents/([A-Za-z0-9._-]+)\.md|.pi/agents/\1.md|g' \
+        -e 's|\.cursor/rules/|.pi/rules/|g' \
+        -e 's|\.cursor/skills/|.pi/skills/|g' \
+        -e 's|\.cursor/agents/|.pi/agents/|g' \
+        -e 's|\.cursor/hooks/|.pi/hooks/|g' \
+        -e 's|\.cursor/mcp\.json|.pi/mcp.json|g' \
+        -e 's|\.cursor/hooks\.json|.pi/hooks.json|g' \
+        -e 's|\.cursor/hindsight-pin|rosey/hindsight-pin|g' \
         "$file"
     rm -f "${file}.bak"
 }
@@ -541,8 +578,159 @@ install_vscode_tree() {
     fi
 }
 
+# --- OpenCode target ---
+
+install_opencode_tree() {
+    echo "-> Cleaning old OpenCode files..."
+    rm -rf .opencode/skills .opencode/agents
+    echo "-> Scaffolding .opencode folder..."
+    mkdir -p .opencode/skills .opencode/agents
+
+    # Skills: copy tree, rewrite refs in .md files
+    local skill_dir
+    for skill_dir in "$SOURCE_ROOT"/.cursor/skills/*/; do
+        [ -d "$skill_dir" ] || continue
+        local sname
+        sname="$(basename "$skill_dir")"
+        if ! skill_should_install "$sname"; then
+            echo "   Skipping skill $sname (not for root folder $INSTALL_ROOT_BASENAME)"
+            continue
+        fi
+        if ! skill_install_for_ide "$sname" opencode; then
+            echo "   Skipping skill $sname (OpenCode tree; VS Code only)"
+            continue
+        fi
+        mkdir -p ".opencode/skills/$sname"
+        cp -R "$skill_dir/." ".opencode/skills/$sname/"
+        apply_livehome_skill_overlay ".opencode/skills/$sname" "$sname"
+        find ".opencode/skills/$sname" -name '*.md' -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            rewrite_cursor_refs_opencode "$f"
+        done
+    done
+
+    # Agents: copy .md -> .md with frontmatter adapt; copy non-.md assets as-is.
+    local agent_file
+    for agent_file in "$SOURCE_ROOT"/.cursor/agents/*; do
+        [ -e "$agent_file" ] || continue
+        local abase
+        abase="$(basename "$agent_file")"
+        case "$abase" in
+            *.md)
+                local aname
+                aname="${abase%.md}"
+                local out=".opencode/agents/${aname}.md"
+                # Adapt frontmatter: keep description + body, set mode: subagent,
+                # strip Cursor-only lines (color:, tools:, model: inherit).
+                {
+                    local in_fm=0
+                    while IFS= read -r line || [ -n "$line" ]; do
+                        if [ "$in_fm" -eq 0 ] && [ "$line" = "---" ]; then
+                            in_fm=1
+                            printf '%s\n' "$line"
+                            continue
+                        fi
+                        if [ "$in_fm" -eq 1 ] && [ "$line" = "---" ]; then
+                            in_fm=0
+                            printf 'mode: subagent\n'
+                            printf '%s\n' "$line"
+                            continue
+                        fi
+                        if [ "$in_fm" -eq 1 ]; then
+                            case "$line" in
+                                color:* | tools:* | 'model: inherit' | 'model: inherit'*)
+                                    continue
+                                    ;;
+                            esac
+                        fi
+                        printf '%s\n' "$line"
+                    done < "$agent_file"
+                } > "$out"
+                rewrite_cursor_refs_opencode "$out"
+                ;;
+            *)
+                cp "$agent_file" ".opencode/agents/$abase"
+                ;;
+        esac
+    done
+}
+
+# --- Pi target ---
+
+install_pi_tree() {
+    echo "-> Cleaning old Pi files..."
+    rm -rf .pi/skills .pi/agents
+    echo "-> Scaffolding .pi folder..."
+    mkdir -p .pi/skills .pi/agents
+
+    # Skills: copy tree, rewrite refs in .md files
+    local skill_dir
+    for skill_dir in "$SOURCE_ROOT"/.cursor/skills/*/; do
+        [ -d "$skill_dir" ] || continue
+        local sname
+        sname="$(basename "$skill_dir")"
+        if ! skill_should_install "$sname"; then
+            echo "   Skipping skill $sname (not for root folder $INSTALL_ROOT_BASENAME)"
+            continue
+        fi
+        if ! skill_install_for_ide "$sname" pi; then
+            echo "   Skipping skill $sname (Pi tree; VS Code only)"
+            continue
+        fi
+        mkdir -p ".pi/skills/$sname"
+        cp -R "$skill_dir/." ".pi/skills/$sname/"
+        apply_livehome_skill_overlay ".pi/skills/$sname" "$sname"
+        find ".pi/skills/$sname" -name '*.md' -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            rewrite_cursor_refs_pi "$f"
+        done
+    done
+
+    # Agents: copy .md -> .md, keep name/description, strip color/tools/model.
+    local agent_file
+    for agent_file in "$SOURCE_ROOT"/.cursor/agents/*; do
+        [ -e "$agent_file" ] || continue
+        local abase
+        abase="$(basename "$agent_file")"
+        case "$abase" in
+            *.md)
+                local aname
+                aname="${abase%.md}"
+                local out=".pi/agents/${aname}.md"
+                {
+                    local in_fm=0
+                    while IFS= read -r line || [ -n "$line" ]; do
+                        if [ "$in_fm" -eq 0 ] && [ "$line" = "---" ]; then
+                            in_fm=1
+                            printf '%s\n' "$line"
+                            continue
+                        fi
+                        if [ "$in_fm" -eq 1 ] && [ "$line" = "---" ]; then
+                            in_fm=0
+                            printf '%s\n' "$line"
+                            continue
+                        fi
+                        if [ "$in_fm" -eq 1 ]; then
+                            case "$line" in
+                                color:* | tools:* | 'model: inherit' | 'model: inherit'*)
+                                    continue
+                                    ;;
+                            esac
+                        fi
+                        printf '%s\n' "$line"
+                    done < "$agent_file"
+                } > "$out"
+                rewrite_cursor_refs_pi "$out"
+                ;;
+            *)
+                cp "$agent_file" ".pi/agents/$abase"
+                ;;
+        esac
+    done
+}
+
 install_cursor_tree
 install_vscode_tree
+install_opencode_tree
+install_pi_tree
 
 # Seed MCP configs from .cursor/mcp.json.example + GITHUB_TOKEN / OBSIDIAN_API_KEY in SOURCE_ROOT/.env.
 seed_mcp_json_configs() {
@@ -562,17 +750,17 @@ seed_mcp_json_configs() {
     fi
 
     _seed_one_mcp_json() {
-        local dest="$1" vscode_shape="$2"
+        local dest="$1" shape="$2"
         # Source checkout: never overwrite an existing local mcp.json.
         if [ "$dest" = "$SOURCE_ROOT/.cursor/mcp.json" ] && [ -f "$dest" ]; then
             return 0
         fi
-        python3 - "$example" "$dest" "$vscode_shape" "$github_token" "$obsidian_key" <<'PY'
+        python3 - "$example" "$dest" "$shape" "$github_token" "$obsidian_key" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-example, dest, vscode_shape, github_token, obsidian_key = sys.argv[1:6]
+example, dest, shape, github_token, obsidian_key = sys.argv[1:6]
 data = json.loads(Path(example).read_text())
 
 def walk(obj):
@@ -587,8 +775,36 @@ def walk(obj):
     return obj
 
 data = walk(data)
-if vscode_shape == "1" and isinstance(data, dict) and "mcpServers" in data and "servers" not in data:
+
+if shape == "vscode" and isinstance(data, dict) and "mcpServers" in data and "servers" not in data:
     data["servers"] = data.pop("mcpServers")
+
+if shape in ("opencode", "pi"):
+    servers = data.get("mcpServers", {}) if isinstance(data, dict) else {}
+    out_servers = {}
+    for name, srv in servers.items():
+        srv = dict(srv)
+        srv.pop("type", None)  # drop Cursor's type: http
+        if "command" in srv:
+            if shape == "opencode":
+                args = srv.pop("args", [])
+                cmd = srv.pop("command")
+                srv["command"] = [cmd] + list(args)
+                srv["type"] = "local"
+        elif "url" in srv and shape == "opencode":
+            srv["type"] = "remote"
+        out_servers[name] = srv
+    if shape == "opencode":
+        data = {"mcp": {"servers": out_servers}}
+    else:  # pi: merge into existing .pi/settings.json, preserving other settings
+        existing = {}
+        if Path(dest).exists():
+            try:
+                existing = json.loads(Path(dest).read_text())
+            except Exception:
+                existing = {}
+        existing.setdefault("mcp", {}).setdefault("servers", {}).update(out_servers)
+        data = existing
 
 Path(dest).parent.mkdir(parents=True, exist_ok=True)
 Path(dest).write_text(json.dumps(data, indent=2) + "\n")
@@ -597,13 +813,19 @@ PY
         echo "-> Seeded $dest"
     }
 
-    _seed_one_mcp_json "$SOURCE_ROOT/.cursor/mcp.json" "0"
-    # Target trees were wiped; always write fresh seeded MCP configs when .cursor/ exists.
+    _seed_one_mcp_json "$SOURCE_ROOT/.cursor/mcp.json" "cursor"
+    # Target trees were wiped; always write fresh seeded MCP configs when the tree exists.
     if [ -d .cursor ]; then
-        _seed_one_mcp_json ".cursor/mcp.json" "0"
+        _seed_one_mcp_json ".cursor/mcp.json" "cursor"
     fi
     if [ -d .vscode ]; then
-        _seed_one_mcp_json ".vscode/mcp.json" "1"
+        _seed_one_mcp_json ".vscode/mcp.json" "vscode"
+    fi
+    if [ -d .opencode ]; then
+        _seed_one_mcp_json ".opencode/mcp.json" "opencode"
+    fi
+    if [ -d .pi ]; then
+        _seed_one_mcp_json ".pi/settings.json" "pi"
     fi
 }
 
@@ -630,7 +852,9 @@ seed_design_candidates_env_if_needed() {
 
     for dest in \
         ".cursor/skills/rosey-design-candidates/.env" \
-        ".github/skills/rosey-design-candidates/.env"; do
+        ".github/skills/rosey-design-candidates/.env" \
+        ".opencode/skills/rosey-design-candidates/.env" \
+        ".pi/skills/rosey-design-candidates/.env"; do
         [ -d "$(dirname "$dest")" ] || continue
         if [ -f "$dest" ]; then
             continue
@@ -695,6 +919,100 @@ append_gitignore_if_missing ".github/skills/"
 append_gitignore_if_missing ".github/agents/"
 append_gitignore_if_missing ".github/hooks/"
 append_gitignore_if_missing ".vscode/mcp.json"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/"
+
+# Pi target
+append_gitignore_if_missing ".pi/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/"
+
+# Pi target
+append_gitignore_if_missing ".pi/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/"
+
+# Pi target
+append_gitignore_if_missing ".pi/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/"
+
+# Pi target
+append_gitignore_if_missing ".pi/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/skills/"
+append_gitignore_if_missing ".opencode/agents/"
+
+# Pi target
+append_gitignore_if_missing ".pi/skills/"
+append_gitignore_if_missing ".pi/agents/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/skills/"
+append_gitignore_if_missing ".opencode/agents/"
+
+# Pi target
+append_gitignore_if_missing ".pi/skills/"
+append_gitignore_if_missing ".pi/agents/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/skills/"
+append_gitignore_if_missing ".opencode/agents/"
+
+# Pi target
+append_gitignore_if_missing ".pi/skills/"
+append_gitignore_if_missing ".pi/agents/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/"
+
+# Pi target
+append_gitignore_if_missing ".pi/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/"
+
+# Pi target
+append_gitignore_if_missing ".pi/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/skills/"
+append_gitignore_if_missing ".opencode/agents/"
+
+# Pi target
+append_gitignore_if_missing ".pi/skills/"
+append_gitignore_if_missing ".pi/agents/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/skills/"
+append_gitignore_if_missing ".opencode/agents/"
+
+# Pi target
+append_gitignore_if_missing ".pi/skills/"
+append_gitignore_if_missing ".pi/agents/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/"
+
+# Pi target
+append_gitignore_if_missing ".pi/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/"
+
+# Pi target
+append_gitignore_if_missing ".pi/"
+
+# OpenCode target
+append_gitignore_if_missing ".opencode/"
+
+# Pi target
+append_gitignore_if_missing ".pi/"
 
 # --- AGENTS.md / .cursorrules ---
 
@@ -774,7 +1092,8 @@ This file intentionally does not store user preferences inline.
 
 Detect which IDE you are running in, then follow **only** that IDE's paths below.
 Do not follow Cursor paths when running in VS Code / Copilot, and do not follow
-VS Code paths when running in Cursor.
+VS Code paths when running in Cursor. Do not cross IDE trees — each IDE reads
+only its own `.cursor/`, `.github/`, `.opencode/`, or `.pi/` paths.
 
 ## If Cursor
 
@@ -807,6 +1126,32 @@ Do not open or follow `.cursor/rules/`, `.cursor/skills/`, or `.cursor/agents/`
 from VS Code — those paths are Cursor-only.
 
 Full Hindsight CLI contract: `.github/skills/rosey-hindsight/SKILL.md`.
+
+## If OpenCode
+
+Before non-trivial planning, implementation, or review work, follow the installed
+Rosey skills and agents:
+
+- Skills: `.opencode/skills/`
+- Agents: `.opencode/agents/`
+
+Do not open or follow `.cursor/rules/`, `.cursor/skills/`, or `.cursor/agents/`
+from OpenCode — those paths are Cursor-only.
+
+Full Hindsight CLI contract: `.opencode/skills/rosey-hindsight/SKILL.md`.
+
+## If Pi
+
+Before non-trivial planning, implementation, or review work, follow the installed
+Rosey skills and agents:
+
+- Skills: `.pi/skills/`
+- Agents: `.pi/agents/` (enabled by the `pi-subagents` extension, installed once by `install.sh` when the `pi` CLI is present)
+
+Do not open or follow `.cursor/rules/`, `.cursor/skills/`, or `.cursor/agents/`
+from Pi — those paths are Cursor-only.
+
+Full Hindsight CLI contract: `.pi/skills/rosey-hindsight/SKILL.md`.
 
 ## Preferences, insights, and memory
 
@@ -854,7 +1199,7 @@ write_agentic_pin() {
   "installed_at": "$installed_at",
   "source": "$SOURCE_ROOT",
   "version": "$INSTALL_VERSION",
-  "targets": ["cursor","vscode"]
+  "targets": ["cursor","vscode","opencode","pi"]
 }
 EOF
 }
@@ -892,8 +1237,8 @@ install_npm_deps() {
 }
 
 echo "-> Installing skill dependencies (OpenDesign, etc.)..."
-# Scan both .cursor/skills and .github/skills for package.json (whichever exist).
-for skills_root in .cursor/skills .github/skills; do
+# Scan .cursor/skills, .github/skills, .opencode/skills, and .pi/skills for package.json (whichever exist).
+for skills_root in .cursor/skills .github/skills .opencode/skills .pi/skills; do
     if [ -d "$skills_root" ]; then
         while IFS= read -r -d '' pkg; do
             skill_dir="$(dirname "$pkg")"
@@ -1280,6 +1625,37 @@ install_sentrux() {
     fi
 }
 
+# --- pi-subagents (Pi subagent support) ---
+# Pi has no native subagents; the pi-subagents extension adds them. It is a
+# machine-once install via the `pi` CLI. Only runs when the `pi` CLI is present;
+# otherwise we still scaffold .pi/agents and note the requirement.
+
+pi_subagents_available() {
+    host_path
+    command -v pi >/dev/null 2>&1 && pi list 2>/dev/null | grep -qi 'pi-subagents'
+}
+
+install_pi_subagents() {
+    if ! command -v pi >/dev/null 2>&1; then
+        echo "   ⚠️  pi CLI not found; skipping pi-subagents install (Pi agents load only after you install it)."
+        echo "      Install Pi, then: pi install npm:pi-subagents"
+        return 1
+    fi
+
+    if pi_subagents_available; then
+        echo "-> pi-subagents already installed; skipping"
+        return 0
+    fi
+
+    echo "-> Installing pi-subagents once on this machine (Pi subagent support)..."
+    if pi install npm:pi-subagents; then
+        echo "   pi-subagents installed."
+        return 0
+    fi
+    echo "   ⚠️  pi-subagents install failed. Retry: pi install npm:pi-subagents"
+    return 1
+}
+
 # --- git-flow (rosey-pr / rosey-work / rosey-debug / rosey-release) ---
 # Homebrew git-flow-avh is disabled; git-flow (nvie) is deprecated. git-flow-next
 # provides `git flow` and satisfies `git flow version`.
@@ -1615,6 +1991,7 @@ install_git_flow || true
 init_repo_git_flow || true
 configure_repo_signing_key || true
 install_sentrux || true
+install_pi_subagents || true
 
 check_hindsight_embed || true
 
@@ -1646,4 +2023,5 @@ echo "     - .cursor/mcp.json and .vscode/mcp.json (GITHUB_TOKEN, OBSIDIAN_API_K
 echo "     - rosey-design-candidates skill .env (CURSOR_API_KEY)"
 echo "     - ~/.hindsight/embed once (HINDSIGHT_*); CLI install skipped if hindsight-embed already responds"
 echo "   Machine-once CLIs skipped if already on PATH: git, make, curl, rsync, jq, rg, gh, uv, gitchangelog, bumpversion, git-flow, sentrux, hindsight-embed."
+echo "   Pi: pi-subagents installed once when the pi CLI is present (enables .pi/agents/)."
 echo "   VS Code: allow automatic tasks once (Tasks: Manage Automatic Tasks) for Hindsight folderOpen warm-start."

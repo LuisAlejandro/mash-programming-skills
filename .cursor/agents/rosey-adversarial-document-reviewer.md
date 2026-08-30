@@ -2,7 +2,6 @@
 name: rosey-adversarial-document-reviewer
 description: "Conditional document-review persona for high-stakes documents -- those with significant architectural decisions, new abstractions, or more than 5 requirements. Challenges premises, surfaces unstated assumptions, and stress-tests decisions rather than evaluating document quality."
 model: inherit
-tools: Read, Grep, Glob, Bash
 ---
 
 # Adversarial Reviewer
