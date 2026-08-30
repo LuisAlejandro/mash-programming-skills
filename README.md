@@ -28,10 +28,11 @@ ROSEY_AGENTIC_ENV=/Users/luisalejandro/Development/rosey-agentic-env \
 4. Creates `rosey/agentic-env.json` so orchestrators can detect the installed version.
 5. Always writes agent guidance (overwrites on each install unless `--no-agents`):
    - Default: minimal `AGENTS.md` with IDE-conditional paths for Cursor (`.cursor/…`) and VS Code / Copilot (`.github/…`, `.vscode/…`).
-   - Agent-home targets (folder basename `.hermes`, `.openclaw`, `rosey-hermes`, `rosey-openclaw`, or `winston-openclaw`): writes `.cursorrules` instead of `AGENTS.md` (does not delete an existing `AGENTS.md`).
+   - Agent-home targets (folder basename `.hermes`, `.openclaw`, `rudi-hermes`, or `winston-openclaw`): writes `.cursorrules` instead of `AGENTS.md` (does not delete an existing `AGENTS.md`).
    Neither file stores preferences.
 6. Seeds `rosey-design-candidates` skill `.env` from `.env.example` using `CURSOR_API_KEY` in `rosey-agentic-env/.env` (never overwrites an existing skill `.env`).
 7. Seeds `.cursor/mcp.json` and `.vscode/mcp.json` from `.cursor/mcp.json.example`, substituting `GITHUB_TOKEN` and `OBSIDIAN_API_KEY` from `rosey-agentic-env/.env`. The example is tracked; seeded `mcp.json` files stay local (gitignored under `.cursor/` / `.vscode/mcp.json`).
+8. Installs machine-once host CLIs when missing (macOS, Debian/Ubuntu, Windows WSL): git, make, curl, rsync, jq, rg, gh, uv, gitchangelog, bumpversion, git-flow, Sentrux, and Hindsight. Skips any command already on PATH. Linux/WSL uses apt only (not Homebrew). jq, rg, and gh are GitHub release binaries, not distro packages. In each target git repo: `git flow init -d` when git-flow is not initialized (skipped on live-homes), and local `user.signingkey` from global config or the sole GPG secret key. Prints an inventory of tools it does not install (Docker, GPG, …).
 
 ## Updating the environment
 To update the rules and skills in a target repository, simply run the install command again. It will overwrite the `.cursor` files with the latest versions from the remote repository.
@@ -60,7 +61,7 @@ Rosey can use [Hindsight](https://github.com/hindsight/hindsight) for cross-sess
 
    Fallback without a key: interactive `uvx "hindsight-embed@${pin}" configure`, then re-run `install.sh`.
 
-   Sentrux is also installed only when `sentrux --version` does not already respond.
+   Sentrux, git-flow, bumpversion, gitchangelog, and the other host CLIs are also installed only when their commands do not already respond.
 
 4. Warm-start the daemon when the IDE opens:
 

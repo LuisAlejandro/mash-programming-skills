@@ -1,5 +1,5 @@
 ---
-description: Behavioral guidelines to reduce common LLM coding mistakes. Use when writing, reviewing, or refactoring code to avoid overcomplication, make surgical changes, surface assumptions, and define verifiable success criteria.
+description: Behavioral guidelines to reduce common LLM coding mistakes. The mandatory Karpathy brief runs only during /rosey-brainstorm, /rosey-plan, /rosey-work, or /rosey-qa — not for generic planning, implementation, or diff review.
 alwaysApply: true
 ---
 
@@ -11,9 +11,11 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 ## Mandatory brief (before first edit)
 
-**Triggers:** Rosey workflow active; user says implement, continue, or code review; multi-file or behavioral change; any non-trivial edit.
+**Triggers:** user invokes `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa`, or that skill is already active in this conversation.
 
-Before the **first file edit**, emit a Karpathy brief (normal concise prose — not caveman):
+Do **not** emit the brief for generic planning, implementation, code review, or "implement this" / "review this diff" unless one of those four skills is active. The sections below (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) still apply as ordinary coding judgment.
+
+When a trigger matches, before the **first file edit**, emit a Karpathy brief (normal concise prose — not caveman):
 
 1. **Assumptions** — explicit list, or `none`
 2. **Success criteria** — at least one `step → verify` check (or cite plan unit verification)
@@ -27,7 +29,7 @@ Karpathy: assumptions: <…> | verify: <…>
 
 **Forbidden:** silent interpretation; speculative extras beyond the request; declaring done with only "make it work" and no verify step.
 
-Skipping the brief without `Karpathy: trivial, skipped` (see Tiering) is a workflow violation.
+Skipping the brief without `Karpathy: trivial, skipped` (see Tiering) is a workflow violation **only** when one of those four skills is active.
 
 ## Tiering (avoid ceremony overload)
 
@@ -41,15 +43,15 @@ When tier is unclear, default to **Standard**.
 
 ## Conflict resolution
 
-- **User rules** ("blog-quality prose", long explanations) apply to conceptual Q&A and artifacts (requirements, plans, commits, PRs) — not to skipping assumptions before edits.
+- **User rules** ("blog-quality prose", long explanations) apply to conceptual Q&A and artifacts (requirements, plans, commits, PRs) — not to skipping the Karpathy brief during `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa`.
 - **Rosey plans** — plan `Verification` / test scenarios satisfy goal-driven execution; implementation must trace to those checks, not invent a parallel vague "done."
-- **"Move fast" / "just do it"** — still require assumptions + at least one verify line; brief can be shorter, not omitted (unless Trivial tier).
+- **"Move fast" / "just do it"** during those four skills — still require assumptions + at least one verify line; brief can be shorter, not omitted (unless Trivial tier).
 - **Ask mode / read-only** — no Karpathy brief; no file edits.
 - **Caveman** — Karpathy brief uses normal concise prose; subsequent Rosey status may use caveman lite per `.cursor/rules/caveman.mdc`.
 
 ## Proof of compliance
 
-No `Karpathy: assumptions: … | verify: …` (or `Karpathy: trivial, skipped`) before first edit on non-trivial work → brief not run.
+During `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa`: no `Karpathy: assumptions: … | verify: …` (or `Karpathy: trivial, skipped`) before first edit → brief not run. Outside those skills, omitting the brief is correct.
 
 ## 1. Think Before Coding
 

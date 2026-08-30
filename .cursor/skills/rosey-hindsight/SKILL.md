@@ -1,6 +1,6 @@
 ---
 name: rosey-hindsight
-description: Shared Hindsight embed CLI contract for Rosey cross-session memory. Use before non-trivial Rosey planning, work, or QA to recall relevant context and retain durable preferences, procedures, and learnings.
+description: Shared Hindsight embed CLI contract for Rosey cross-session memory. Use only when /rosey-brainstorm, /rosey-plan, /rosey-work, or /rosey-qa is active — not for generic planning, implementation, or diff review.
 ---
 
 # Rosey Hindsight
@@ -81,11 +81,14 @@ This keeps memory scoped to the current cloned repository by default.
 
 ## Recall
 
-Recall before substantive work:
+Recall only when `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa` is active:
 
+- Before `rosey-brainstorm` gathers research
 - Before `rosey-plan` gathers local research
 - Before `rosey-work` starts implementation
 - Before `rosey-qa` reviews a known diff scope, when memory may affect risk assessment
+
+Do not recall for generic planning, implementation, or diff review outside those skills.
 
 Use a task-specific query with the plan path, feature summary, relevant modules, PR scope, and stable IDs when present:
 

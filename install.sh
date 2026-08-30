@@ -52,16 +52,57 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-# Agent-home / OpenClaw / Hermes installs use .cursorrules instead of AGENTS.md.
-uses_cursorrules_instead_of_agents() {
+# Live-homes: sole-user agent homes. They write .cursorrules instead of AGENTS.md,
+# skip docker-via-make / rosey-pr, and get live-home skill + rule overlays.
+is_livehome_install() {
     case "$INSTALL_ROOT_BASENAME" in
-        .hermes | .openclaw | rosey-hermes | rosey-openclaw | winston-openclaw)
+        .hermes | .openclaw | rudi-hermes | winston-openclaw)
             return 0
             ;;
         *)
             return 1
             ;;
     esac
+}
+
+# Same slash skills as live-homes (master/main, no PRs/stashes), but still a
+# normal product install: AGENTS.md, docker-via-make, rosey-pr stay.
+uses_livehome_skills() {
+    is_livehome_install && return 0
+    case "$INSTALL_ROOT_BASENAME" in
+        rosey-maintainer-tools | tetra-actions-runner)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+apply_livehome_skill_overlay() {
+    local dest="$1"
+    local sname="$2"
+    local overlay
+    uses_livehome_skills || return 0
+    overlay="$SOURCE_ROOT/.cursor/skills-livehome/$sname"
+    [ -d "$overlay" ] || return 0
+    mkdir -p "$dest/references"
+    # Full forks. Overlay replaces dest SKILL.md in place.
+    if [ -f "$SOURCE_ROOT/.cursor/skills-livehome/LIVEHOME.md" ]; then
+        cp "$SOURCE_ROOT/.cursor/skills-livehome/LIVEHOME.md" "$dest/references/livehome.md"
+    fi
+    cp -R "$overlay/." "$dest/"
+    echo "   Live-home skill overlay: $sname"
+}
+
+apply_livehome_rules() {
+    is_livehome_install || return 0
+    rm -f .cursor/rules/docker-via-make.mdc
+    if [ -f "$SOURCE_ROOT/.cursor/rules-livehome/rosey-workflow-gates.mdc" ]; then
+        mkdir -p .cursor/rules
+        cp "$SOURCE_ROOT/.cursor/rules-livehome/rosey-workflow-gates.mdc" .cursor/rules/rosey-workflow-gates.mdc
+        echo "   Live-home rule overlay: rosey-workflow-gates (docker-via-make skipped)"
+    fi
 }
 
 echo "Installing Rosey Agentic Environment..."
@@ -92,7 +133,7 @@ if [ "$CHECK_ONLY" = true ]; then
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
     if [ "$CREATE_AGENTS" = true ]; then
-        if uses_cursorrules_instead_of_agents; then
+        if is_livehome_install; then
             if [ ! -f .cursorrules ]; then
                 echo "missing: .cursorrules (re-run install.sh to write it)"
                 missing=$((missing + 1))
@@ -155,6 +196,9 @@ skill_should_install() {
             ;;
         tailor-cv)
             [ "$INSTALL_ROOT_BASENAME" = "curriculum-vitae" ]
+            ;;
+        rosey-pr)
+            ! is_livehome_install
             ;;
         *)
             return 0
@@ -347,8 +391,10 @@ install_cursor_tree() {
                 continue
             fi
             cp -R "$skill_dir" ".cursor/skills/$sname"
+            apply_livehome_skill_overlay ".cursor/skills/$sname" "$sname"
         done
     fi
+    apply_livehome_rules
     [ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
     # mcp.json is seeded from mcp.json.example + SOURCE_ROOT/.env (see seed_mcp_json_configs).
     [ -f "$SOURCE_ROOT/.cursor/hooks.json" ] && cp "$SOURCE_ROOT/.cursor/hooks.json" .cursor/
@@ -406,6 +452,13 @@ install_vscode_tree() {
         [ -f "$mdc" ] || continue
         local name desc body
         name="$(basename "$mdc" .mdc)"
+        if is_livehome_install && [ "$name" = "docker-via-make" ]; then
+            echo "   Skipping rule $name (live-home host tooling)"
+            continue
+        fi
+        if is_livehome_install && [ -f "$SOURCE_ROOT/.cursor/rules-livehome/${name}.mdc" ]; then
+            mdc="$SOURCE_ROOT/.cursor/rules-livehome/${name}.mdc"
+        fi
         desc="$(fm_field "$mdc" description)"
         body="$(fm_body "$mdc")"
         if fm_always_apply "$mdc"; then
@@ -446,6 +499,7 @@ install_vscode_tree() {
         fi
         mkdir -p ".github/skills/$sname"
         cp -R "$skill_dir/." ".github/skills/$sname/"
+        apply_livehome_skill_overlay ".github/skills/$sname" "$sname"
         # Rewrite .cursor refs in all markdown files of the skill
         find ".github/skills/$sname" -name '*.md' -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
             rewrite_cursor_refs "$f"
@@ -622,7 +676,7 @@ append_gitignore_if_missing "rosey/deepening/"
 append_gitignore_if_missing "rosey/agentic-env.json"
 append_gitignore_if_missing "rosey/maintainer-manifest.json"
 append_gitignore_if_missing "rosey/hindsight-pin"
-if uses_cursorrules_instead_of_agents; then
+if is_livehome_install; then
     append_gitignore_if_missing ".cursorrules"
 else
     append_gitignore_if_missing "AGENTS.md"
@@ -649,7 +703,7 @@ write_agents_file() {
         return 0
     fi
 
-    if uses_cursorrules_instead_of_agents; then
+    if is_livehome_install; then
         echo "-> Writing .cursorrules (agent-home target; skipping AGENTS.md)..."
         cat > .cursorrules <<'EOF'
 # Rosey Agent Guidance
@@ -661,6 +715,7 @@ Before non-trivial planning, implementation, or review work, follow the installe
 Rosey rules and skills:
 
 - `.cursor/rules/caveman.mdc`
+- `.cursor/rules/ponytail.mdc`
 - `.cursor/rules/rosey-workflow-gates.mdc`
 - `.cursor/rules/hindsight-memory.mdc`
 - `.cursor/rules/karpathy-guidelines.mdc`
@@ -682,7 +737,7 @@ User preferences and durable project context live **outside** this file:
 
 **Consult insights:** read `rosey/insights/` (and use `rosey-learnings-researcher` when available) before non-trivial planning or implementation in a documented area.
 
-**Consult Hindsight memory** (before plan / work / QA):
+**Consult Hindsight memory** (only when `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa` is active — not for generic planning, implementation, or diff review):
 
 ```bash
 export PATH="${HOME}/.local/bin:${PATH}"
@@ -698,6 +753,15 @@ Do not store secrets in Hindsight or insight files.
 
 Hindsight version pin: `rosey/hindsight-pin`.
 EOF
+        if is_livehome_install; then
+            grep -v 'docker-via-make' .cursorrules > .cursorrules.tmp && mv .cursorrules.tmp .cursorrules
+            cat >> .cursorrules <<'EOF'
+
+## Live-home git
+
+This workspace is a live-home. Work on master (or main). No PRs, no stashes. Git is backup and sync between two machines. Slash skills `rosey-brainstorm`, `rosey-plan`, `rosey-work`, `rosey-qa`, and `rosey-lint` use the live-home overlays. Host tooling is allowed; Docker-via-Make does not apply.
+EOF
+        fi
         return 0
     fi
 
@@ -718,6 +782,7 @@ Before non-trivial planning, implementation, or review work, follow the installe
 Rosey rules and skills:
 
 - `.cursor/rules/caveman.mdc`
+- `.cursor/rules/ponytail.mdc`
 - `.cursor/rules/rosey-workflow-gates.mdc`
 - `.cursor/rules/hindsight-memory.mdc`
 - `.cursor/rules/karpathy-guidelines.mdc`
@@ -755,7 +820,7 @@ User preferences and durable project context live **outside** this file:
 
 **Consult insights:** read `rosey/insights/` (and use `rosey-learnings-researcher` when available) before non-trivial planning or implementation in a documented area.
 
-**Consult Hindsight memory** (before plan / work / QA):
+**Consult Hindsight memory** (only when `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa` is active — not for generic planning, implementation, or diff review):
 
 ```bash
 export PATH="${HOME}/.local/bin:${PATH}"
@@ -842,12 +907,338 @@ if [ -f "$INSTALL_ROOT/package.json" ]; then
     install_npm_deps "$INSTALL_ROOT" "workspace root"
 fi
 
-# --- Machine-once tool installs (Sentrux + Hindsight) ---
-# Per-user/machine, not per target repo. Detect by probing the CLI; skip install if it responds.
+# --- Machine-once tool installs ---
+# Per-user/machine, not per target repo. Probe the CLI; never reinstall if it exists.
+# Darwin: Homebrew (not for jq/rg/gh). Linux/WSL: apt only (Debian and derivatives).
+# jq, rg, gh: GitHub release binaries into ~/.local/bin. Native Windows is not supported.
+
+host_path() {
+    PATH="${HOME}/.local/bin:${PATH}"
+    export PATH
+}
+
+host_has() {
+    host_path
+    command -v "$1" >/dev/null 2>&1
+}
+
+ensure_local_bin() {
+    mkdir -p "${HOME}/.local/bin"
+}
+
+host_os() {
+    case "$(uname -s)" in
+        Darwin) echo darwin ;;
+        Linux) echo linux ;;
+        *) echo other ;;
+    esac
+}
+
+http_get() {
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$1"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO- "$1"
+    else
+        return 1
+    fi
+}
+
+http_download() {
+    local url="$1"
+    local dest="$2"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$url" -o "$dest"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO "$dest" "$url"
+    else
+        return 1
+    fi
+}
+
+linux_pkg_install_one() {
+    local pkg="$1"
+
+    if [ -z "$pkg" ]; then
+        return 1
+    fi
+    if ! command -v apt-get >/dev/null 2>&1; then
+        echo "   ⚠️  apt-get not found. Linux/WSL installs need Debian or a derivative."
+        return 1
+    fi
+
+    if [ "${ROSEY_APT_UPDATED:-0}" != 1 ]; then
+        if command -v sudo >/dev/null 2>&1; then
+            sudo apt-get update -qq || true
+        else
+            apt-get update -qq || true
+        fi
+        ROSEY_APT_UPDATED=1
+    fi
+    if command -v sudo >/dev/null 2>&1; then
+        sudo apt-get install -y "$pkg"
+    else
+        apt-get install -y "$pkg"
+    fi
+}
+
+github_latest_asset() {
+    local repo="$1"
+    local pattern="$2"
+    local url=""
+
+    url="$(http_get "https://api.github.com/repos/${repo}/releases/latest" \
+        | grep -o 'https://github.com/[^"]*' \
+        | grep -E "$pattern" \
+        | grep -v '\.sha256' \
+        | grep -v '\.sig' \
+        | head -n 1 || true)"
+    if [ -z "$url" ]; then
+        return 1
+    fi
+    echo "$url"
+}
+
+install_jq_binary() {
+    local asset dest
+    ensure_local_bin
+    dest="${HOME}/.local/bin/jq"
+    case "$(host_os)-$(uname -m)" in
+        linux-x86_64 | linux-amd64) asset="jq-linux-amd64" ;;
+        linux-aarch64 | linux-arm64) asset="jq-linux-arm64" ;;
+        darwin-arm64) asset="jq-macos-arm64" ;;
+        darwin-x86_64) asset="jq-macos-amd64" ;;
+        *) return 1 ;;
+    esac
+    http_download "https://github.com/jqlang/jq/releases/latest/download/${asset}" "$dest" || return 1
+    chmod +x "$dest"
+}
+
+install_rg_binary() {
+    local pattern url tmp tarball
+    ensure_local_bin
+    case "$(uname -s)-$(uname -m)" in
+        Linux-x86_64 | Linux-amd64) pattern='ripgrep-.*-x86_64-unknown-linux-musl\.tar\.gz$' ;;
+        Linux-aarch64 | Linux-arm64) pattern='ripgrep-.*-aarch64-unknown-linux-musl\.tar\.gz$' ;;
+        Darwin-arm64) pattern='ripgrep-.*-aarch64-apple-darwin\.tar\.gz$' ;;
+        Darwin-x86_64) pattern='ripgrep-.*-x86_64-apple-darwin\.tar\.gz$' ;;
+        *) return 1 ;;
+    esac
+    url="$(github_latest_asset BurntSushi/ripgrep "$pattern")" || return 1
+    tmp="$(mktemp -d)"
+    tarball="$tmp/rg.tgz"
+    http_download "$url" "$tarball" || {
+        rm -rf "$tmp"
+        return 1
+    }
+    tar -xzf "$tarball" -C "$tmp" || {
+        rm -rf "$tmp"
+        return 1
+    }
+    find "$tmp" -type f -name rg -exec cp {} "${HOME}/.local/bin/rg" \;
+    rm -rf "$tmp"
+    if [ ! -f "${HOME}/.local/bin/rg" ]; then
+        return 1
+    fi
+    chmod +x "${HOME}/.local/bin/rg"
+    host_has rg
+}
+
+install_gh_binary() {
+    local arch pattern url tmp archive found
+    ensure_local_bin
+    case "$(uname -m)" in
+        x86_64 | amd64) arch="amd64" ;;
+        aarch64 | arm64) arch="arm64" ;;
+        *) return 1 ;;
+    esac
+    case "$(host_os)" in
+        linux) pattern="gh_.*_linux_${arch}\\.tar\\.gz$" ;;
+        darwin) pattern="gh_.*_macOS_${arch}\\.zip$" ;;
+        *) return 1 ;;
+    esac
+    url="$(github_latest_asset cli/cli "$pattern")" || return 1
+    tmp="$(mktemp -d)"
+    archive="$tmp/gh.archive"
+    http_download "$url" "$archive" || {
+        rm -rf "$tmp"
+        return 1
+    }
+    case "$(host_os)" in
+        linux)
+            tar -xzf "$archive" -C "$tmp" || {
+                rm -rf "$tmp"
+                return 1
+            }
+            ;;
+        darwin)
+            if command -v unzip >/dev/null 2>&1; then
+                unzip -qo "$archive" -d "$tmp" || {
+                    rm -rf "$tmp"
+                    return 1
+                }
+            else
+                rm -rf "$tmp"
+                return 1
+            fi
+            ;;
+    esac
+    found="$(find "$tmp" -type f -name gh | head -n 1)"
+    if [ -z "$found" ]; then
+        rm -rf "$tmp"
+        return 1
+    fi
+    cp "$found" "${HOME}/.local/bin/gh"
+    chmod +x "${HOME}/.local/bin/gh"
+    rm -rf "$tmp"
+    host_has gh
+}
+
+# cmd [brew_formula] [apt_package]
+# jq/rg/gh ignore extra args and always use GitHub binaries (not brew/apt).
+# brew is Darwin-only. Linux/WSL uses apt only.
+ensure_host_cli() {
+    local cmd="$1"
+    local brew_f="${2-}"
+    local apt_p="${3-}"
+
+    if host_has "$cmd"; then
+        echo "-> $cmd already on this machine ($(command -v "$cmd")); skipping install"
+        return 0
+    fi
+
+    echo "-> Installing $cmd once on this machine..."
+
+    case "$cmd" in
+        jq)
+            install_jq_binary || true
+            ;;
+        rg)
+            install_rg_binary || true
+            ;;
+        gh)
+            install_gh_binary || true
+            ;;
+        *)
+            if [ "$(uname -s)" = Darwin ]; then
+                if [ -n "$brew_f" ] && command -v brew >/dev/null 2>&1; then
+                    brew install "$brew_f" || true
+                elif [ "$cmd" = make ]; then
+                    echo "   ⚠️  make missing. Install Xcode Command Line Tools: xcode-select --install"
+                    return 1
+                fi
+            elif [ "$(uname -s)" = Linux ]; then
+                if [ -n "$apt_p" ]; then
+                    linux_pkg_install_one "$apt_p" || true
+                fi
+            else
+                echo "   ⚠️  Unsupported OS for $cmd (need macOS or Debian/Ubuntu WSL)."
+                return 1
+            fi
+            ;;
+    esac
+
+    if host_has "$cmd"; then
+        echo "   $cmd installed: $(command -v "$cmd")"
+        return 0
+    fi
+    case "$cmd" in
+        jq | rg | gh)
+            echo "   ⚠️  $cmd install finished but CLI not on PATH. Add ~/.local/bin to PATH, then re-run."
+            ;;
+        git)
+            if [ "$(uname -s)" = Darwin ]; then
+                echo "   ⚠️  git missing. Install with Homebrew or Xcode Command Line Tools."
+            else
+                echo "   ⚠️  git missing. Install with apt: sudo apt-get install git"
+            fi
+            ;;
+        make)
+            if [ "$(uname -s)" = Darwin ]; then
+                echo "   ⚠️  make missing. Install Xcode Command Line Tools: xcode-select --install"
+            else
+                echo "   ⚠️  make missing. Install with apt: sudo apt-get install make"
+            fi
+            ;;
+        *)
+            echo "   ⚠️  $cmd missing and install did not put it on PATH."
+            ;;
+    esac
+    return 1
+}
+
+install_uv() {
+    if host_has uv; then
+        echo "-> uv already on this machine ($(command -v uv)); skipping install"
+        return 0
+    fi
+
+    echo "-> Installing uv once on this machine (Hindsight, bumpversion, gitchangelog)..."
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "   ⚠️  curl is required to install uv. Install curl, then re-run."
+        return 1
+    fi
+    curl -LsSf https://astral.sh/uv/install.sh | sh || {
+        echo "   ⚠️  uv install failed. See https://docs.astral.sh/uv/"
+        return 1
+    }
+    host_path
+    if host_has uv; then
+        echo "   uv installed: $(command -v uv)"
+        return 0
+    fi
+    echo "   ⚠️  uv install finished but CLI not on PATH. Add ~/.local/bin to PATH, then re-run."
+    return 1
+}
+
+install_gitchangelog() {
+    if host_has gitchangelog; then
+        echo "-> gitchangelog already on this machine ($(command -v gitchangelog)); skipping install"
+        return 0
+    fi
+
+    echo "-> Installing gitchangelog once on this machine (release HISTORY)..."
+    if host_has uv; then
+        uv tool install gitchangelog || {
+            echo "   ⚠️  uv tool install gitchangelog failed."
+            echo "      Retry: uv tool install gitchangelog"
+            return 1
+        }
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -m pip install --user gitchangelog || {
+            echo "   ⚠️  pip install --user gitchangelog failed."
+            echo "      Retry: python3 -m pip install --user gitchangelog"
+            return 1
+        }
+    else
+        echo "   ⚠️  Need uv or python3 to install gitchangelog."
+        return 1
+    fi
+
+    if host_has gitchangelog; then
+        echo "   gitchangelog installed: $(command -v gitchangelog)"
+        return 0
+    fi
+    echo "   ⚠️  gitchangelog install finished but CLI not on PATH. Add ~/.local/bin to PATH, then re-run."
+    return 1
+}
+
+host_path
+
+ensure_host_cli git git git || true
+# Homebrew make is keg-only and does not provide `make` on PATH; Darwin uses Xcode CLT.
+ensure_host_cli make "" make || true
+ensure_host_cli curl curl curl || true
+ensure_host_cli rsync rsync rsync || true
+ensure_host_cli jq || true
+ensure_host_cli rg || true
+ensure_host_cli gh || true
+install_uv || true
 
 # --- Sentrux ---
 
 sentrux_available() {
+    host_path
     command -v sentrux >/dev/null 2>&1 && sentrux --version >/dev/null 2>&1
 }
 
@@ -889,7 +1280,165 @@ install_sentrux() {
     fi
 }
 
-install_sentrux || true
+# --- git-flow (rosey-pr / rosey-work / rosey-debug / rosey-release) ---
+# Homebrew git-flow-avh is disabled; git-flow (nvie) is deprecated. git-flow-next
+# provides `git flow` and satisfies `git flow version`.
+
+git_flow_available() {
+    host_path
+    git flow version >/dev/null 2>&1
+}
+
+install_git_flow() {
+    if git_flow_available; then
+        echo "-> git-flow already on this machine ($(git flow version 2>/dev/null | head -1 || echo ok)); skipping install"
+        return 0
+    fi
+
+    echo "-> Installing git-flow once on this machine (required for rosey-pr / rosey-release)..."
+    if [ "$(uname -s)" = Darwin ]; then
+        if command -v brew >/dev/null 2>&1; then
+            brew install git-flow-next || {
+                echo "   ⚠️  brew install git-flow-next failed. Try: brew install git-flow-next"
+                return 1
+            }
+        else
+            echo "   ⚠️  Homebrew not found. Install git-flow-next:"
+            echo "      brew install git-flow-next"
+            return 1
+        fi
+    elif [ "$(uname -s)" = Linux ]; then
+        linux_pkg_install_one git-flow || true
+    else
+        echo "   ⚠️  Unsupported OS for git-flow (need macOS or Debian/Ubuntu WSL)."
+        return 1
+    fi
+
+    if git_flow_available; then
+        echo "   git-flow installed: $(git flow version 2>/dev/null | head -1 || true)"
+    else
+        echo "   ⚠️  git-flow install finished but \`git flow version\` still fails. Check PATH."
+        return 1
+    fi
+}
+
+init_repo_git_flow() {
+    if is_livehome_install; then
+        echo "-> Skipping git flow init (live-home does not use git-flow)"
+        return 0
+    fi
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "-> Skipping git flow init (not a git repository)"
+        return 0
+    fi
+    if git config --get gitflow.branch.master >/dev/null 2>&1; then
+        echo "-> git flow already initialized in this repo; skipping"
+        return 0
+    fi
+    if ! git_flow_available; then
+        echo "   ⚠️  git-flow not available; cannot run git flow init -d"
+        return 1
+    fi
+
+    echo "-> Initializing git flow in this repo (git flow init -d)..."
+    git flow init -d || {
+        echo "   ⚠️  git flow init -d failed"
+        return 1
+    }
+}
+
+configure_repo_signing_key() {
+    local existing global keys count key
+
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "-> Skipping signing key (not a git repository)"
+        return 0
+    fi
+
+    existing="$(git config --local --get user.signingkey 2>/dev/null || true)"
+    if [ -n "$existing" ]; then
+        echo "-> user.signingkey already set locally ($existing); skipping"
+        return 0
+    fi
+
+    global="$(git config --global --get user.signingkey 2>/dev/null || true)"
+    if [ -n "$global" ]; then
+        git config --local user.signingkey "$global"
+        echo "-> Set local user.signingkey from global ($global)"
+        return 0
+    fi
+
+    if ! host_has gpg; then
+        echo "   ⚠️  gpg not found; cannot set user.signingkey. Install gnupg and add a secret key."
+        return 1
+    fi
+
+    keys="$(gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '/^sec:/ { want=1; next } want && /^fpr:/ { print $10; want=0 }')"
+    count=0
+    if [ -n "$keys" ]; then
+        count="$(printf '%s\n' "$keys" | grep -c .)"
+    fi
+
+    if [ "$count" -eq 0 ]; then
+        echo "   ⚠️  No GPG secret keys. Create one, then re-run to set user.signingkey."
+        return 1
+    fi
+    if [ "$count" -gt 1 ]; then
+        echo "   ⚠️  Multiple GPG secret keys; not picking one."
+        echo "      Set: git config --local user.signingkey <fingerprint>"
+        printf '%s\n' "$keys" | sed 's/^/      /'
+        return 1
+    fi
+
+    key="$keys"
+    git config --local user.signingkey "$key"
+    echo "-> Set local user.signingkey to $key"
+}
+
+# --- bumpversion (rosey-release / scripts/release.sh) ---
+# Classic CLI (`bumpversion --dry-run --list`) from bump2version. Do not install
+# Homebrew bump-my-version — that binary is a different command.
+
+bumpversion_available() {
+    host_has bumpversion
+}
+
+install_bumpversion() {
+    host_path
+
+    if bumpversion_available; then
+        echo "-> bumpversion already on this machine ($(command -v bumpversion)); skipping install"
+        return 0
+    fi
+
+    echo "-> Installing bumpversion once on this machine (required for rosey-release)..."
+    if host_has uv; then
+        uv tool install bump2version || {
+            echo "   ⚠️  uv tool install bump2version failed."
+            echo "      Retry: uv tool install bump2version"
+            return 1
+        }
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -m pip install --user bump2version || {
+            echo "   ⚠️  pip install --user bump2version failed."
+            echo "      Retry: python3 -m pip install --user bump2version"
+            return 1
+        }
+    else
+        echo "   ⚠️  Need uv or python3 to install bumpversion (bump2version)."
+        echo "      Install uv: https://docs.astral.sh/uv/"
+        echo "      Then: uv tool install bump2version"
+        return 1
+    fi
+
+    if bumpversion_available; then
+        echo "   bumpversion installed: $(command -v bumpversion)"
+    else
+        echo "   ⚠️  bumpversion install finished but CLI not on PATH."
+        echo "      Add ~/.local/bin to PATH, then re-run."
+        return 1
+    fi
+}
 
 # --- Hindsight embed ---
 
@@ -1005,7 +1554,7 @@ check_hindsight_embed() {
 
     echo "-> Checking optional Hindsight embed CLI..."
 
-    if ! command -v uv >/dev/null 2>&1; then
+    if ! host_has uv; then
         echo "   ⚠️  Hindsight embed requires uv for local memory."
         echo "      Install uv: https://docs.astral.sh/uv/"
         if hindsight_embed_configured; then
@@ -1060,7 +1609,33 @@ check_hindsight_embed() {
     fi
 }
 
+install_bumpversion || true
+install_gitchangelog || true
+install_git_flow || true
+init_repo_git_flow || true
+configure_repo_signing_key || true
+install_sentrux || true
+
 check_hindsight_embed || true
+
+# --- Inventory of host tools this script does not install ---
+
+inventory_cli() {
+    local label="$1"
+    local bin="$2"
+    PATH="${HOME}/.local/bin:${PATH}"
+    if command -v "$bin" >/dev/null 2>&1; then
+        echo "   present  $label"
+    else
+        echo "   missing  $label"
+    fi
+}
+
+echo ""
+echo "-> Host tools this script does not install:"
+inventory_cli "docker (Engine; daemon must be running for release)" docker
+inventory_cli "gpg (needed to set user.signingkey when no global key is set)" gpg
+echo "   not packages: gh auth login, GPG secret keys (not generated), Docker daemon up"
 
 echo ""
 echo "Rosey Environment installed successfully!"
@@ -1070,5 +1645,5 @@ echo "   Seeded from agentic-env .env (when keys present):"
 echo "     - .cursor/mcp.json and .vscode/mcp.json (GITHUB_TOKEN, OBSIDIAN_API_KEY)"
 echo "     - rosey-design-candidates skill .env (CURSOR_API_KEY)"
 echo "     - ~/.hindsight/embed once (HINDSIGHT_*); CLI install skipped if hindsight-embed already responds"
-echo "   Sentrux install skipped if sentrux --version already responds."
+echo "   Machine-once CLIs skipped if already on PATH: git, make, curl, rsync, jq, rg, gh, uv, gitchangelog, bumpversion, git-flow, sentrux, hindsight-embed."
 echo "   VS Code: allow automatic tasks once (Tasks: Manage Automatic Tasks) for Hindsight folderOpen warm-start."
