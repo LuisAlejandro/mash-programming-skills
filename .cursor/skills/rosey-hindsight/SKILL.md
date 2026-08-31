@@ -59,6 +59,8 @@ Daemon warm-restart (already wired when Rosey was installed into the repo):
 
 - **Cursor:** `.cursor/hooks/ensure-hindsight-daemon.sh` via `.cursor/hooks.json` `sessionStart`
 - **VS Code:** same script at `.github/hooks/ensure-hindsight-daemon.sh` via `.vscode/tasks.json` `runOn: folderOpen` (Copilot has no session-start hooks). Allow automatic tasks once per workspace (`Tasks: Manage Automatic Tasks`)
+- **OpenCode:** `.opencode/hooks/ensure-hindsight-daemon.sh` via `.opencode/hooks.json` `SessionStart` and `@monks1975/opencode-agent-hooks` in `opencode.json`
+- **Pi:** `.pi/hooks/ensure-hindsight-daemon.sh` via `.pi/extensions/rosey-hindsight-daemon.ts` on `session_start`
 
 Do not run `daemon start` manually during Rosey workflows; use `daemon status` only.
 

@@ -69,5 +69,7 @@ Rosey can use [Hindsight](https://github.com/hindsight/hindsight) for cross-sess
 
    - **Cursor:** `.cursor/hooks/ensure-hindsight-daemon.sh` on `sessionStart` (via `.cursor/hooks.json`)
    - **VS Code:** the same script under `.github/hooks/`, via a `.vscode/tasks.json` task with `"runOn": "folderOpen"` (Copilot has no session-start hooks). Allow automatic tasks once: **Tasks: Manage Automatic Tasks**
+   - **OpenCode:** `.opencode/hooks/ensure-hindsight-daemon.sh` on `SessionStart` (via `.opencode/hooks.json` and the `@monks1975/opencode-agent-hooks` plugin in `opencode.json`)
+   - **Pi:** `.pi/hooks/ensure-hindsight-daemon.sh` on `session_start` (via `.pi/extensions/rosey-hindsight-daemon.ts`)
 
 Routine agent commands use `hindsight-embed` with `PATH="${HOME}/.local/bin:${PATH}"`. See `.cursor/skills/rosey-hindsight/SKILL.md` for the full contract.

@@ -199,7 +199,10 @@ if [ "$CHECK_ONLY" = true ]; then
                 .vscode/mcp.json .vscode/tasks.json rosey/agentic-env.json; do
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
-    for path in .opencode/skills .opencode/agents .opencode/rules .pi/skills .pi/agents .pi/APPEND_SYSTEM.md; do
+    for path in .opencode/skills .opencode/agents .opencode/rules \
+                .opencode/hooks/ensure-hindsight-daemon.sh .opencode/hooks.json opencode.json \
+                .pi/skills .pi/agents .pi/APPEND_SYSTEM.md \
+                .pi/hooks/ensure-hindsight-daemon.sh .pi/extensions/rosey-hindsight-daemon.ts; do
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
     if [ "$CREATE_AGENTS" = true ]; then
@@ -483,6 +486,97 @@ path.write_text(json.dumps(data, indent=2) + "\n")
 PY
 }
 
+# Rewrite hindsight-pin path in a copied ensure-hindsight-daemon.sh hook script.
+patch_hindsight_hook_script() {
+    local script="$1"
+    [ -f "$script" ] || return 0
+    sed -i.bak -E \
+        's|local pin_file="\.cursor/hindsight-pin"|local pin_file="rosey/hindsight-pin"|; s|pin_file="\.cursor/hindsight-pin"|pin_file="rosey/hindsight-pin"|' \
+        "$script"
+    rm -f "${script}.bak"
+}
+
+# OpenCode: Claude-format hooks.json + opencode-agent-hooks plugin in opencode.json.
+install_opencode_hindsight_warmstart() {
+    local hook_src="$SOURCE_ROOT/.cursor/hooks/ensure-hindsight-daemon.sh"
+    [ -f "$hook_src" ] || return 0
+
+    mkdir -p .opencode/hooks
+    cp "$hook_src" .opencode/hooks/ensure-hindsight-daemon.sh
+    chmod +x .opencode/hooks/ensure-hindsight-daemon.sh
+    patch_hindsight_hook_script .opencode/hooks/ensure-hindsight-daemon.sh
+
+    cat > .opencode/hooks.json <<'EOF'
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".opencode/hooks/ensure-hindsight-daemon.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+
+    upsert_opencode_hindsight_config
+}
+
+upsert_opencode_hindsight_config() {
+    local config_file="opencode.json"
+    local plugin="@monks1975/opencode-agent-hooks@1.0.1"
+    python3 - "$config_file" "$plugin" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+plugin = sys.argv[2]
+
+if path.is_file():
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        data = {}
+else:
+    data = {}
+
+if not isinstance(data, dict):
+    data = {}
+
+data.setdefault("$schema", "https://opencode.ai/config.json")
+plugins = data.get("plugin")
+if not isinstance(plugins, list):
+    plugins = []
+if plugin not in plugins:
+    plugins.append(plugin)
+data["plugin"] = plugins
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+}
+
+# Pi: shell hook + session_start extension under .pi/extensions/.
+install_pi_hindsight_warmstart() {
+    local hook_src="$SOURCE_ROOT/.cursor/hooks/ensure-hindsight-daemon.sh"
+    local ext_src="$SOURCE_ROOT/.cursor/hooks-pi/rosey-hindsight-daemon.ts"
+    [ -f "$hook_src" ] || return 0
+
+    mkdir -p .pi/hooks .pi/extensions
+    cp "$hook_src" .pi/hooks/ensure-hindsight-daemon.sh
+    chmod +x .pi/hooks/ensure-hindsight-daemon.sh
+    patch_hindsight_hook_script .pi/hooks/ensure-hindsight-daemon.sh
+
+    if [ -f "$ext_src" ]; then
+        cp "$ext_src" .pi/extensions/rosey-hindsight-daemon.ts
+    fi
+}
+
 # --- Shared pin ---
 
 echo "-> Writing shared rosey/hindsight-pin..."
@@ -671,7 +765,8 @@ install_vscode_tree() {
 
 install_opencode_tree() {
     echo "-> Cleaning old OpenCode files..."
-    rm -rf .opencode/skills .opencode/agents .opencode/rules
+    rm -rf .opencode/skills .opencode/agents .opencode/rules .opencode/hooks
+    rm -f .opencode/hooks.json
     echo "-> Scaffolding .opencode folder..."
     mkdir -p .opencode/skills .opencode/agents .opencode/rules
 
@@ -745,13 +840,15 @@ install_opencode_tree() {
                 ;;
         esac
     done
+
+    install_opencode_hindsight_warmstart
 }
 
 # --- Pi target ---
 
 install_pi_tree() {
     echo "-> Cleaning old Pi files..."
-    rm -rf .pi/skills .pi/agents .pi/APPEND_SYSTEM.md
+    rm -rf .pi/skills .pi/agents .pi/APPEND_SYSTEM.md .pi/hooks .pi/extensions
     echo "-> Scaffolding .pi folder..."
     mkdir -p .pi/skills .pi/agents
 
@@ -822,6 +919,8 @@ install_pi_tree() {
                 ;;
         esac
     done
+
+    install_pi_hindsight_warmstart
 }
 
 install_cursor_tree
@@ -1016,6 +1115,7 @@ append_gitignore_if_missing ".github/skills/"
 append_gitignore_if_missing ".github/agents/"
 append_gitignore_if_missing ".github/hooks/"
 append_gitignore_if_missing ".vscode/mcp.json"
+append_gitignore_if_missing "opencode.json"
 
 # OpenCode target
 append_gitignore_if_missing ".opencode/"
@@ -1238,6 +1338,8 @@ from OpenCode — those paths are Cursor-only.
 
 Full Hindsight CLI contract: `.opencode/skills/rosey-hindsight/SKILL.md`.
 
+Hindsight warm-start: `.opencode/hooks/ensure-hindsight-daemon.sh` (`.opencode/hooks.json` + `opencode.json` plugin `@monks1975/opencode-agent-hooks`).
+
 ## If Pi
 
 Before non-trivial planning, implementation, or review work, follow the installed
@@ -1251,6 +1353,8 @@ Do not open or follow `.cursor/rules/`, `.cursor/skills/`, or `.cursor/agents/`
 from Pi — those paths are Cursor-only.
 
 Full Hindsight CLI contract: `.pi/skills/rosey-hindsight/SKILL.md`.
+
+Hindsight warm-start: `.pi/hooks/ensure-hindsight-daemon.sh` via `.pi/extensions/rosey-hindsight-daemon.ts` on `session_start`.
 
 ## Preferences, insights, and memory
 
@@ -2124,3 +2228,5 @@ echo "     - ~/.hindsight/embed once (HINDSIGHT_*); CLI install skipped if hinds
 echo "   Machine-once CLIs skipped if already on PATH: git, make, curl, rsync, jq, rg, gh, uv, gitchangelog, bumpversion, git-flow, sentrux, hindsight-embed."
 echo "   Pi: pi-subagents installed once when the pi CLI is present (enables .pi/agents/)."
 echo "   VS Code: allow automatic tasks once (Tasks: Manage Automatic Tasks) for Hindsight folderOpen warm-start."
+echo "   OpenCode: SessionStart hook + opencode-agent-hooks plugin in opencode.json for Hindsight warm-start."
+echo "   Pi: session_start extension (.pi/extensions/rosey-hindsight-daemon.ts) for Hindsight warm-start."
