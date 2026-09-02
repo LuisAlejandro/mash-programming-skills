@@ -13,10 +13,19 @@
 exec 0</dev/null
 
 HINDSIGHT_HOOK_LOG="${HOME}/.hindsight/hook-last-run.log"
+HINDSIGHT_HOOK_LOG_MAX="${HINDSIGHT_HOOK_LOG_MAX:-1048576}" # 1 MiB before rotate
+
+# Repo attribution: which project triggered this hook run. The log is shared
+# across every Rosey repo, so each entry records its repo root basename.
+REPO="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")"
 
 hindsight_hook_log() {
     mkdir -p "${HOME}/.hindsight"
-    printf '%s %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$*" >>"$HINDSIGHT_HOOK_LOG"
+    # Rotate before appending so the log never grows unbounded.
+    if [ -f "$HINDSIGHT_HOOK_LOG" ] && [ "$(wc -c <"$HINDSIGHT_HOOK_LOG")" -ge "$HINDSIGHT_HOOK_LOG_MAX" ]; then
+        mv -f "$HINDSIGHT_HOOK_LOG" "${HINDSIGHT_HOOK_LOG}.1"
+    fi
+    printf '%s [%s] %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$REPO" "$*" >>"$HINDSIGHT_HOOK_LOG"
 }
 
 read_hindsight_pin() {
@@ -43,11 +52,14 @@ if ! command -v hindsight-embed >/dev/null 2>&1; then
 fi
 
 if hindsight-embed daemon status >/dev/null 2>&1; then
+    hindsight_hook_log "daemon already up (pin ${HINDSIGHT_PIN})"
     exit 0
 fi
 
-if ! HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT="${HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT:-60}" \
+if HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT="${HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT:-60}" \
     hindsight-embed daemon start >>"$HINDSIGHT_HOOK_LOG" 2>&1; then
+    hindsight_hook_log "daemon started (pin ${HINDSIGHT_PIN})"
+else
     hindsight_hook_log "daemon start failed (pin ${HINDSIGHT_PIN}); see log above; retry via install.sh"
 fi
 

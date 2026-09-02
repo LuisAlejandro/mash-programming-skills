@@ -202,7 +202,7 @@ if [ "$CHECK_ONLY" = true ]; then
     for path in .opencode/skills .opencode/agents .opencode/rules \
                 .opencode/hooks/ensure-hindsight-daemon.sh .opencode/hooks.json opencode.json \
                 .pi/skills .pi/agents .pi/APPEND_SYSTEM.md \
-                .pi/hooks/ensure-hindsight-daemon.sh .pi/extensions/rosey-hindsight-daemon.ts; do
+                .pi/scripts/ensure-hindsight-daemon.sh .pi/extensions/rosey-hindsight-daemon.ts; do
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
     if [ "$CREATE_AGENTS" = true ]; then
@@ -395,7 +395,7 @@ rewrite_cursor_refs_opencode() {
         -e 's|\.cursor/skills/|.opencode/skills/|g' \
         -e 's|\.cursor/agents/|.opencode/agents/|g' \
         -e 's|\.cursor/hooks/|.opencode/hooks/|g' \
-        -e 's|\.cursor/mcp\.json|.opencode/mcp.json|g' \
+        -e 's|\.cursor/mcp\.json|opencode.json|g' \
         -e 's|\.cursor/hooks\.json|.opencode/hooks.json|g' \
         -e 's|\.cursor/hindsight-pin|rosey/hindsight-pin|g' \
         "$file"
@@ -411,7 +411,7 @@ rewrite_cursor_refs_pi() {
         -e 's|\.cursor/rules/|.pi/rules/|g' \
         -e 's|\.cursor/skills/|.pi/skills/|g' \
         -e 's|\.cursor/agents/|.pi/agents/|g' \
-        -e 's|\.cursor/hooks/|.pi/hooks/|g' \
+        -e 's|\.cursor/hooks/|.pi/scripts/|g' \
         -e 's|\.cursor/mcp\.json|.pi/mcp.json|g' \
         -e 's|\.cursor/hooks\.json|.pi/hooks.json|g' \
         -e 's|\.cursor/hindsight-pin|rosey/hindsight-pin|g' \
@@ -430,7 +430,7 @@ rewrite_pi_append_refs() {
         -e 's|\.cursor/agents/([A-Za-z0-9._-]+)\.md|.pi/agents/\1.md|g' \
         -e 's|\.cursor/skills/|.pi/skills/|g' \
         -e 's|\.cursor/agents/|.pi/agents/|g' \
-        -e 's|\.cursor/hooks/|.pi/hooks/|g' \
+        -e 's|\.cursor/hooks/|.pi/scripts/|g' \
         -e 's|\.cursor/mcp\.json|.pi/mcp.json|g' \
         -e 's|\.cursor/hooks\.json|.pi/hooks.json|g' \
         -e 's|\.cursor/hindsight-pin|rosey/hindsight-pin|g' \
@@ -561,16 +561,16 @@ path.write_text(json.dumps(data, indent=2) + "\n")
 PY
 }
 
-# Pi: shell hook + session_start extension under .pi/extensions/.
+# Pi: shell script + session_start extension under .pi/extensions/.
 install_pi_hindsight_warmstart() {
     local hook_src="$SOURCE_ROOT/.cursor/hooks/ensure-hindsight-daemon.sh"
     local ext_src="$SOURCE_ROOT/.cursor/hooks-pi/rosey-hindsight-daemon.ts"
     [ -f "$hook_src" ] || return 0
 
-    mkdir -p .pi/hooks .pi/extensions
-    cp "$hook_src" .pi/hooks/ensure-hindsight-daemon.sh
-    chmod +x .pi/hooks/ensure-hindsight-daemon.sh
-    patch_hindsight_hook_script .pi/hooks/ensure-hindsight-daemon.sh
+    mkdir -p .pi/scripts .pi/extensions
+    cp "$hook_src" .pi/scripts/ensure-hindsight-daemon.sh
+    chmod +x .pi/scripts/ensure-hindsight-daemon.sh
+    patch_hindsight_hook_script .pi/scripts/ensure-hindsight-daemon.sh
 
     if [ -f "$ext_src" ]; then
         cp "$ext_src" .pi/extensions/rosey-hindsight-daemon.ts
@@ -848,7 +848,7 @@ install_opencode_tree() {
 
 install_pi_tree() {
     echo "-> Cleaning old Pi files..."
-    rm -rf .pi/skills .pi/agents .pi/APPEND_SYSTEM.md .pi/hooks .pi/extensions
+    rm -rf .pi/skills .pi/agents .pi/APPEND_SYSTEM.md .pi/scripts .pi/extensions
     echo "-> Scaffolding .pi folder..."
     mkdir -p .pi/skills .pi/agents
 
@@ -991,16 +991,20 @@ if shape in ("opencode", "pi"):
             srv["type"] = "remote"
         out_servers[name] = srv
     if shape == "opencode":
-        data = {"mcp": {"servers": out_servers}}
-    else:  # pi: merge into existing .pi/settings.json, preserving other settings
+        # OpenCode MCPs live in the config file (opencode.json) as a flat
+        # "mcp" map, merged in while preserving $schema/plugin/other keys.
         existing = {}
         if Path(dest).exists():
             try:
                 existing = json.loads(Path(dest).read_text())
             except Exception:
                 existing = {}
-        existing.setdefault("mcp", {}).setdefault("servers", {}).update(out_servers)
+        if not isinstance(existing, dict):
+            existing = {}
+        existing["mcp"] = out_servers
         data = existing
+    else:  # pi: write .pi/mcp.json with the standard mcpServers map
+        data = {"mcpServers": out_servers}
 
 Path(dest).parent.mkdir(parents=True, exist_ok=True)
 Path(dest).write_text(json.dumps(data, indent=2) + "\n")
@@ -1018,10 +1022,10 @@ PY
         _seed_one_mcp_json ".vscode/mcp.json" "vscode"
     fi
     if [ -d .opencode ]; then
-        _seed_one_mcp_json ".opencode/mcp.json" "opencode"
+        _seed_one_mcp_json "opencode.json" "opencode"
     fi
     if [ -d .pi ]; then
-        _seed_one_mcp_json ".pi/settings.json" "pi"
+        _seed_one_mcp_json ".pi/mcp.json" "pi"
     fi
 }
 
@@ -1354,7 +1358,7 @@ from Pi — those paths are Cursor-only.
 
 Full Hindsight CLI contract: `.pi/skills/rosey-hindsight/SKILL.md`.
 
-Hindsight warm-start: `.pi/hooks/ensure-hindsight-daemon.sh` via `.pi/extensions/rosey-hindsight-daemon.ts` on `session_start`.
+Hindsight warm-start: `.pi/scripts/ensure-hindsight-daemon.sh` via `.pi/extensions/rosey-hindsight-daemon.ts` on `session_start`.
 
 ## Preferences, insights, and memory
 
@@ -1461,7 +1465,7 @@ fi
 # jq, rg, gh: GitHub release binaries into ~/.local/bin. Native Windows is not supported.
 
 host_path() {
-    PATH="${HOME}/.local/bin:${PATH}"
+    PATH="${HOME}/.local/bin:${HOME}/.bun/bin:${PATH}"
     export PATH
 }
 
@@ -1739,6 +1743,30 @@ install_uv() {
     return 1
 }
 
+install_bun() {
+    if host_has bun; then
+        echo "-> bun already on this machine ($(command -v bun)); skipping install"
+        return 0
+    fi
+
+    echo "-> Installing bun once on this machine (OpenCode auto-installs npm plugins with bun)..."
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "   ⚠️  curl is required to install bun. Install curl, then re-run."
+        return 1
+    fi
+    curl -fsSL https://bun.sh/install | bash || {
+        echo "   ⚠️  bun install failed. See https://bun.sh/docs/installation"
+        return 1
+    }
+    host_path
+    if host_has bun; then
+        echo "   bun installed: $(command -v bun)"
+        return 0
+    fi
+    echo "   ⚠️  bun install finished but CLI not on PATH. Add ~/.bun/bin to PATH, then re-run."
+    return 1
+}
+
 install_gitchangelog() {
     if host_has gitchangelog; then
         echo "-> gitchangelog already on this machine ($(command -v gitchangelog)); skipping install"
@@ -1782,6 +1810,7 @@ ensure_host_cli jq || true
 ensure_host_cli rg || true
 ensure_host_cli gh || true
 install_uv || true
+install_bun || true
 
 # --- Sentrux ---
 
@@ -1856,6 +1885,37 @@ install_pi_subagents() {
         return 0
     fi
     echo "   ⚠️  pi-subagents install failed. Retry: pi install npm:pi-subagents"
+    return 1
+}
+
+# --- pi-mcp-adapter (nicobailon/pi-mcp-adapter) ---
+# Token-efficient MCP adapter for Pi. Installed once on the machine via `pi install`.
+# Reads standard MCP files (.mcp.json, ~/.config/mcp/mcp.json, .pi/mcp.json) so the
+# seeded .pi/mcp.json is picked up automatically. Fail-open: Pi agents still load
+# without it; only MCP tool access is missing.
+pi_mcp_adapter_available() {
+    host_path
+    command -v pi >/dev/null 2>&1 && pi list 2>/dev/null | grep -qi 'pi-mcp-adapter'
+}
+
+install_pi_mcp_adapter() {
+    if ! command -v pi >/dev/null 2>&1; then
+        echo "   ⚠️  pi CLI not found; skipping pi-mcp-adapter install (MCP tools load only after you install it)."
+        echo "      Install Pi, then: pi install npm:pi-mcp-adapter"
+        return 1
+    fi
+
+    if pi_mcp_adapter_available; then
+        echo "-> pi-mcp-adapter already installed; skipping"
+        return 0
+    fi
+
+    echo "-> Installing pi-mcp-adapter once on this machine (token-efficient MCP for Pi)..."
+    if pi install npm:pi-mcp-adapter; then
+        echo "   pi-mcp-adapter installed."
+        return 0
+    fi
+    echo "   ⚠️  pi-mcp-adapter install failed. Retry: pi install npm:pi-mcp-adapter"
     return 1
 }
 
@@ -2195,6 +2255,7 @@ init_repo_git_flow || true
 configure_repo_signing_key || true
 install_sentrux || true
 install_pi_subagents || true
+install_pi_mcp_adapter || true
 
 check_hindsight_embed || true
 
@@ -2225,7 +2286,7 @@ echo "   Seeded from agentic-env .env (when keys present):"
 echo "     - .cursor/mcp.json and .vscode/mcp.json (GITHUB_TOKEN, OBSIDIAN_API_KEY)"
 echo "     - rosey-design-candidates skill .env (CURSOR_API_KEY)"
 echo "     - ~/.hindsight/embed once (HINDSIGHT_*); CLI install skipped if hindsight-embed already responds"
-echo "   Machine-once CLIs skipped if already on PATH: git, make, curl, rsync, jq, rg, gh, uv, gitchangelog, bumpversion, git-flow, sentrux, hindsight-embed."
+echo "   Machine-once CLIs skipped if already on PATH: git, make, curl, rsync, jq, rg, gh, uv, bun, gitchangelog, bumpversion, git-flow, sentrux, hindsight-embed."
 echo "   Pi: pi-subagents installed once when the pi CLI is present (enables .pi/agents/)."
 echo "   VS Code: allow automatic tasks once (Tasks: Manage Automatic Tasks) for Hindsight folderOpen warm-start."
 echo "   OpenCode: SessionStart hook + opencode-agent-hooks plugin in opencode.json for Hindsight warm-start."
