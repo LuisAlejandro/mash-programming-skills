@@ -636,6 +636,113 @@ def copy_runtime_files(repo_root: str | os.PathLike, wt_path: str | os.PathLike)
 
 
 # ---------------------------------------------------------------------------
+# Harness drivers (plan U6: R26, R14, R17)
+# ---------------------------------------------------------------------------
+
+HARNESS_PRIORITY = ["pi", "opencode", "cursor-agent"]
+
+# Terminal structured events that mark success for each harness.
+_TERMINAL_EVENTS = {
+    "pi": ("agent_end",),
+    "opencode": ("text",),
+    "cursor-agent": ("result",),
+}
+
+
+class HarnessDriver:
+    """Per-harness launch / interpret / probe contract (R26)."""
+
+    def __init__(self, name: str, binary: str | None = None) -> None:
+        self.name = name
+        if name not in HARNESS_PRIORITY:
+            raise ValueError(f"unknown harness {name!r}")
+        default_binary = {
+            "pi": "pi",
+            "opencode": "opencode",
+            "cursor-agent": "agent",
+        }[name]
+        self.binary = binary or default_binary
+
+    @classmethod
+    def from_name(cls, name: str, binary: str | None = None) -> "HarnessDriver":
+        return cls(name, binary=binary)
+
+    def probe(self) -> bool:
+        """Availability: binary present on PATH (R26)."""
+        import shutil
+
+        return shutil.which(self.binary) is not None
+
+    @staticmethod
+    def launch_cmd(name) -> list[str]:
+        """Per-harness invocation shape (KTD4)."""
+        return {
+            "pi": ["pi", "-p", "--approve", "--mode", "json", "--no-session"],
+            "opencode": ["opencode", "run", "--format", "json"],
+            "cursor-agent": ["agent", "-p", "--force", "--trust", "--output-format", "json"],
+        }[name]
+
+    def interpret(self, exit_code: int, output: str) -> str:
+        """Map (exit, captured output) to done | blocker | failure (R14).
+
+        Success requires exit 0 AND the terminal structured event. opencode
+        additionally requires non-empty final text (exit-0-on-auto-reject bug).
+        """
+        if exit_code != 0:
+            return "failure"
+        parsed = self._parse_events(output)
+        if not parsed:
+            return "failure"
+        last = parsed[-1]
+        if self.name == "pi":
+            if last.get("event") != "agent_end":
+                return "failure"
+        elif self.name == "cursor-agent":
+            if last.get("type") != "result":
+                return "failure"
+        else:  # opencode
+            if last.get("type") != "text" or not last.get("text"):
+                return "failure"
+        return "done"
+
+    @staticmethod
+    def _parse_events(output: str) -> list[dict]:
+        """Best-effort parse of NDJSON/last-event shape. Returns event dicts."""
+        import json as _json
+
+        events: list[dict] = []
+        for line in output.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                events.append(_json.loads(line))
+            except _json.JSONDecodeError:
+                # skip non-JSON noise lines
+                continue
+        return events
+
+
+def select_harness(override, available, priority=HARNESS_PRIORITY) -> str:
+    """Deterministic per-run harness selection (R26 / U6).
+
+    override may be an explicit harness name or a callable probe(name)->bool.
+    """
+    if isinstance(override, str):
+        if override not in priority:
+            raise ValidationError(f"unknown harness override {override!r}", [f"harness {override}"])
+        return override
+    probe = available if callable(available) else lambda n: bool(available.get(n))
+    for name in priority:
+        if probe(name):
+            return name
+    raise ValidationError(
+        "no harness available (tried pi, opencode, cursor-agent)",
+        ["no harness available"],
+    )
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
