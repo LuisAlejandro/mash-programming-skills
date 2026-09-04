@@ -541,6 +541,101 @@ def _topo_order(group: list[str], tasks: dict) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Worktree manager (plan U5: R4, R13, R19, R21, R23)
+# ---------------------------------------------------------------------------
+
+RUNTIME_FILE_ALLOWLIST = (
+    "AGENTS.md",
+    "rosey/hindsight-pin",
+    ".env",
+    ".env.example",
+    ".cursor",
+    ".opencode",
+    "opencode.json",
+    ".pi",
+)
+
+
+def create_worktree(
+    repo_root: str | os.PathLike,
+    wt_path: str | os.PathLike,
+    branch: str,
+    base: str,
+) -> str:
+    """Create a worktree on a named branch from base. Raises on conflict."""
+    import subprocess as _sp
+
+    _sp.run(
+        ["git", "-C", str(repo_root), "worktree", "add", str(wt_path), "-b", branch, base],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return branch
+
+
+def lock_worktree(repo_root: str | os.PathLike, wt_path: str | os.PathLike) -> None:
+    import subprocess as _sp
+
+    _sp.run(
+        ["git", "-C", str(repo_root), "worktree", "lock", str(wt_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def remove_worktree(
+    repo_root: str | os.PathLike,
+    wt_path: str | os.PathLike,
+    branch: str,
+) -> None:
+    """Two-step removal: worktree then branch (branches outlive worktrees)."""
+    import subprocess as _sp
+
+    unlock = _sp.run(
+        ["git", "-C", str(repo_root), "worktree", "unlock", str(wt_path)],
+        capture_output=True, text=True,
+    )
+    if unlock.returncode != 0 and "not locked" not in unlock.stderr:
+        pass  # treat already-unlocked as fine
+    _sp.run(
+        ["git", "-C", str(repo_root), "worktree", "remove", str(wt_path)],
+        check=True, capture_output=True, text=True,
+    )
+    _sp.run(
+        ["git", "-C", str(repo_root), "branch", "-d", branch],
+        check=True, capture_output=True, text=True,
+    )
+
+
+def reset_hard(wt_path: str | os.PathLike, branch: str) -> None:
+    """Reset a worktree to its branch tip (resume / interrupted task)."""
+    import subprocess as _sp
+
+    _sp.run(
+        ["git", "-C", str(wt_path), "reset", "--hard", branch],
+        check=True, capture_output=True, text=True,
+    )
+
+
+def copy_runtime_files(repo_root: str | os.PathLike, wt_path: str | os.PathLike) -> None:
+    """Copy untracked/ignored runtime files a worker needs (U5/R4)."""
+    import shutil
+
+    src, dst = Path(repo_root), Path(wt_path)
+    for name in RUNTIME_FILE_ALLOWLIST:
+        s = src / name
+        if s.is_file():
+            d = dst / name
+            d.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(s, d)
+        elif s.is_dir():
+            if dst / name in {dst / name} and not (dst / name).exists():
+                shutil.copytree(s, dst / name, dirs_exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
