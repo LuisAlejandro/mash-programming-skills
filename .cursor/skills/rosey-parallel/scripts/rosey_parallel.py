@@ -37,6 +37,7 @@ STATUS_BLOCKED = "blocked"
 STATUS_FAILED = "failed"
 STATUS_TIMEOUT = "timeout"
 STATUS_BLOCKED_BY = "blocked_by"
+STATUS_SKIPPED = "skipped"
 
 STATUSES = frozenset(
     {
@@ -53,6 +54,7 @@ STATUSES = frozenset(
         STATUS_FAILED,
         STATUS_TIMEOUT,
         STATUS_BLOCKED_BY,
+        STATUS_SKIPPED,
     }
 )
 
@@ -71,10 +73,11 @@ TRANSITIONS = {
     STATUS_FAILED: set(),
     STATUS_TIMEOUT: set(),
     STATUS_BLOCKED_BY: set(),
+    STATUS_SKIPPED: set(),
 }
 
 TERMINAL_STATUSES = frozenset(
-    {STATUS_BLOCKED, STATUS_FAILED, STATUS_TIMEOUT, STATUS_BLOCKED_BY}
+    {STATUS_BLOCKED, STATUS_FAILED, STATUS_TIMEOUT, STATUS_BLOCKED_BY, STATUS_SKIPPED}
 )
 
 
@@ -339,6 +342,76 @@ def claim_result(run_dir: str | os.PathLike, task_id: str) -> Path | None:
     os.rename(src, delivering)
     os.rename(delivering, final)
     return final
+
+
+# ---------------------------------------------------------------------------
+# Recovery (hardening U3: R5, R6) — fingerprint-keyed resume + skip-cascade
+# ---------------------------------------------------------------------------
+
+def task_fingerprint(task: dict, dep_fingerprints: dict | None = None) -> str:
+    """Canonicalize a task definition to a sha256 fingerprint (R5).
+
+    Folds each dependency's fingerprint into the task's fingerprint so a
+    re-run dependency forces its dependents to re-run. Keys on the task
+    definition (id, goal, deps, footprint), never on skill content.
+    """
+    import hashlib
+
+    canonical = {
+        "id": task.get("id"),
+        "goal": task.get("goal"),
+        "deps": sorted(task.get("deps") or []),
+        "footprint": sorted(task.get("footprint") or []),
+    }
+    if dep_fingerprints:
+        canonical["depFingerprints"] = {
+            d: dep_fingerprints.get(d) for d in sorted(task.get("deps") or [])
+        }
+    blob = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def diff_fingerprints(old: dict, new: dict) -> dict:
+    """Classify tasks as unchanged / changed / added / removed (R5).
+
+    old/new: {task_id: fingerprint}. Returns a dict of task_id -> category.
+    """
+    result: dict[str, str] = {}
+    for tid in new:
+        if tid in old:
+            result[tid] = "unchanged" if old[tid] == new[tid] else "changed"
+        else:
+            result[tid] = "added"
+    for tid in old:
+        if tid not in new:
+            result[tid] = "removed"
+    return result
+
+
+def apply_skip_cascade(state: dict, failed_ids: set[str]) -> None:
+    """Cascade a failed task's dependents to a terminal `skipped` state (R6).
+
+    Runs only at frontier quiescence (nothing attached / no sibling progress),
+    so a revived sibling can still complete a dependent before the cascade.
+    """
+    # Transitive dependents of any failed task.
+    dependents: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for tid, t in state.items():
+            if t["status"] in (STATUS_BLOCKED_BY, STATUS_SKIPPED):
+                continue
+            if any(d in failed_ids or d in dependents for d in t["deps"]):
+                if tid not in dependents:
+                    dependents.add(tid)
+                    changed = True
+    for tid in dependents:
+        t = state[tid]
+        if t["status"] == STATUS_GATE_APPROVED:
+            t["status"] = STATUS_BLOCKED_BY
+        if t["status"] == STATUS_BLOCKED_BY:
+            t["status"] = STATUS_SKIPPED
 
 
 # ---------------------------------------------------------------------------
@@ -940,9 +1013,16 @@ def orchestrate_run(
     import re as _re
 
     run_id = resume["run_id"] if resume else new_run_id()
-    state = {tid: dict(t) for tid, t in tasks.items()} if not resume else {
-        tid: dict(t) for tid, t in resume["state"].items()
-    }
+    # Build state from the CURRENT task definitions, carrying over statuses
+    # from a resume (hardening U3: R5). This keeps fingerprints keyed to the
+    # live definitions, not a stale snapshot.
+    state: dict[str, dict] = {}
+    for tid, t in tasks.items():
+        nt = dict(t)
+        if resume and tid in resume["state"]:
+            nt["status"] = resume["state"][tid]["status"]
+            nt["blockers"] = list(resume["state"][tid].get("blockers", []))
+        state[tid] = nt
     # Build the run-level record.
     run = {
         "run_id": run_id,
@@ -952,6 +1032,22 @@ def orchestrate_run(
         "base_branch": base_branch,
         "base_sha": base_sha or resume.get("base_sha") if resume else (base_sha or "0000"),
     }
+    # Fingerprint-keyed resume (hardening U3: R5). Compute fingerprints with
+    # dependency folding; reuse unchanged completed tasks, re-run changed/added.
+    for tid, t in state.items():
+        t["footprint"] = sorted(footprints.get(tid, set()))
+    fingerprints = _compute_fingerprints(state)
+    if resume:
+        old_fp = resume.get("fingerprints", {})
+        diff = diff_fingerprints(old_fp, fingerprints)
+        for tid, cat in diff.items():
+            if cat == "unchanged" and state[tid]["status"] == STATUS_DONE:
+                continue  # reuse completed work
+            if cat in ("changed", "added"):
+                # re-run: reset to pending so planning/work re-fire
+                if state[tid]["status"] in (STATUS_DONE, STATUS_BLOCKED_BY, STATUS_SKIPPED):
+                    state[tid]["status"] = STATUS_PENDING
+    run["fingerprints"] = fingerprints
     # Sequencing is deterministic; tracks computed from footprints+deps.
     sched = schedule(state, footprints)
     run["tracks"] = sched["tracks"]
@@ -960,6 +1056,22 @@ def orchestrate_run(
     _run_execution(state, sched["tracks"], driver, run, max_parallel=max_parallel)
     run["waves"] = run.pop("_waves", [])
     return run
+
+
+def _compute_fingerprints(state: dict) -> dict:
+    """Compute per-task fingerprints with dependency folding (R5)."""
+    fps: dict[str, str] = {}
+    # Iterate until stable (deps may be ordered arbitrarily).
+    for _ in range(len(state) + 1):
+        changed = False
+        for tid, t in state.items():
+            new = task_fingerprint(t, fps)
+            if fps.get(tid) != new:
+                fps[tid] = new
+                changed = True
+        if not changed:
+            break
+    return fps
 
 
 def _run_execution(state, tracks, driver, run, max_parallel=4):
@@ -1026,6 +1138,14 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
             admitted_tracks.add(trk)
             slots -= 1
         if not admitted:
+            # Frontier quiescence: nothing runnable. Cascade dependents of
+            # failed tasks to `skipped` (hardening U3: R6) so they don't hang
+            # in `blocked_by` forever.
+            failed_ids = {
+                tid for tid, t in state.items()
+                if t["status"] in (STATUS_FAILED, STATUS_TIMEOUT, STATUS_BLOCKED)
+            }
+            apply_skip_cascade(state, failed_ids)
             break  # nothing runnable; remaining tasks are dep-blocked
         waves.append(list(admitted))
         run.setdefault("_waves", []).append(list(admitted))

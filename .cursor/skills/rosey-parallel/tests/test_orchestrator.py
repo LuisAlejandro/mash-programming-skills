@@ -152,3 +152,66 @@ def test_file_overlap_tasks_serialize_on_track(tmp_path):
         assert not (set(wave) >= {"a", "b"})  # a and b never co-admit
     assert run["state"]["a"]["status"] == rp.STATUS_DONE
     assert run["state"]["b"]["status"] == rp.STATUS_DONE
+
+
+# --- Hardening U3: fingerprint-keyed resume + skip-cascade (R5, R6) ---
+
+
+def test_resume_reuses_unchanged_completed_task(tmp_path):
+    tasks = {"t1": rp.new_task("t1", "one"), "t2": rp.new_task("t2", "two")}
+    footprints = {"t1": {"a.py"}, "t2": {"b.py"}}
+    driver = FakeDriver()
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t1"]["status"] == rp.STATUS_DONE
+    # resume with identical definitions: t1 unchanged+done -> reused, not re-run
+    driver2 = FakeDriver()
+    run2 = rp.orchestrate_run(tmp_path, tasks, footprints, driver2, resume=run)
+    assert run2["state"]["t1"]["status"] == rp.STATUS_DONE
+    assert all(e[1] != "t1" for e in driver2.log)  # t1 never re-planned/re-worked
+
+
+def test_resume_reruns_changed_task(tmp_path):
+    tasks = {"t1": rp.new_task("t1", "one"), "t2": rp.new_task("t2", "two")}
+    footprints = {"t1": {"a.py"}, "t2": {"b.py"}}
+    driver = FakeDriver()
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    # change t1's goal -> fingerprint changes -> re-run
+    tasks2 = {"t1": rp.new_task("t1", "one-changed"), "t2": rp.new_task("t2", "two")}
+    driver2 = FakeDriver()
+    run2 = rp.orchestrate_run(tmp_path, tasks2, footprints, driver2, resume=run)
+    assert run2["state"]["t1"]["status"] == rp.STATUS_DONE
+    assert any(e[1] == "t1" for e in driver2.log)  # t1 re-run
+
+
+def test_dep_fingerprint_folding_forces_dependent_rerun(tmp_path):
+    # t2 depends on t1. Changing t1's fingerprint must force t2 to re-run too.
+    tasks = {"t1": rp.new_task("t1", "one"), "t2": rp.new_task("t2", "two", deps=["t1"])}
+    footprints = {"t1": {"a.py"}, "t2": {"b.py"}}
+    driver = FakeDriver()
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    tasks2 = {"t1": rp.new_task("t1", "one-changed"), "t2": rp.new_task("t2", "two", deps=["t1"])}
+    driver2 = FakeDriver()
+    run2 = rp.orchestrate_run(tmp_path, tasks2, footprints, driver2, resume=run)
+    assert any(e[1] == "t2" for e in driver2.log)  # dependent re-run
+
+
+def test_failed_task_dependents_cascade_to_skipped(tmp_path):
+    # t1 fails; t2 depends on t1 -> t2 cascades to skipped at quiescence.
+    tasks = {"t1": rp.new_task("t1", "one"), "t2": rp.new_task("t2", "two", deps=["t1"])}
+    footprints = {"t1": {"a.py"}, "t2": {"b.py"}}
+    driver = FakeDriver(work_outcomes=["failure", "done"])
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t1"]["status"] == rp.STATUS_FAILED
+    assert run["state"]["t2"]["status"] == rp.STATUS_SKIPPED
+
+
+def test_skipped_is_terminal_and_not_rerun_on_resume(tmp_path):
+    tasks = {"t1": rp.new_task("t1", "one"), "t2": rp.new_task("t2", "two", deps=["t1"])}
+    footprints = {"t1": {"a.py"}, "t2": {"b.py"}}
+    driver = FakeDriver(work_outcomes=["failure", "done"])
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t2"]["status"] == rp.STATUS_SKIPPED
+    # resume: t2 stays skipped (unchanged fingerprint, terminal)
+    driver2 = FakeDriver()
+    run2 = rp.orchestrate_run(tmp_path, tasks, footprints, driver2, resume=run)
+    assert run2["state"]["t2"]["status"] == rp.STATUS_SKIPPED
