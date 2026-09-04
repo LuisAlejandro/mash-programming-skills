@@ -876,6 +876,122 @@ def _run_execution(state, tracks, driver, run):
 
 
 # ---------------------------------------------------------------------------
+# Integration + final report (plan U9: R3, R19, R20, R21)
+# ---------------------------------------------------------------------------
+
+def integrate(repo_root, tracks, base_branch="develop", gates=None):
+    """Merge track branches locally in order, running gates on the merged tree.
+
+    tracks: list of {"branch": <name>} in deterministic track order.
+    gates:  callable(integration_worktree) -> (ok: bool, failures: list)
+
+    Base ref moves only when all gates pass. Returns a report dict with
+    status: "success" | "fixup".
+    """
+    import subprocess as _sp
+
+    repo = Path(repo_root)
+    integration_wt = repo / "rosey-parallel-integration"
+    ok, failures = True, []
+
+    try:
+        # Integration worktree on a detached HEAD from the current base tip.
+        _sp.run(
+            ["git", "-C", str(repo), "worktree", "add", "--detach", str(integration_wt), "HEAD"],
+            check=True, capture_output=True, text=True,
+        )
+        merged = []
+        for t in tracks:
+            branch = t["branch"]
+            res = _sp.run(
+                ["git", "-C", str(integration_wt), "merge", "--no-ff", branch,
+                 "-m", f"merge {branch}"],
+                capture_output=True, text=True,
+            )
+            # conflict? unmerged paths present
+            unmerged = _sp.run(
+                ["git", "-C", str(integration_wt), "diff", "--name-only", "--diff-filter=U"],
+                capture_output=True, text=True,
+            ).stdout.strip()
+            if res.returncode != 0 and unmerged:
+                _sp.run(["git", "-C", str(integration_wt), "merge", "--abort"],
+                        capture_output=True)
+                return {
+                    "status": "fixup",
+                    "reason": f"merge conflict on {branch}",
+                    "conflicting_branch": branch,
+                    "merged_tracks": merged,
+                    "integrated_tip": None,
+                }
+            merged.append(branch)
+        # Gates on the merged result.
+        if gates is not None:
+            ok, failures = gates(integration_wt)
+        if not ok:
+            return {
+                "status": "fixup",
+                "reason": "gates failed: " + "; ".join(failures),
+                "gates_failed": failures,
+                "merged_tracks": merged,
+                "integrated_tip": None,
+            }
+        integrated_tip = _sp.run(
+            ["git", "-C", str(integration_wt), "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        # Move the base ref (only on full success, R19/KTD8).
+        _sp.run(
+            ["git", "-C", str(repo), "update-ref", f"refs/heads/{base_branch}", integrated_tip],
+            check=True, capture_output=True,
+        )
+        return {
+            "status": "success",
+            "merged_tracks": merged,
+            "integrated_tip": integrated_tip,
+            "leftover_worktrees": [integration_wt],
+        }
+    finally:
+        # Remove the integration worktree and its branch if one was created.
+        _sp.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(integration_wt)],
+                capture_output=True)
+
+
+def final_report(tracks, run_state, base_sha=None, integration_tip=None,
+                 leftover_worktrees=None, fix_ups=None, human_blockers=None):
+    """Assemble the run's human-readable final report (U9).
+
+    Halting statuses (blocked/timeout/failure) are surfaced; completed tasks
+    list their commit range; leftover worktrees/branches and outstanding
+    fix-ups/human blockers are recorded.
+    """
+    halted_tasks = []
+    for tid, task in run_state.items():
+        if task.get("status") in (STATUS_BLOCKED, STATUS_TIMEOUT, STATUS_FAILED):
+            halted_tasks.append({
+                "task": tid,
+                "status": task.get("status"),
+                "blockers": task.get("blockers", []),
+            })
+    done_tasks = [
+        {"task": tid, "status": task.get("status")}
+        for tid, task in run_state.items()
+        if task.get("status") == STATUS_DONE
+    ]
+    return {
+        "status": "success" if not halted_tasks else "halted",
+        "tracks": tracks,
+        "done_tasks": done_tasks,
+        "blocked_tracks": halted_tasks,
+        "halted_tasks": halted_tasks,
+        "base_sha": base_sha,
+        "integration_tip": integration_tip,
+        "leftover_worktrees": list(leftover_worktrees or []),
+        "fix_ups": list(fix_ups or []),
+        "human_blockers": list(human_blockers or []),
+    }
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
