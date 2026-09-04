@@ -217,6 +217,119 @@ def load_run(repo_root: str | os.PathLike, run_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Input validation (plan U2: R1, R2)
+# ---------------------------------------------------------------------------
+
+class ValidationError(Exception):
+    """Raised when run inputs fail fast validation (R2). Carries all
+    violations detected in a single pass."""
+
+    def __init__(self, message: str, violations: list[str]) -> None:
+        super().__init__(message)
+        self.violations = violations
+
+
+def validate_inputs(tasks: list[dict], options: dict) -> list[dict]:
+    """Validate a run's task list, failing fast (R2) before any worktree.
+
+    Returns a normalized task list (ids validated, deps as a list). Raises
+    ValidationError with an aggregated message naming every offending id.
+    """
+    violations: list[str] = []
+
+    if not tasks:
+        violations.append("empty task list")
+
+    # Structural checks: id present, goal present, deps listable.
+    ids_seen: set[str] = set()
+    for t in tasks:
+        tid = t.get("id")
+        if not isinstance(tid, str) or not tid:
+            violations.append(f"task missing valid id")
+            continue
+        if tid in ids_seen:
+            violations.append(f"duplicate task id {tid!r}")
+        ids_seen.add(tid)
+        if not t.get("goal"):
+            violations.append(f"task {tid!r} missing goal")
+
+    valid_ids = {t.get("id") for t in tasks if isinstance(t.get("id"), str)}
+    dupes = {t.get("id") for t in tasks if isinstance(t.get("id"), str) and list(
+        [o.get("id") for o in tasks]).count(t.get("id")) > 1}
+    effective_ids = valid_ids - dupes  # can't safely reference dup ids
+
+    for t in tasks:
+        tid = t.get("id")
+        deps = t.get("deps") or []
+        if not isinstance(deps, list):
+            violations.append(f"task {tid!r} deps is not a list")
+            continue
+        for dep in deps:
+            if dep == tid:
+                violations.append(f"task {tid!r} has self-dependency")
+            elif dep not in effective_ids:
+                violations.append(f"task {tid!r} references unknown dependency {dep!r}")
+
+    if violations:
+        raise ValidationError("; ".join(violations), violations)
+
+    # Cycle detection over the (now guaranteed real) dependency graph.
+    _validate_no_cycles(tasks, valid_ids, violations)
+
+    normalized = [
+        {
+            "id": t["id"],
+            "goal": t["goal"],
+            "deps": list(t.get("deps") or []),
+            "harness": t.get("harness"),
+        }
+        for t in tasks
+    ]
+    return normalized
+
+
+def _validate_no_cycles(
+    tasks: list[dict], ids: set[str], violations: list[str]
+) -> None:
+    """Detect dependency cycles (R2 / R8). Appends a violation per cycle found."""
+    edges: dict[str, list[str]] = {}
+    for t in tasks:
+        edges[t["id"]] = list(t.get("deps") or [])
+    if any(t.get("id") not in edges for t in tasks):
+        return  # structural validation will have failed already
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color = {tid: WHITE for tid in ids}
+    path: list[str] = []
+    cycles: list[list[str]] = []
+
+    def visit(node: str) -> None:
+        color[node] = GRAY
+        path.append(node)
+        for nxt in edges.get(node, []):
+            if nxt not in color:
+                continue
+            if color[nxt] == GRAY:
+                start = path.index(nxt)
+                cycles.append(path[start:] + [nxt])
+            elif color[nxt] == WHITE:
+                visit(nxt)
+        path.pop()
+        color[node] = BLACK
+
+    for tid in sorted(ids):
+        if color[tid] == WHITE:
+            visit(tid)
+
+    for cyc in cycles:
+        violations.append(
+            "dependency cycle: " + " -> ".join(cyc)
+        )
+    if cycles:
+        rendered = "dependency cycle: " + " -> ".join(cycles[0])
+        raise ValidationError(rendered, violations)
+        
+
+# ---------------------------------------------------------------------------
 # Footprint parsing (plan U3: R5)
 # ---------------------------------------------------------------------------
 
