@@ -72,7 +72,7 @@ TRANSITIONS = {
     STATUS_BLOCKED: set(),
     STATUS_FAILED: set(),
     STATUS_TIMEOUT: set(),
-    STATUS_BLOCKED_BY: set(),
+    STATUS_BLOCKED_BY: {STATUS_SKIPPED},
     STATUS_SKIPPED: set(),
 }
 
@@ -394,18 +394,24 @@ def apply_skip_cascade(state: dict, failed_ids: set[str]) -> None:
     Runs only at frontier quiescence (nothing attached / no sibling progress),
     so a revived sibling can still complete a dependent before the cascade.
     """
-    # Transitive dependents of any failed task.
+    # Transitive dependents of any failed task, PLUS dependents of tasks
+    # already terminal-skipped/blocked (which a prior run cascaded). This
+    # closes the resume gap: a dependent added in a later run must also
+    # cascade instead of hanging on a skipped dependency.
+    sources = set(failed_ids) | {
+        tid for tid, t in state.items()
+        if t["status"] in (STATUS_SKIPPED, STATUS_BLOCKED_BY)
+    }
     dependents: set[str] = set()
     changed = True
     while changed:
         changed = False
         for tid, t in state.items():
-            if t["status"] in (STATUS_BLOCKED_BY, STATUS_SKIPPED):
+            if tid in dependents:
                 continue
-            if any(d in failed_ids or d in dependents for d in t["deps"]):
-                if tid not in dependents:
-                    dependents.add(tid)
-                    changed = True
+            if any(d in sources or d in dependents for d in t["deps"]):
+                dependents.add(tid)
+                changed = True
     for tid in dependents:
         t = state[tid]
         if t["status"] == STATUS_GATE_APPROVED:
@@ -1065,8 +1071,6 @@ def orchestrate_run(
     driver.plan_task(task_id) -> status string; driver.work_phase(task_id)
     -> status string ("done" | "blocker" | "failure" | "timeout").
     """
-    import re as _re
-
     run_id = resume["run_id"] if resume else new_run_id()
     # Build state from the CURRENT task definitions, carrying over statuses
     # from a resume (hardening U3: R5). This keeps fingerprints keyed to the
@@ -1099,9 +1103,32 @@ def orchestrate_run(
             if cat == "unchanged" and state[tid]["status"] == STATUS_DONE:
                 continue  # reuse completed work
             if cat in ("changed", "added"):
-                # re-run: reset to pending so planning/work re-fire
-                if state[tid]["status"] in (STATUS_DONE, STATUS_BLOCKED_BY, STATUS_SKIPPED):
+                # re-run: reset to pending so planning/work re-fire. A changed
+                # task reset unconditionally (even if left mid WORKING/QA/LINT,
+                # where it would otherwise strand and never re-fire). An `added`
+                # task is fresh — only rewind if a snapshot left it terminal.
+                if cat == "changed":
                     state[tid]["status"] = STATUS_PENDING
+                elif state[tid]["status"] in (STATUS_DONE, STATUS_BLOCKED_BY, STATUS_SKIPPED):
+                    state[tid]["status"] = STATUS_PENDING
+    # Guard removed-task deps (hardening R6): if a task's dep no longer exists
+    # in the live task set (removed between runs) it can never resolve — mark
+    # it skipped so it doesn't hang in gate_approved forever.
+    live_ids = set(state)
+    for tid, t in state.items():
+        missing = [d for d in t["deps"] if d not in live_ids]
+        # Cascade only live task instances; never touch already-terminal work
+        # or completed (DONE) work.
+        if (
+            missing
+            and t["status"] not in TERMINAL_STATUSES
+            and t["status"] != STATUS_DONE
+        ):
+            t["status"] = STATUS_SKIPPED
+            t.setdefault("blockers", []).append(
+                "dependency removed between runs: " + ",".join(missing)
+            )
+
     run["fingerprints"] = fingerprints
     # Sequencing is deterministic; tracks computed from footprints+deps.
     sched = schedule(state, footprints)
@@ -1160,10 +1187,9 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
         for tid in trk["tasks"]:
             track_of[tid] = trk["track_id"]
 
-    done: set[str] = set()
+    done: set[str] = {tid for tid, t in state.items() if t["status"] == STATUS_DONE}
     denied: list[str] = []  # FIFO of admissible-but-denied (no slot this pass)
     waves: list[list[str]] = []  # informational wave groupings (never barriers)
-    run["_waves"] = waves
     run["_waves"] = waves
 
     def deps_done(tid: str) -> bool:
@@ -1203,14 +1229,30 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
             apply_skip_cascade(state, failed_ids)
             break  # nothing runnable; remaining tasks are dep-blocked
         waves.append(list(admitted))
-        run.setdefault("_waves", []).append(list(admitted))
+        # Evidence gate (hardening U4: R7) + retry guidance (R8). The driver
+        # may expose raw worker output via an optional `evidence(tid)` method;
+        # when present, `done` requires an evidence artifact and a `failure`
+        # carries a corrective fix hint. FakeDrivers without evidence() skip
+        # the gate, keeping the orchestrator loop contract intact.
+        def _worker_output(tid: str) -> str | None:
+            fn = getattr(driver, "evidence", None)
+            return fn(tid) if callable(fn) else None
+
         for tid in admitted:
             t = state[tid]
             t["status"] = STATUS_WORKING
             outcome = driver.work_phase(tid)
+            raw = _worker_output(tid)
             if outcome == "done":
-                t["status"] = STATUS_DONE
-                done.add(tid)
+                if raw is not None and not has_evidence(raw):
+                    # worker claims done but produced no evidence artifact
+                    t["status"] = STATUS_FAILED
+                    t["blockers"].append(
+                        "work: done without evidence artifact"
+                    )
+                else:
+                    t["status"] = STATUS_DONE
+                    done.add(tid)
             elif outcome == "blocker":
                 t["status"] = STATUS_BLOCKED
                 t["blockers"].append("work: blocked")
@@ -1218,6 +1260,13 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
                 t["status"] = STATUS_TIMEOUT
             else:
                 t["status"] = STATUS_FAILED
+                if raw:
+                    g = retry_guidance(raw)
+                    t["blockers"].append(
+                        f"work failed ({g['errorType']}): {g['fixHint']}"
+                    )
+                else:
+                    t["blockers"].append("work: failed")
 
 
 # ---------------------------------------------------------------------------
@@ -1247,10 +1296,17 @@ def run_parallel_verification(driver, integrated_tip: str | None) -> dict:
     architecture/contract check) on the integrated result. Returns a record
     of per-verifier outcomes and any rejections.
     """
+    import concurrent.futures as _cf
+
     verifiers = ["code_review", "test_runner", "architecture"]
-    results = {}
-    for v in verifiers:
-        results[v] = driver.verify_phase(v, integrated_tip)
+
+    def _run(v: str) -> tuple[str, str]:
+        return v, driver.verify_phase(v, integrated_tip)
+
+    results: dict[str, str] = {}
+    with _cf.ThreadPoolExecutor(max_workers=len(verifiers)) as ex:
+        for v, outcome in ex.map(_run, verifiers):
+            results[v] = outcome
     rejected = [v for v, r in results.items() if r != "pass"]
     return {
         "phase": "parallel_verification",
@@ -1377,20 +1433,155 @@ def final_report(tracks, run_state, base_sha=None, integration_tip=None,
 
 
 # ---------------------------------------------------------------------------
-# CLI
+# Real harness phase-driver (plan U6/R26) + CLI
 # ---------------------------------------------------------------------------
+
+class HarnessPhaseDriver:
+    """Real driver that shells out to a delegated harness worker.
+
+    Implements the same contract as the test FakeDrivers (plan_task,
+    work_phase, scaffold_phase, verify_phase, evidence) so orchestrate_run
+    and the flow phases run against a live harness. Each phase invokes the
+    harness binary with the worker prompt and interprets the captured output.
+    """
+
+    def __init__(self, name: str, repo_root: str | os.PathLike,
+                 run_id: str, prompt_builder=None) -> None:
+        self.harness = HarnessDriver.from_name(name)
+        self.repo_root = Path(repo_root)
+        self.run_id = run_id
+        self._prompt_builder = prompt_builder or self._default_prompt
+        self._outputs: dict[str, str] = {}
+
+    def _default_prompt(self, task_id: str, phase: str) -> str:
+        return (
+            f"You are a rosey worker running task {task_id!r} phase {phase!r} "
+            f"of run {self.run_id!r}. Follow the worker prompt contract."
+        )
+
+    def _invoke(self, task_id: str, phase: str) -> str:
+        """Run the harness, return the interpreted outcome string."""
+        import subprocess as _sp
+
+        prompt = self._prompt_builder(task_id, phase)
+        cmd = self.harness.launch_cmd(self.harness.name) + [prompt]
+        res = _sp.run(
+            cmd, capture_output=True, text=True, cwd=self.repo_root,
+        )
+        output = (res.stdout or "") + (res.stderr or "")
+        self._outputs[task_id] = output
+        return self.harness.interpret(res.returncode, output)
+
+    def plan_task(self, task_id: str) -> str:
+        return self._invoke(task_id, "plan")
+
+    def work_phase(self, task_id: str) -> str:
+        return self._invoke(task_id, "work")
+
+    def evidence(self, task_id: str) -> str | None:
+        return self._outputs.get(task_id)
+
+    def scaffold_phase(self) -> str:
+        return self._invoke("__scaffold__", "scaffold")
+
+    def verify_phase(self, verifier: str, tip: str | None) -> str:
+        return self._invoke(f"__verify__/{verifier}", "verify")
+
+
+def _load_run_inputs(path: str) -> tuple[list[dict], dict]:
+    """Load and validate a run-inputs JSON file -> (tasks, options)."""
+    data = json.loads(Path(path).read_text())
+    tasks = data.get("tasks", [])
+    options = data.get("options", {})
+    return validate_inputs(tasks, options), options
+
+
+def _cmd_run(argv: list[str]) -> int:
+    """run <inputs.json> [--resume <run-id>] [--max-parallel N]"""
+    if not argv:
+        print("usage: rosey_parallel.py run <inputs.json> [--resume <run-id>]",
+              file=sys.stderr)
+        return 2
+    inputs_path = argv[0]
+    resume_id = None
+    max_parallel = 4
+    i = 1
+    while i < len(argv):
+        if argv[i] == "--resume" and i + 1 < len(argv):
+            resume_id = argv[i + 1]
+            i += 2
+        elif argv[i] == "--max-parallel" and i + 1 < len(argv):
+            max_parallel = int(argv[i + 1])
+            i += 2
+        else:
+            i += 1
+    tasks, options = _load_run_inputs(inputs_path)
+    repo_root = Path.cwd()
+    footprints = {
+        t["id"]: set(t.get("footprint") or []) for t in tasks
+    }
+    harness = options.get("harness")
+    if not harness:
+        harness = select_harness(
+            None, lambda n: HarnessDriver.from_name(n).probe()
+        )
+    run_id = resume_id or new_run_id()
+    driver = HarnessPhaseDriver(harness, repo_root, run_id)
+    resume = load_run(repo_root, run_id) if resume_id else None
+    run = orchestrate_run(
+        repo_root, {t["id"]: t for t in tasks}, footprints, driver,
+        base_branch=options.get("base_branch", "develop"),
+        base_sha=options.get("base_sha"),
+        resume=resume, max_parallel=max_parallel,
+    )
+    save_run(repo_root, run)
+    print(json.dumps(run, indent=2, sort_keys=False))
+    return 0
+
+
+def _cmd_scaffold(argv: list[str]) -> int:
+    """scaffold <inputs.json>"""
+    if not argv:
+        print("usage: rosey_parallel.py scaffold <inputs.json>", file=sys.stderr)
+        return 2
+    tasks, options = _load_run_inputs(argv[0])
+    harness = options.get("harness") or "pi"
+    driver = HarnessPhaseDriver(harness, Path.cwd(), new_run_id())
+    result = run_scaffold(driver, {t["id"]: t for t in tasks})
+    print(json.dumps(result, indent=2, sort_keys=False))
+    return 0
+
+
+def _cmd_verify(argv: list[str]) -> int:
+    """verify <integrated-tip>"""
+    if not argv:
+        print("usage: rosey_parallel.py verify <integrated-tip>", file=sys.stderr)
+        return 2
+    driver = HarnessPhaseDriver("pi", Path.cwd(), new_run_id())
+    result = run_parallel_verification(driver, argv[0])
+    print(json.dumps(result, indent=2, sort_keys=False))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] == "--self-check":
+    if not argv:
+        print(
+            "usage: rosey_parallel.py <run|scaffold|verify|--self-check> ...",
+            file=sys.stderr,
+        )
+        return 2
+    cmd, rest = argv[0], argv[1:]
+    if cmd == "--self-check":
         _self_check()
         return 0
-    print(
-        "usage: rosey_parallel.py --self-check\n"
-        "(subcommands land with later units)",
-        file=sys.stderr,
-    )
+    if cmd == "run":
+        return _cmd_run(rest)
+    if cmd == "scaffold":
+        return _cmd_scaffold(rest)
+    if cmd == "verify":
+        return _cmd_verify(rest)
+    print(f"unknown subcommand {cmd!r}", file=sys.stderr)
     return 2
 
 

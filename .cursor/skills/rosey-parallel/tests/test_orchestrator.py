@@ -215,3 +215,117 @@ def test_skipped_is_terminal_and_not_rerun_on_resume(tmp_path):
     driver2 = FakeDriver()
     run2 = rp.orchestrate_run(tmp_path, tasks, footprints, driver2, resume=run)
     assert run2["state"]["t2"]["status"] == rp.STATUS_SKIPPED
+
+
+def test_resume_reuses_done_dep_so_dependent_can_run(tmp_path):
+    # t1 completes; resume reuses it (unchanged+done) but t2 depends on t1.
+    # The reused DONE task must seed the frontier `done` set so t2 runs
+    # instead of stranding in GATE_APPROVED (hardening R5 resume deadlock).
+    tasks = {"t1": rp.new_task("t1", "one"), "t2": rp.new_task("t2", "two", deps=["t1"])}
+    footprints = {"t1": {"a.py"}, "t2": {"b.py"}}
+    driver = FakeDriver(work_outcomes=["done"])
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    # snapshot: force t1 done, but interrupt before t2 finishes (leave it GATE_APPROVED)
+    resume_state = {tid: dict(t) for tid, t in run["state"].items()}
+    resume_state["t1"]["status"] = rp.STATUS_DONE
+    resume_state["t2"]["status"] = rp.STATUS_GATE_APPROVED
+    resume = {**run, "state": resume_state}
+    driver2 = FakeDriver()
+    run2 = rp.orchestrate_run(tmp_path, tasks, footprints, driver2, resume=resume)
+    assert run2["state"]["t2"]["status"] == rp.STATUS_DONE
+
+
+def test_resume_changed_task_mid_work_reruns(tmp_path):
+    # t1 changed between runs but its snapshot left it mid-WORKING: it must
+    # reset to PENDING and re-fire, not strand (hardening R5).
+    tasks = {"t1": rp.new_task("t1", "one")}
+    footprints = {"t1": {"a.py"}}
+    driver = FakeDriver(work_outcomes=["done"])
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    resume_state = {tid: dict(t) for tid, t in run["state"].items()}
+    resume_state["t1"]["status"] = rp.STATUS_WORKING
+    resume = {**run, "state": resume_state}
+    tasks2 = {"t1": rp.new_task("t1", "one-changed")}
+    driver2 = FakeDriver()
+    run2 = rp.orchestrate_run(tmp_path, tasks2, footprints, driver2, resume=resume)
+    assert run2["state"]["t1"]["status"] == rp.STATUS_DONE
+    assert any(e[1] == "t1" for e in driver2.log)  # t1 re-fired
+
+
+def test_resume_task_dep_removed_cascades_skipped(tmp_path):
+    # t2 depends on t1; between runs t1 is removed from the task list. t2's
+    # dep can never resolve, so it must cascade to SKIPPED, not hang.
+    tasks = {"t1": rp.new_task("t1", "one"), "t2": rp.new_task("t2", "two", deps=["t1"])}
+    footprints = {"t1": {"a.py"}, "t2": {"b.py"}}
+    driver = FakeDriver()
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    tasks2 = {"t2": rp.new_task("t2", "two", deps=["t1"])}  # t1 removed
+    driver2 = FakeDriver()
+    run2 = rp.orchestrate_run(tmp_path, tasks2, footprints, driver2, resume=run)
+    assert run2["state"]["t2"]["status"] == rp.STATUS_SKIPPED
+
+
+class EvidenceDriver(FakeDriver):
+    """FakeDriver that exposes raw worker output via evidence()."""
+
+    def __init__(self, work_outcomes=None, outputs=None):
+        super().__init__(work_outcomes=work_outcomes)
+        self.outputs = dict(outputs or {})
+
+    def evidence(self, task_id):
+        return self.outputs.get(task_id)
+
+
+def test_evidence_gate_rejects_done_without_evidence(tmp_path):
+    # A worker claiming 'done' but emitting no evidence artifact is not done
+    # (hardening U4: R7). The orchestrator must reject it as a failure.
+    tasks = {"t1": rp.new_task("t1", "one")}
+    footprints = {"t1": {"a.py"}}
+    driver = EvidenceDriver(work_outcomes=["done"], outputs={"t1": "no evidence here"})
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t1"]["status"] == rp.STATUS_FAILED
+    assert any("evidence" in b for b in run["state"]["t1"]["blockers"])
+
+
+def test_evidence_gate_accepts_done_with_evidence(tmp_path):
+    tasks = {"t1": rp.new_task("t1", "one")}
+    footprints = {"t1": {"a.py"}}
+    out = "ROSEY_EVIDENCE\nall tests pass\nEND_ROSEY_EVIDENCE"
+    driver = EvidenceDriver(work_outcomes=["done"], outputs={"t1": out})
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t1"]["status"] == rp.STATUS_DONE
+
+
+def test_failure_carries_retry_hint_in_blocker(tmp_path):
+    # A failure outcome is enriched with retry guidance (hardening U4: R8).
+    tasks = {"t1": rp.new_task("t1", "one")}
+    footprints = {"t1": {"a.py"}}
+    driver = EvidenceDriver(work_outcomes=["failure"], outputs={"t1": "merge conflict in x"})
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t1"]["status"] == rp.STATUS_FAILED
+    assert any("merge_conflict" in b for b in run["state"]["t1"]["blockers"])
+
+
+def test_cli_dispatch_unknown_and_usage(tmp_path):
+    # CLI dispatch: unknown subcommand and bare invocation return non-zero.
+    import rosey_parallel as rp_mod
+    assert rp_mod.main(["bogus"]) != 0
+    assert rp_mod.main([]) != 0
+
+
+def test_cli_run_validates_inputs_fail_fast(tmp_path):
+    # The `run` subcommand loads + validates inputs; a bad task list fails
+    # fast with ValidationError before any harness is invoked.
+    import json as _json
+    import rosey_parallel as rp_mod
+    inputs = tmp_path / "inputs.json"
+    inputs.write_text(_json.dumps({
+        "tasks": [{"id": "t1", "goal": "one", "deps": ["missing"]}],
+        "options": {"harness": "pi"},
+    }))
+    try:
+        rp_mod.main(["run", str(inputs)])
+    except rp_mod.ValidationError:
+        pass  # expected: unknown dependency fails fast
+    else:
+        raise AssertionError("expected ValidationError for unknown dep")

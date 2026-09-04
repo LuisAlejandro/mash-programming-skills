@@ -38,6 +38,15 @@ All state transitions, validation, footprint parsing, sequencing, worktree ops, 
 ```bash
 # self-check / smoke
 .cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py --self-check
+
+# run an epic (loads run-inputs.json, orchestrates, saves state)
+.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py run run-inputs.json [--resume <run-id>] [--max-parallel N]
+
+# scaffold phase only
+.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py scaffold run-inputs.json
+
+# parallel verification on an integrated tip
+.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py verify <integrated-tip>
 ```
 
 ## Flow
