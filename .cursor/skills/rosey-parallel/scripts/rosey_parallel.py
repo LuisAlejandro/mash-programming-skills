@@ -743,6 +743,65 @@ def select_harness(override, available, priority=HARNESS_PRIORITY) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Worker prompt contract + phase runners (plan U7: R13, R14, R15)
+# ---------------------------------------------------------------------------
+
+HANDOFF_START = "ROSEY_WORK_HANDOFF"
+HANDOFF_END = "END_ROSEY_WORK_HANDOFF"
+
+
+def extract_handoff(output: str) -> dict:
+    """Parse a rosey-work handoff envelope from worker output.
+
+    Returns {"status": done|blocker|failure, "files_changed": [...], "blockers": [...]}.
+    """
+    start = output.find(HANDOFF_START)
+    end = output.find(HANDOFF_END)
+    if start == -1 or end == -1 or end <= start:
+        return {"status": "failure", "files_changed": [], "blockers": []}
+    body = output[start + len(HANDOFF_START):end]
+    files: list[str] = []
+    blockers: list[str] = []
+    lines = [ln.strip() for ln in body.splitlines()]
+    for i, ln in enumerate(lines):
+        if ln == "FILES_CHANGED:":
+            for nxt in lines[i + 1:]:
+                if nxt.startswith("- "):
+                    files.append(nxt[2:].strip())
+                elif nxt and not nxt.startswith("- "):
+                    break
+        if ln == "BLOCKERS:":
+            for nxt in lines[i + 1:]:
+                if nxt.startswith("- "):
+                    blockers.append(nxt[2:].strip())
+                elif nxt and not nxt.startswith("- "):
+                    break
+    status = "blocker" if blockers else "done"
+    return {"status": status, "files_changed": files, "blockers": blockers}
+
+
+def compute_touched_files(env_files: list[str], diff_files: list[str]) -> set[str]:
+    """Union of handoff FILES_CHANGED and git diff (union, never intersection)."""
+    return set(env_files) | set(diff_files)
+
+
+def find_drift_collisions(touched: set[str], other_live_footprints: list[set]) -> list[str]:
+    """Return the files a completed task touched that are also declared by other live tracks."""
+    live = set().union(*other_live_footprints) if other_live_footprints else set()
+    return sorted(touched & live)
+
+
+def worker_overrides(track_branch: str) -> dict:
+    """Prompt overrides for pre-created track branches (U7)."""
+    return {
+        "branch": track_branch,
+        "branch_setup": "do not run branch setup",
+        "sentrux": "skip",
+        "qa_diff_base": "track-branch-point",
+    }
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
