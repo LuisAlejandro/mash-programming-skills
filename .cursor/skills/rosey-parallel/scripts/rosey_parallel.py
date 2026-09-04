@@ -389,6 +389,158 @@ def parse_footprint(plan_text: str) -> tuple[set[str], list[str]]:
 
 
 # ---------------------------------------------------------------------------
+# Sequencing (plan U4: R7, R8, R9)
+# ---------------------------------------------------------------------------
+
+class _UnionFind:
+    def __init__(self) -> None:
+        self.parent = {}
+        self.rank = {}
+
+    def _make(self, x: str) -> None:
+        self.parent.setdefault(x, x)
+        self.rank.setdefault(x, 0)
+
+    def find(self, x: str) -> str:
+        self._make(x)
+        while self.parent[x] != x:
+            self.parent[x] = self.parent[self.parent[x]]
+            x = self.parent[x]
+        return x
+
+    def union(self, a: str, b: str) -> None:
+        ra, rb = self.find(a), self.find(b)
+        if ra == rb:
+            return
+        if self.rank[ra] < self.rank[rb]:
+            ra, rb = rb, ra
+        self.parent[rb] = ra
+        if self.rank[ra] == self.rank[rb]:
+            self.rank[ra] += 1
+
+
+def schedule(tasks: dict, footprints: dict) -> dict:
+    """Deterministic track computation (U4).
+
+    tasks:       {task_id: new_task(...) dicts}
+    footprints:  {task_id: set(relative_paths)}
+
+    Returns {"tracks": [{"track_id": int, "tasks": [ids in topo order], "warnings": []}],
+             "warnings": [...]}. Deterministic: identical inputs => identical output.
+    """
+    warnings: list[str] = []
+    ids = sorted(tasks)
+
+    if not ids:
+        return {"tracks": [], "warnings": warnings}
+
+    # Dependency cycle check first (loud failure, R8).
+    for dep_chain in _dependency_cycles(tasks):
+        if dep_chain:
+            raise ValidationError(
+                "dependency cycle: " + " -> ".join(dep_chain), ["cycle"]
+            )
+
+    uf = _UnionFind()
+    for tid in ids:
+        uf.find(tid)
+    # Footprint-intersection edges.
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            a, b = ids[i], ids[j]
+            fa = set(footprints.get(a, set()))
+            fb = set(footprints.get(b, set()))
+            if fa & fb:
+                uf.union(a, b)
+    # Declared-dependency edges.
+    for tid in ids:
+        for dep in tasks[tid]["deps"]:
+            if dep in tasks:
+                uf.union(tid, dep)
+
+    # Group into components ordered by smallest member id.
+    comps: dict[str, list[str]] = {}
+    for tid in ids:
+        comps.setdefault(uf.find(tid), []).append(tid)
+    ordered_groups = [comps[k] for k in sorted(comps)]
+
+    tracks = []
+    for gi, group in enumerate(ordered_groups):
+        if len(group) == 1:
+            tid = group[0]
+            # empty-footprint singletons warn (R5), unless dep pulled them in
+            if not footprints.get(tid):
+                if not tasks[tid]["deps"]:
+                    warnings.append(
+                        f"task {tid!r} has no file footprint; singleton track"
+                    )
+            tracks.append({"track_id": gi, "tasks": [tid], "warnings": []})
+            continue
+        # Topo order within the component over declared-dependency edges only.
+        order = _topo_order(group, tasks)
+        tracks.append({"track_id": gi, "tasks": order, "warnings": []})
+
+    if tracks and len(tracks) == 1 and len(tracks[0]["tasks"]) > 1:
+        warnings.append("all tasks in a single serial track; zero parallelism")
+
+    return {"tracks": tracks, "warnings": warnings}
+
+
+def _dependency_cycles(tasks: dict) -> list[list[str]]:
+    """Return any dependency cycles (as task-id chains)."""
+    ids = set(tasks)
+    edges = {tid: [d for d in tasks[tid]["deps"] if d in ids] for tid in tasks}
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color = {tid: WHITE for tid in ids}
+    path: list[str] = []
+    cycles: list[list[str]] = []
+
+    def visit(node: str) -> None:
+        color[node] = GRAY
+        path.append(node)
+        for nxt in edges[node]:
+            if color[nxt] == GRAY:
+                start = path.index(nxt)
+                cycles.append(path[start:] + [nxt])
+            elif color[nxt] == WHITE:
+                visit(nxt)
+        path.pop()
+        color[node] = BLACK
+
+    for tid in sorted(ids):
+        if color[tid] == WHITE:
+            visit(tid)
+    return cycles
+
+
+def _topo_order(group: list[str], tasks: dict) -> list[str]:
+    """Kahn's topological order, min-heap by task id (lexicographic ties)."""
+    import heapq
+    group_set = set(group)
+    edges: dict[str, list[str]] = {}
+    indeg: dict[str, int] = {tid: 0 for tid in group}
+    for tid in group:
+        for dep in tasks[tid]["deps"]:
+            if dep in group_set:
+                edges.setdefault(dep, []).append(tid)
+                indeg[tid] += 1
+    heap = [tid for tid in group if indeg[tid] == 0]
+    heapq.heapify(heap)
+    out = []
+    while heap:
+        nxt = heapq.heappop(heap)
+        out.append(nxt)
+        for m in edges.get(nxt, []):
+            indeg[m] -= 1
+            if indeg[m] == 0:
+                heapq.heappush(heap, m)
+    # A cycle surviving here is impossible (validated above); guard anyway.
+    if len(out) != len(group):
+        raise ValidationError("dependency cycle within track", ["cycle"])
+    return out
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
