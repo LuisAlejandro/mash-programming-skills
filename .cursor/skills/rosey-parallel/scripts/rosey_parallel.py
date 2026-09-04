@@ -1221,6 +1221,46 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
 
 
 # ---------------------------------------------------------------------------
+# Flow shape (hardening U5: R9, R10) — scaffold phase + parallel verification
+# ---------------------------------------------------------------------------
+
+def run_scaffold(driver, tasks: dict) -> dict:
+    """Contracts-before-code scaffold phase (hardening U5: R10).
+
+    One architect worker defines shared contracts (interfaces, types, schemas,
+    stubs) before executors fan out. Returns a scaffold record with the
+    contract doc path and any blockers.
+    """
+    outcome = driver.scaffold_phase()
+    return {
+        "phase": "scaffold",
+        "outcome": outcome,
+        "contract_doc": "rosey/parallel/scaffold-contract.md" if outcome == "done" else None,
+        "blockers": [] if outcome == "done" else [f"scaffold: {outcome}"],
+    }
+
+
+def run_parallel_verification(driver, integrated_tip: str | None) -> dict:
+    """Parallel verification after integration (hardening U5: R9).
+
+    Fans out 3 verifiers concurrently (code review + test runner +
+    architecture/contract check) on the integrated result. Returns a record
+    of per-verifier outcomes and any rejections.
+    """
+    verifiers = ["code_review", "test_runner", "architecture"]
+    results = {}
+    for v in verifiers:
+        results[v] = driver.verify_phase(v, integrated_tip)
+    rejected = [v for v, r in results.items() if r != "pass"]
+    return {
+        "phase": "parallel_verification",
+        "verifiers": results,
+        "rejected": rejected,
+        "passed": not rejected,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Integration + final report (plan U9: R3, R19, R20, R21)
 # ---------------------------------------------------------------------------
 

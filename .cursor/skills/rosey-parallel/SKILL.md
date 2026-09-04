@@ -18,7 +18,7 @@ The skill **delegates** to external harness workers (`pi` / `opencode` / `cursor
 
 ## Pipeline
 
-`epic (task list) → validate → per-task planning (worktrees) → sequencing → batched human gate → parallel track execution → integration (local) → final report + run state`
+`epic (task list) → validate → scaffold (contracts-before-code) → per-task planning (worktrees) → sequencing → batched human gate → parallel track execution → integration (local) → parallel verification → final report + run state`
 
 ## Run inputs
 
@@ -43,13 +43,15 @@ All state transitions, validation, footprint parsing, sequencing, worktree ops, 
 ## Flow
 
 1. **Validate** the task list fail-fast (R2): duplicate ids, unknown deps, self-deps, cycles, empty list all named in one error.
-2. **Snapshot base** SHA; create per-task planning worktrees+branches (R4).
-3. **Plan in parallel**: one delegated harness worker per task, plan-only. Each plan yields a machine-readable file footprint (R5) parsed from the plan's `**Files:**` sections.
-4. **Sequence** (deterministic, U4): overlap graph → connected components = tracks; within a track, topological order over declared deps; tracks ordered by smallest id. Empty-footprint tasks default to singleton tracks.
-5. **Batched human gate** (R10): review all N plans + the track grouping/ordering in one sitting. Per-plan: drop / re-plan (then re-sequence) / abort. Dropping a task others depend on is rejected at the gate.
-6. **Execute tracks** (R13): parallel tracks, serial tasks per track, one harness worker per task: work (rosey-work non-interactive) → qa (rosey-qa headless, base = previous task's end SHA) → lint. Worker outcomes: `done` / `blocker` / `timeout` / `failure`. A blocker/timeout/failure halts that track only. **Drift check** at every task boundary (R16): a task touching files another live track declared pivots that other track to the fix-up path.
-7. **Integrate locally** (R19): dedicated integration worktree, `merge-tree` dry-run, merge tracks in order, lint+test gates, base ref moves only when gates pass. Residual issues become fix-up rounds (cap 2, R20).
-8. **Final report** (U9): per-track status, blocker/timeout/failure detail, integrated commit list, base SHA vs integration tip, leftover worktrees/branches, outstanding fix-ups or human blockers, and fast-forward instruction for the user's live base checkout.
+2. **Scaffold** (hardening R10): one architect worker defines shared contracts (interfaces, types, schemas, stubs) before executors fan out, so parallel workers code against a stable surface.
+3. **Snapshot base** SHA; create per-task planning worktrees+branches (R4).
+4. **Plan in parallel**: one delegated harness worker per task, plan-only. Each plan yields a machine-readable file footprint (R5) parsed from the plan's `**Files:**` sections.
+5. **Sequence** (deterministic, U4): overlap graph → connected components = tracks; within a track, topological order over declared deps; tracks ordered by smallest id. Empty-footprint tasks default to singleton tracks. Track membership is footprint-overlap only; dependency edges are handled by frontier admission (hardening R3).
+6. **Batched human gate** (R10): review all N plans + the track grouping/ordering in one sitting. Per-plan: drop / re-plan (then re-sequence) / abort. Dropping a task others depend on is rejected at the gate.
+7. **Execute tracks** (hardening R3/R4): dependency-frontier admission — a task runs the moment its deps are done and a slot is free; file-overlap tasks stay serialized on a track; oversubscribed tasks park in a FIFO denied queue. One harness worker per task: work (rosey-work non-interactive) → qa (rosey-qa headless, base = previous task's end SHA) → lint. A task is `done` only when it emits an evidence artifact (hardening R7). Worker outcomes: `done` / `blocker` / `timeout` / `failure`; a failure carries a corrective fix hint (hardening R8). A blocker/timeout/failure halts that track only, and its dependents cascade to `skipped` at quiescence (hardening R6). **Drift check** at every task boundary (R16): a task touching files another live track declared pivots that other track to the fix-up path.
+8. **Integrate locally** (R19): dedicated integration worktree, `merge-tree` dry-run, merge tracks in order, lint+test gates, base ref moves only when gates pass. Residual issues become fix-up rounds (cap 2, R20).
+9. **Parallel verification** (hardening R9): after integration, three verifiers (code review + test runner + architecture/contract check) fan out concurrently on the integrated result; a rejection sends the task back to fix-and-re-verify (bounded rounds).
+10. **Final report** (U9): per-track status, blocker/timeout/failure detail, integrated commit list, base SHA vs integration tip, leftover worktrees/branches, outstanding fix-ups or human blockers, and fast-forward instruction for the user's live base checkout.
 
 ## Resume
 
