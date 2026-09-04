@@ -20,9 +20,9 @@ rosey/solutions/
 rosey/insights/
 rosey/design-system/
 rosey/qa/
-rosey/runs/
+rosey/parallel/
 rosey/deepening/
-rosey/runs/
+rosey/parallel/
 rosey/agentic-env.json
 AGENTS.md
 DESIGN.md

@@ -53,7 +53,7 @@ All state transitions, validation, footprint parsing, sequencing, worktree ops, 
 
 ## Resume
 
-Re-invoke with the same run id (`--resume <run-id>`). The helper loads recorded state, kills orphaned harness processes, re-runs missing planners, resets and relaunches the interrupted task, and skips completed tasks. Run state lives in gitignored `rosey/runs/<run-id>/`.
+Re-invoke with the same run id (`--resume <run-id>`). The helper loads recorded state, kills orphaned harness processes, re-runs missing planners, resets and relaunches the interrupted task, and skips completed tasks. Run state lives in gitignored `rosey/parallel/<run-id>/`.
 
 ## Worker prompt contract
 

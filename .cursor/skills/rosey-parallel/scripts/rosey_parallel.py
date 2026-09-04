@@ -92,7 +92,7 @@ def new_run_id() -> str:
 
 
 def runs_root(repo_root: str | os.PathLike) -> Path:
-    return Path(repo_root) / "rosey" / "runs"
+    return Path(repo_root) / "rosey" / "parallel"
 
 
 def run_dir(repo_root: str | os.PathLike, run_id: str) -> Path:
