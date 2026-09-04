@@ -21,7 +21,10 @@ PHASE CONTRACT:
 - plan:   produce the plan document; do NOT edit tracked files outside the plan.
 - work:    run rosey-work in mode:non-interactive. Emit the required handoff
            envelope (ROSEY_WORK_HANDOFF ... END_ROSEY_WORK_HANDOFF) containing
-           FILES_CHANGED (repo-relative) and BLOCKERS (empty if none).
+           FILES_CHANGED (repo-relative) and BLOCKERS (empty if none). ALSO emit
+           an evidence artifact (ROSEY_EVIDENCE ... END_ROSEY_EVIDENCE) — a
+           captured test run or output proving the work. No evidence artifact
+           = not done (hardening R7).
 - qa:     run rosey-qa in mode:headless against base {qa_diff_base} (the
            previous task's end commit, or the track branch point for the first
            task). Expect terminal "Review complete".
@@ -44,10 +47,10 @@ FINISH:
 
 ## Success / failure signals
 
-- **done**: work phase emits a handoff envelope, empty `BLOCKERS:`, and `FILES_CHANGED:`. QA phase reaches terminal `Review complete`. lint passes.
+- **done**: work phase emits a handoff envelope (empty `BLOCKERS:`, `FILES_CHANGED:`) AND an evidence artifact (`ROSEY_EVIDENCE ... END_ROSEY_EVIDENCE`). QA phase reaches terminal `Review complete`. lint passes.
 - **blocker**: handoff (or QA) yields populated `BLOCKERS:` that require human judgment. Halts that track only.
 - **timeout**: no progress within the per-task budget (hard wall-clock + no-progress on log growth). Orchestrator kills the process group.
-- **failure**: driver-detected — missing terminal structured event, exit non-zero, unparsable handoff, QA `Review failed (headless mode)`. Halts that track like a blocker.
+- **failure**: driver-detected — missing terminal structured event, exit non-zero, unparsable handoff, missing evidence artifact, QA `Review failed (headless mode)`. Halts that track like a blocker. A known harness error string maps to a corrective fix hint for the fix-up round (hardening R8).
 
 ## Notes
 

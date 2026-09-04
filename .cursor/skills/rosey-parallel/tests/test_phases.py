@@ -92,3 +92,33 @@ def test_worker_overrides_include_diff_base_for_track():
     overrides = rp.worker_overrides("the-track-branch")
     # first task's QA base defaults to the track branch point
     assert overrides["qa_diff_base"] == "track-branch-point"
+
+
+# --- Hardening U4: evidence-bound QA gate + retry guidance (R7, R8) ---
+
+
+def test_evidence_present_is_done():
+    out = GOOD_HANDOFF + "\nROSEY_EVIDENCE\ntest run: 12 passed\nEND_ROSEY_EVIDENCE\n"
+    assert rp.has_evidence(out) is True
+
+
+def test_evidence_absent_is_not_done():
+    # handoff but no evidence artifact -> not done (R7)
+    assert rp.has_evidence(GOOD_HANDOFF) is False
+
+
+def test_evidence_empty_body_is_not_done():
+    out = GOOD_HANDOFF + "\nROSEY_EVIDENCE\n\nEND_ROSEY_EVIDENCE\n"
+    assert rp.has_evidence(out) is False
+
+
+def test_retry_guidance_known_pattern():
+    g = rp.retry_guidance("error: permission denied while writing file")
+    assert g["errorType"] == "permission"
+    assert "permission" in g["fixHint"]
+
+
+def test_retry_guidance_unknown_falls_back_generic():
+    g = rp.retry_guidance("some totally unknown failure")
+    assert g["errorType"] == "unknown"
+    assert "generic" in g["fixHint"]

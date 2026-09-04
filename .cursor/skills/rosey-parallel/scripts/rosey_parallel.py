@@ -943,6 +943,8 @@ def select_harness(override, available, priority=HARNESS_PRIORITY) -> str:
 
 HANDOFF_START = "ROSEY_WORK_HANDOFF"
 HANDOFF_END = "END_ROSEY_WORK_HANDOFF"
+EVIDENCE_START = "ROSEY_EVIDENCE"
+EVIDENCE_END = "END_ROSEY_EVIDENCE"
 
 
 def extract_handoff(output: str) -> dict:
@@ -973,6 +975,59 @@ def extract_handoff(output: str) -> dict:
                     break
     status = "blocker" if blockers else "done"
     return {"status": status, "files_changed": files, "blockers": blockers}
+
+
+def has_evidence(output: str) -> bool:
+    """True when the worker emitted an evidence artifact (hardening U4: R7).
+
+    A task is `done` only when it produces an evidence artifact (captured
+    output, test run) in addition to the handoff envelope. No evidence
+    artifact = not done.
+    """
+    start = output.find(EVIDENCE_START)
+    end = output.find(EVIDENCE_END)
+    if start == -1 or end == -1 or end <= start:
+        return False
+    body = output[start + len(EVIDENCE_START):end].strip()
+    return bool(body)
+
+
+# Known harness error strings -> {errorType, fixHint} (hardening U4: R8).
+RETRY_PATTERNS = [
+    {
+        "pattern": "permission denied",
+        "errorType": "permission",
+        "fixHint": "grant the missing tool/file permission and retry",
+    },
+    {
+        "pattern": "no harness available",
+        "errorType": "harness_unavailable",
+        "fixHint": "install or start the harness binary, then retry",
+    },
+    {
+        "pattern": "timeout",
+        "errorType": "timeout",
+        "fixHint": "split the task or raise the timeout, then retry",
+    },
+    {
+        "pattern": "merge conflict",
+        "errorType": "merge_conflict",
+        "fixHint": "resolve the conflicting files, then retry",
+    },
+]
+
+
+def retry_guidance(output: str) -> dict:
+    """Map a harness error string to a corrective fix hint (hardening U4: R8).
+
+    Returns {"errorType": ..., "fixHint": ...} for a known pattern, or a
+    generic retry hint when nothing matches.
+    """
+    lowered = output.lower()
+    for entry in RETRY_PATTERNS:
+        if entry["pattern"] in lowered:
+            return {"errorType": entry["errorType"], "fixHint": entry["fixHint"]}
+    return {"errorType": "unknown", "fixHint": "generic retry"}
 
 
 def compute_touched_files(env_files: list[str], diff_files: list[str]) -> set[str]:

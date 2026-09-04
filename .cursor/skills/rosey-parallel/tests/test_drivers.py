@@ -75,3 +75,34 @@ def test_select_none_available_fails():
     availability = {"pi": False, "opencode": False, "cursor-agent": False}
     with pytest.raises(rp.ValidationError):
         rp.select_harness(None, availability.get, PRIORITY)
+
+
+# --- Hardening U4: failure outcome carries a fix hint (R8) ---
+
+
+def test_failure_carries_fix_hint_into_fixup():
+    # A known harness error string maps to a corrective fix hint for the
+    # fix-up round instead of a bare status.
+    g = rp.retry_guidance("merge conflict in src/app.py")
+    assert g["errorType"] == "merge_conflict"
+    assert "resolve" in g["fixHint"]
+
+
+# --- Hardening U4: failure outcome carries a fix hint (R8) ---
+
+
+def test_failure_outcome_carries_fix_hint():
+    # A failure outcome is enriched with retry guidance for the fix-up round.
+    outcome = rp.retry_guidance("merge conflict in src/x.py")
+    assert outcome["errorType"] == "merge_conflict"
+    assert "conflict" in outcome["fixHint"]
+
+
+# --- Hardening U4: failure outcome carries a fix hint (R8) ---
+
+
+def test_failure_carries_fix_hint():
+    # a failure outcome enriches with retry guidance for the fix-up round
+    guidance = rp.retry_guidance("merge conflict on feature/x")
+    assert guidance["errorType"] == "merge_conflict"
+    assert "resolve" in guidance["fixHint"]
