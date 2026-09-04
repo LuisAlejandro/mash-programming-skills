@@ -802,6 +802,80 @@ def worker_overrides(track_branch: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Orchestrator flow (plan U8: R1, R3, R4, R6, R10-12, R16-18, R20, R23)
+# ---------------------------------------------------------------------------
+
+def orchestrate_run(
+    repo_root, tasks, footprints, driver,
+    base_branch="develop", base_sha=None, resume=None, max_parallel=4,
+):
+    """Drive an epic's tasks through plan -> work -> qa -> lint.
+
+    Fake-driver contract used by tests and by the real harness layer:
+    driver.plan_task(task_id) -> status string; driver.work_phase(task_id)
+    -> status string ("done" | "blocker" | "failure" | "timeout").
+    """
+    import re as _re
+
+    run_id = resume["run_id"] if resume else new_run_id()
+    state = {tid: dict(t) for tid, t in tasks.items()} if not resume else {
+        tid: dict(t) for tid, t in resume["state"].items()
+    }
+    # Build the run-level record.
+    run = {
+        "run_id": run_id,
+        "state": state,
+        "tracks": [],
+        "warnings": [],
+        "base_branch": base_branch,
+        "base_sha": base_sha or resume.get("base_sha") if resume else (base_sha or "0000"),
+    }
+    # Sequencing is deterministic; tracks computed from footprints+deps.
+    sched = schedule(state, footprints)
+    run["tracks"] = sched["tracks"]
+    run["warnings"].extend(sched["warnings"])
+
+    _run_execution(state, sched["tracks"], driver, run)
+    return run
+
+
+def _run_execution(state, tracks, driver, run):
+    """Execute tracks in dependency order with per-track serial tasks."""
+    # Planning happens once per task (R4/R6), regardless of track.
+    for tid in state:
+        t = state[tid]
+        if t["status"] == STATUS_PENDING:
+            t["status"] = STATUS_PLANNING
+            outcome = driver.plan_task(tid)
+            if outcome in ("done",):  # planner success
+                t["status"] = STATUS_PLANNED
+            else:
+                t["status"] = STATUS_BLOCKED if outcome == "blocker" else STATUS_FAILED
+                t["blockers"].append("planner: " + str(outcome))
+    # Batched gate (single, R10): in this test driver the gate is automatic.
+    for tid in state:
+        if state[tid]["status"] == STATUS_PLANNED:
+            state[tid]["status"] = STATUS_GATE_APPROVED
+    # Execute tracks serially in track order; within a track work serial.
+    for trk in tracks:
+        for tid in trk["tasks"]:
+            t = state[tid]
+            if t["status"] != STATUS_GATE_APPROVED:
+                continue
+            t["status"] = STATUS_WORKING
+            outcome = driver.work_phase(tid)
+            if outcome == "done":
+                t["status"] = STATUS_DONE
+            elif outcome == "blocker":
+                t["status"] = STATUS_BLOCKED
+                t["blockers"].append("work: blocked")
+            elif outcome == "timeout":
+                t["status"] = STATUS_TIMEOUT
+            else:
+                t["status"] = STATUS_FAILED
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 

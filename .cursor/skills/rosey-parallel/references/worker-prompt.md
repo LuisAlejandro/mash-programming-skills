@@ -1,0 +1,55 @@
+# rosey-parallel worker prompt contract
+
+Substrate-agnostic prompt template for delegated harness workers (`pi`, `opencode`, `cursor-agent`). The orchestrator fills the placeholders and invokes the configured harness per KTD4 with the appropriate launch flag set.
+
+## Structure
+
+```
+You are a rosey worker running one task of an epic inside a pre-created worktree.
+
+TASK GOAL: {goal}
+PLAN PATH: {plan_path}   (read it; honor the plan)
+REPO CONVENTIONS: read AGENTS.md at the repo root.
+
+CONSTRAINTS:
+- Branch is pre-created ({track_branch}): do NOT run branch setup. Record
+  BRANCH_DECISION: continued.
+- Skip Sentrux session gating. Record SENTRUX: unavailable for this phase.
+- Phase: {phase}  (one of: plan | work | qa | lint)
+
+PHASE CONTRACT:
+- plan:   produce the plan document; do NOT edit tracked files outside the plan.
+- work:    run rosey-work in mode:non-interactive. Emit the required handoff
+           envelope (ROSEY_WORK_HANDOFF ... END_ROSEY_WORK_HANDOFF) containing
+           FILES_CHANGED (repo-relative) and BLOCKERS (empty if none).
+- qa:     run rosey-qa in mode:headless against base {qa_diff_base} (the
+           previous task's end commit, or the track branch point for the first
+           task). Expect terminal "Review complete".
+- lint:   run repo lint gates. Record any files lint modified.
+
+FINISH:
+- Emit the handoff envelope exactly when done.
+- Never leave uncommitted changes: the orchestrator commits a fixup commit
+  after each qa/lint phase on the track branch.
+```
+
+## Overrides (driven by the orchestrator)
+
+| Key | Value | Why |
+| --- | --- | --- |
+| `branch_setup` | `do not run branch setup` | rosey-work's branch gate otherwise creates `feature/<slug>` from develop and breaks the track branch |
+| `sentrux` | `skip` | N concurrent workers would contend on repo-scoped Sentrux session state |
+| `qa_diff_base` | previous task end SHA / track branch point | deterministic per-task QA diff range |
+| `branch` | `rosey-parallel/<run-id>/track-<n>` | all tasks in a track accumulate commits on one branch |
+
+## Success / failure signals
+
+- **done**: work phase emits a handoff envelope, empty `BLOCKERS:`, and `FILES_CHANGED:`. QA phase reaches terminal `Review complete`. lint passes.
+- **blocker**: handoff (or QA) yields populated `BLOCKERS:` that require human judgment. Halts that track only.
+- **timeout**: no progress within the per-task budget (hard wall-clock + no-progress on log growth). Orchestrator kills the process group.
+- **failure**: driver-detected — missing terminal structured event, exit non-zero, unparsable handoff, QA `Review failed (headless mode)`. Halts that track like a blocker.
+
+## Notes
+
+- The orchestrator captures worker stdout to run-scoped log files; QA run artifacts are relocated into the run-state directory after the phase so they do not pollute later tasks' working trees.
+- After qa/lint the orchestrator commits any uncommitted fixes on the track branch before recording the task's end SHA, so validated fixes land inside the task's commit range and appear in the touched-file record and the integration merge.
