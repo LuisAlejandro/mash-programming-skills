@@ -96,3 +96,83 @@ def test_task_key_id_mismatch_rejected(tmp_path):
     bad.write_text(json.dumps(data))
     with pytest.raises(rp.StateError, match="task key"):
         rp.load_state(bad)
+
+
+# --- Hardening U1: stale-lock liveness + exactly-once result claim (R1, R2) ---
+
+
+def test_lock_acquire_release_reacquire(tmp_path):
+    p = tmp_path / "locks" / "t1.lock"
+    assert rp.acquire_lock(p, "orchestrator") is True
+    assert rp.acquire_lock(p, "orchestrator") is False  # held, not stale
+    rp.release_lock(p)
+    assert rp.acquire_lock(p, "orchestrator") is True
+
+
+def test_stale_lock_dead_pid_reaped(tmp_path):
+    p = tmp_path / "locks" / "t1.lock"
+    # dead pid (999999) + old acquiredAt -> stale
+    rp.atomic_write_json(p, {
+        "ownerTag": "dead", "pid": 999999,
+        "acquiredAt": "2020-01-01T00:00:00Z", "lastHeartbeat": "2020-01-01T00:00:00Z",
+    })
+    assert rp.detect_stale_lock(json.loads(p.read_text())) is True
+    assert rp.acquire_lock(p, "orchestrator") is True  # reaped + re-acquired
+
+
+def test_stale_lock_live_pid_not_reaped(tmp_path):
+    p = tmp_path / "locks" / "t1.lock"
+    rp.acquire_lock(p, "orchestrator")  # live pid, fresh heartbeat
+    assert rp.detect_stale_lock(json.loads(p.read_text())) is False
+    assert rp.acquire_lock(p, "other") is False  # never stolen
+
+
+def test_hung_but_alive_owner_reaped(tmp_path):
+    p = tmp_path / "locks" / "t1.lock"
+    # live pid but heartbeat older than the stale window -> hung-but-alive
+    rp.atomic_write_json(p, {
+        "ownerTag": "hung", "pid": __import__("os").getpid(),
+        "acquiredAt": "2020-01-01T00:00:00Z", "lastHeartbeat": "2020-01-01T00:00:00Z",
+    })
+    assert rp.detect_stale_lock(json.loads(p.read_text())) is True
+    assert rp.acquire_lock(p, "orchestrator") is True
+
+
+def test_heartbeat_refreshes_lock(tmp_path):
+    p = tmp_path / "locks" / "t1.lock"
+    rp.acquire_lock(p, "orchestrator")
+    rp.atomic_write_json(p, {
+        "ownerTag": "orchestrator", "pid": __import__("os").getpid(),
+        "acquiredAt": "2020-01-01T00:00:00Z", "lastHeartbeat": "2020-01-01T00:00:00Z",
+    })
+    rp.heartbeat_lock(p)
+    assert rp.detect_stale_lock(json.loads(p.read_text())) is False
+
+
+def test_result_claimed_exactly_once(tmp_path):
+    rd = tmp_path / "run1"
+    rd.mkdir(parents=True)
+    (rd / "t1.json").write_text('{"ok": true}')
+    first = rp.claim_result(rd, "t1")
+    assert first is not None and first.name == "t1.json"
+    assert (rd / "processed" / "t1.json").exists()
+    # second claim returns None (already processed)
+    assert rp.claim_result(rd, "t1") is None
+
+
+def test_result_claim_resume_completes_mid_claim(tmp_path):
+    rd = tmp_path / "run1"
+    rd.mkdir(parents=True)
+    # crash left a .delivering- slot; resume completes it, never double-processes
+    (rd / ".delivering-t1.json").write_text('{"ok": true}')
+    claimed = rp.claim_result(rd, "t1")
+    assert claimed is not None
+    assert (rd / "processed" / "t1.json").exists()
+    assert not (rd / ".delivering-t1.json").exists()
+    assert rp.claim_result(rd, "t1") is None
+
+
+def test_result_claim_absent_returns_none(tmp_path):
+    rd = tmp_path / "run1"
+    rd.mkdir(parents=True)
+    assert rp.claim_result(rd, "missing") is None

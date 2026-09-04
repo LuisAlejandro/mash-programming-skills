@@ -217,6 +217,131 @@ def load_run(repo_root: str | os.PathLike, run_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# State integrity (hardening U1: R1, R2) — stale-lock liveness + exactly-once claim
+# ---------------------------------------------------------------------------
+
+DEFAULT_STALE_WINDOW_S = 300.0  # 5 minutes
+
+
+def is_pid_alive(pid: int) -> bool:
+    """Best-effort liveness probe for a pid (signal 0)."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists, owned by another user
+    except OSError:
+        return False
+    return True
+
+
+def _iso_age(ts: str | None, now: datetime) -> float:
+    """Seconds since an ISO timestamp; inf when unparseable/missing."""
+    if not ts:
+        return float("inf")
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return float("inf")
+    return (now - dt).total_seconds()
+
+
+def detect_stale_lock(lock: dict, stale_window_s: float = DEFAULT_STALE_WINDOW_S) -> bool:
+    """True when a lock should be reaped (R1).
+
+    Reap when the owner pid is dead AND past the stale window, OR when the
+    owner has not heartbeated past the stale window (hung-but-alive recovery).
+    A live, progressing owner's lock is never stolen.
+    """
+    now = datetime.now(timezone.utc)
+    pid = lock.get("pid")
+    if pid is not None and not is_pid_alive(pid):
+        return _iso_age(lock.get("acquiredAt"), now) > stale_window_s
+    # hung-but-alive: heartbeat older than the stale window
+    return _iso_age(lock.get("lastHeartbeat"), now) > stale_window_s
+
+
+def acquire_lock(
+    path: str | os.PathLike,
+    owner_tag: str,
+    pid: int | None = None,
+    stale_window_s: float = DEFAULT_STALE_WINDOW_S,
+) -> bool:
+    """Atomically acquire a lock file (O_EXCL). Returns True on success.
+
+    A held lock is reaped (and retried) only when detect_stale_lock says so;
+    otherwise acquisition fails without stealing a live owner's lock.
+    """
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    pid = pid or os.getpid()
+    lock = {
+        "ownerTag": owner_tag,
+        "pid": pid,
+        "acquiredAt": utc_now_iso(),
+        "lastHeartbeat": utc_now_iso(),
+    }
+    try:
+        fd = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        try:
+            existing = json.loads(target.read_text())
+        except (OSError, json.JSONDecodeError):
+            return False
+        if detect_stale_lock(existing, stale_window_s):
+            target.unlink(missing_ok=True)
+            return acquire_lock(path, owner_tag, pid, stale_window_s)
+        return False
+    with os.fdopen(fd, "w") as f:
+        json.dump(lock, f)
+    return True
+
+
+def release_lock(path: str | os.PathLike) -> None:
+    """Release a lock file (idempotent)."""
+    Path(path).unlink(missing_ok=True)
+
+
+def heartbeat_lock(path: str | os.PathLike) -> None:
+    """Refresh a lock's lastHeartbeat (hung-but-alive recovery signal)."""
+    target = Path(path)
+    try:
+        lock = json.loads(target.read_text())
+    except (OSError, json.JSONDecodeError):
+        return
+    lock["lastHeartbeat"] = utc_now_iso()
+    atomic_write_json(target, lock)
+
+
+def claim_result(run_dir: str | os.PathLike, task_id: str) -> Path | None:
+    """Claim a task's result exactly once (R2).
+
+    Atomic rename of ``<task>.json`` to ``.delivering-<task>.json``, then a
+    ``processed/`` ledger commit. A resume completes a mid-claim (a leftover
+    ``.delivering-`` slot) instead of re-processing. Returns the processed
+    path, or None when the result was already claimed / absent.
+    """
+    rd = Path(run_dir)
+    src = rd / f"{task_id}.json"
+    delivering = rd / f".delivering-{task_id}.json"
+    processed_dir = rd / "processed"
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    final = processed_dir / f"{task_id}.json"
+    # Resume: complete a mid-claim left by a crash.
+    if delivering.exists():
+        os.rename(delivering, final)
+        return final
+    if final.exists():
+        return None  # already processed
+    if not src.exists():
+        return None
+    os.rename(src, delivering)
+    os.rename(delivering, final)
+    return final
+
+
+# ---------------------------------------------------------------------------
 # Input validation (plan U2: R1, R2)
 # ---------------------------------------------------------------------------
 
