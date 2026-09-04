@@ -569,7 +569,9 @@ def schedule(tasks: dict, footprints: dict) -> dict:
     uf = _UnionFind()
     for tid in ids:
         uf.find(tid)
-    # Footprint-intersection edges.
+    # Footprint-intersection edges only (hardening U2: track membership is
+    # footprint-overlap only; dependency edges are handled by the frontier
+    # admission loop, not the Union-Find track computation).
     for i in range(len(ids)):
         for j in range(i + 1, len(ids)):
             a, b = ids[i], ids[j]
@@ -577,11 +579,6 @@ def schedule(tasks: dict, footprints: dict) -> dict:
             fb = set(footprints.get(b, set()))
             if fa & fb:
                 uf.union(a, b)
-    # Declared-dependency edges.
-    for tid in ids:
-        for dep in tasks[tid]["deps"]:
-            if dep in tasks:
-                uf.union(tid, dep)
 
     # Group into components ordered by smallest member id.
     comps: dict[str, list[str]] = {}
@@ -960,12 +957,20 @@ def orchestrate_run(
     run["tracks"] = sched["tracks"]
     run["warnings"].extend(sched["warnings"])
 
-    _run_execution(state, sched["tracks"], driver, run)
+    _run_execution(state, sched["tracks"], driver, run, max_parallel=max_parallel)
+    run["waves"] = run.pop("_waves", [])
     return run
 
 
-def _run_execution(state, tracks, driver, run):
-    """Execute tracks in dependency order with per-track serial tasks."""
+def _run_execution(state, tracks, driver, run, max_parallel=4):
+    """Execute tasks via dependency-frontier admission (hardening U2: R3, R4).
+
+    A task is admitted the moment every dependency is terminal-`done` and a
+    resident slot is free. File-overlap tasks remain serialized on a track
+    (one task per track per pass). Oversubscribed tasks park in a FIFO denied
+    queue and are offered a freed slot oldest-first. Waves are informational,
+    never barriers.
+    """
     # Planning happens once per task (R4/R6), regardless of track.
     for tid in state:
         t = state[tid]
@@ -981,16 +986,56 @@ def _run_execution(state, tracks, driver, run):
     for tid in state:
         if state[tid]["status"] == STATUS_PLANNED:
             state[tid]["status"] = STATUS_GATE_APPROVED
-    # Execute tracks serially in track order; within a track work serial.
+
+    # Track membership: task -> track_id (footprint-overlap tracks).
+    track_of: dict[str, int] = {}
     for trk in tracks:
         for tid in trk["tasks"]:
-            t = state[tid]
-            if t["status"] != STATUS_GATE_APPROVED:
+            track_of[tid] = trk["track_id"]
+
+    done: set[str] = set()
+    denied: list[str] = []  # FIFO of admissible-but-denied (no slot this pass)
+    waves: list[list[str]] = []  # informational wave groupings (never barriers)
+    run["_waves"] = waves
+    run["_waves"] = waves
+
+    def deps_done(tid: str) -> bool:
+        return all(d in done for d in state[tid]["deps"])
+
+    while True:
+        # Admissible = gate-approved and all deps terminal-done.
+        admissible = [
+            tid for tid in state
+            if state[tid]["status"] == STATUS_GATE_APPROVED and deps_done(tid)
+        ]
+        # FIFO: oldest denied first, then fresh admissible.
+        queue = denied + [tid for tid in admissible if tid not in denied]
+        denied = []
+        admitted: list[str] = []
+        admitted_tracks: set[int] = set()
+        slots = max_parallel
+        for tid in queue:
+            if slots <= 0:
+                denied.append(tid)  # oversubscription: park for a freed slot
                 continue
+            trk = track_of[tid]
+            if trk in admitted_tracks:
+                denied.append(tid)  # track busy this pass -> park
+                continue
+            admitted.append(tid)
+            admitted_tracks.add(trk)
+            slots -= 1
+        if not admitted:
+            break  # nothing runnable; remaining tasks are dep-blocked
+        waves.append(list(admitted))
+        run.setdefault("_waves", []).append(list(admitted))
+        for tid in admitted:
+            t = state[tid]
             t["status"] = STATUS_WORKING
             outcome = driver.work_phase(tid)
             if outcome == "done":
                 t["status"] = STATUS_DONE
+                done.add(tid)
             elif outcome == "blocker":
                 t["status"] = STATUS_BLOCKED
                 t["blockers"].append("work: blocked")

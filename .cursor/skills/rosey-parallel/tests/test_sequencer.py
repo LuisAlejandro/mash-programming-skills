@@ -24,12 +24,13 @@ def test_two_overlapping_pairs_make_two_tracks():
         assert len(trk["tasks"]) == 2
 
 
-def test_declared_dep_forces_same_track_in_dep_order():
+def test_declared_dep_does_not_force_same_track():
+    # Hardening U2: track membership is footprint-overlap only. A dependency
+    # edge alone does not union tasks into one track; the frontier admission
+    # loop handles dependency ordering.
     tasks = {"a": rp.new_task("a", "A", deps=["b"]), "b": rp.new_task("b", "B")}
     schedule = rp.schedule(tasks, {"a": {"x.py"}, "b": {"y.py"}})
-    assert len(schedule["tracks"]) == 1
-    trk = schedule["tracks"][0]
-    assert trk["tasks"] == ["b", "a"]  # dependency order
+    assert len(schedule["tracks"]) == 2  # disjoint footprints -> separate tracks
 
 
 def test_single_task_singleton_track():
@@ -73,16 +74,16 @@ def test_cross_component_dep_merges_components():
         tasks,
         {"a": {"x.py"}, "b": {"y.py"}, "c": {"x.py"}, "d": {"z.py"}},
     )
-    assert len(schedule["tracks"]) == 2
-    # b must be in the same track as d (dependency),
-    # a,c in the other (via footprint overlap)
+    # Hardening U2: tracks are footprint-overlap only. a,c share x.py -> one
+    # track; b,d have disjoint footprints -> separate tracks (dependency edge
+    # does NOT union them).
+    assert len(schedule["tracks"]) == 3
     tracks_by_task = {}
     for trk in schedule["tracks"]:
         for t in trk["tasks"]:
             tracks_by_task[t] = trk["track_id"]
-    assert tracks_by_task["b"] == tracks_by_task["d"]
     assert tracks_by_task["a"] == tracks_by_task["c"]
-    assert tracks_by_task["a"] != tracks_by_task["d"]
+    assert tracks_by_task["b"] != tracks_by_task["d"]  # dep edge no longer unions
 
 
 def test_deterministic_identical_inputs():
@@ -104,3 +105,25 @@ def test_tie_break_lexicographic():
     # both singletons; deterministic order by smallest task id
     seq = [trk["tasks"][0] for trk in schedule["tracks"]]
     assert seq == sorted(seq)
+
+
+# --- Hardening U2: track membership is footprint-overlap only (R3) ---
+
+
+def test_dependency_only_tasks_land_in_separate_tracks():
+    # Two tasks with a dependency edge but disjoint footprints -> separate
+    # tracks, so the frontier admission loop can run them in parallel once
+    # the dependency lands.
+    tasks = {"a": rp.new_task("a", "A"), "b": rp.new_task("b", "B", deps=["a"])}
+    schedule = rp.schedule(tasks, {"a": {"x.py"}, "b": {"y.py"}})
+    assert len(schedule["tracks"]) == 2
+    tracks_by_task = {t: trk["track_id"] for trk in schedule["tracks"] for t in trk["tasks"]}
+    assert tracks_by_task["a"] != tracks_by_task["b"]
+
+
+def test_file_overlap_still_serializes_on_track():
+    # File-overlap tasks stay serialized on a single track (collision safety).
+    tasks = {"a": rp.new_task("a", "A"), "b": rp.new_task("b", "B")}
+    schedule = rp.schedule(tasks, {"a": {"x.py"}, "b": {"x.py"}})
+    assert len(schedule["tracks"]) == 1
+    assert set(schedule["tracks"][0]["tasks"]) == {"a", "b"}

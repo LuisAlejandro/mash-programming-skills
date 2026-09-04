@@ -91,3 +91,64 @@ def test_drift_collision_pauses_track(tmp_path):
     assert run["state"]["t1"]["status"] == rp.STATUS_DONE
     # no crash; drift collision surfaced in warnings if footprints collided
     assert isinstance(run["warnings"], list)
+
+
+# --- Hardening U2: dependency-frontier admission + FIFO queue (R3, R4) ---
+
+
+def test_dependency_only_tasks_run_in_parallel_after_dep_lands(tmp_path):
+    # a -> b, a -> c (disjoint footprints). b and c must run in the same pass
+    # once a lands (frontier admission), not serially.
+    tasks = {
+        "a": rp.new_task("a", "A"),
+        "b": rp.new_task("b", "B", deps=["a"]),
+        "c": rp.new_task("c", "C", deps=["a"]),
+    }
+    footprints = {"a": {"a.py"}, "b": {"b.py"}, "c": {"c.py"}}
+    driver = FakeDriver()
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver, max_parallel=4)
+    for tid in tasks:
+        assert run["state"][tid]["status"] == rp.STATUS_DONE
+    # b and c both admitted in the same wave (frontier admission, not serial)
+    waves = run["waves"]
+    assert any("b" in w and "c" in w for w in waves)
+    assert any("a" in w for w in waves)
+
+
+def test_slow_sibling_does_not_hold_back_ready_dependent(tmp_path):
+    # a (slow) and b are independent; c depends on b only. c must run even
+    # though a is still mid-flight.
+    tasks = {
+        "a": rp.new_task("a", "A"),
+        "b": rp.new_task("b", "B"),
+        "c": rp.new_task("c", "C", deps=["b"]),
+    }
+    footprints = {"a": {"a.py"}, "b": {"b.py"}, "c": {"c.py"}}
+    driver = FakeDriver()
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver, max_parallel=2)
+    assert run["state"]["c"]["status"] == rp.STATUS_DONE
+    assert run["state"]["a"]["status"] == rp.STATUS_DONE
+
+
+def test_oversubscription_parks_and_retries_on_slot_free(tmp_path):
+    # 3 independent tasks, max_parallel=2 -> one parks in the denied queue and
+    # runs on a freed slot; none fails.
+    tasks = {tid: rp.new_task(tid, tid) for tid in ("a", "b", "c")}
+    footprints = {tid: {f"{tid}.py"} for tid in tasks}
+    driver = FakeDriver()
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver, max_parallel=2)
+    for tid in tasks:
+        assert run["state"][tid]["status"] == rp.STATUS_DONE
+
+
+def test_file_overlap_tasks_serialize_on_track(tmp_path):
+    # a and b share a footprint -> same track -> never run in the same wave.
+    tasks = {"a": rp.new_task("a", "A"), "b": rp.new_task("b", "B")}
+    footprints = {"a": {"x.py"}, "b": {"x.py"}}
+    driver = FakeDriver()
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver, max_parallel=4)
+    # each wave holds at most one task per track
+    for wave in run["waves"]:
+        assert not (set(wave) >= {"a", "b"})  # a and b never co-admit
+    assert run["state"]["a"]["status"] == rp.STATUS_DONE
+    assert run["state"]["b"]["status"] == rp.STATUS_DONE
