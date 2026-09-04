@@ -11,6 +11,8 @@
 .cursor/skills/**/.venv/
 .cursor/skills/**/.pytest_cache/
 .cursor/skills/**/.env
+.cursor/skills/**/__pycache__/
+.cursor/skills/**/*.pyc
 
 # Rosey Agentic Environment
 rosey/brainstorms/
