@@ -18,7 +18,7 @@ The skill **delegates** to external harness workers (`pi` / `opencode` / `cursor
 
 ## Pipeline
 
-`epic (task list) → validate → scaffold (contracts-before-code) → per-task planning (worktrees) → sequencing → batched human gate → parallel track execution → integration (local) → parallel verification → final report + run state`
+`epic (task list) → validate → scaffold (contracts-before-code) → per-task planning (worktrees, rosey-plan) → sequencing → batched human gate → parallel track execution (per-task rosey-plan → rosey-work → rosey-qa → rosey-lint) → integration (local) → parallel verification → final report + run state`
 
 ## Run inputs
 

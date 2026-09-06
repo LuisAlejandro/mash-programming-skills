@@ -89,7 +89,6 @@ build_cmd() {
   # cannot see or answer, so any approval prompt would hang the run.
   cmd+=(--yolo --trust)
   cmd+=(-- "docs-loop-iteration")
-  cmd+=("--state-dir=$STATE_DIR")
   if [[ ${#REPO_ARGS[@]} -gt 0 ]]; then
     cmd+=("--" "${REPO_ARGS[@]}")
   fi

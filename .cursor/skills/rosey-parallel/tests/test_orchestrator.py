@@ -14,9 +14,12 @@ import rosey_parallel as rp  # noqa: E402
 class FakeDriver:
     """Scripted outcomes so the orchestrator loop needs no real harness."""
 
-    def __init__(self, planner_outcomes=None, work_outcomes=None):
+    def __init__(self, planner_outcomes=None, work_outcomes=None,
+                 qa_outcomes=None, lint_outcomes=None):
         self.planner = list(planner_outcomes or [])
         self.work = list(work_outcomes or [])
+        self.qa = list(qa_outcomes or [])
+        self.lint = list(lint_outcomes or [])
         self.log = []
 
     def plan_task(self, task_id):
@@ -24,10 +27,29 @@ class FakeDriver:
         self.log.append(("plan", task_id, out))
         return out
 
+    def plan_path(self, task_id):
+        return _PLAN_PATHS.get(task_id)
+
+    def set_plan_path(self, task_id, path):
+        _PLAN_PATHS[task_id] = path
+
     def work_phase(self, task_id):
         out = self.work.pop(0) if self.work else "done"
         self.log.append(("work", task_id, out))
         return out
+
+    def qa_phase(self, task_id):
+        out = self.qa.pop(0) if self.qa else "done"
+        self.log.append(("qa", task_id, out))
+        return out
+
+    def lint_phase(self, task_id):
+        out = self.lint.pop(0) if self.lint else "done"
+        self.log.append(("lint", task_id, out))
+        return out
+
+
+_PLAN_PATHS = {}
 
 
 def test_full_run_happy_path(tmp_path):
@@ -311,6 +333,71 @@ def test_cli_dispatch_unknown_and_usage(tmp_path):
     import rosey_parallel as rp_mod
     assert rp_mod.main(["bogus"]) != 0
     assert rp_mod.main([]) != 0
+
+
+# --- Hardening: per-task QA + lint phases actually execute (was dead modeling) ---
+
+
+def test_task_passes_through_qa_and_lint_to_done(tmp_path):
+    # A task that passes work, then qa, then lint reaches DONE — and both
+    # qa_phase and lint_phase are actually invoked (they used to never run).
+    tasks = {"t1": rp.new_task("t1", "one")}
+    footprints = {"t1": {"a.py"}}
+    driver = FakeDriver()
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t1"]["status"] == rp.STATUS_DONE
+    phases = [e[0] for e in driver.log]
+    assert "qa" in phases and "lint" in phases
+    # ordering within a task: work precedes qa precedes lint
+    i_w = phases.index("work")
+    i_q = phases.index("qa")
+    i_l = phases.index("lint")
+    assert i_w < i_q < i_l
+
+
+def test_qa_failure_fails_task_not_done(tmp_path):
+    # If QA returns something other than 'done', the task must land FAILED and
+    # never reach DONE — the evidence gate alone is not enough.
+    tasks = {"t1": rp.new_task("t1", "one")}
+    footprints = {"t1": {"a.py"}}
+    driver = FakeDriver(qa_outcomes=["failure"])
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t1"]["status"] == rp.STATUS_FAILED
+    assert any("qa" in b for b in run["state"]["t1"]["blockers"])
+
+
+def test_lint_failure_fails_task_not_done(tmp_path):
+    # If lint returns non-done (LINT_STATUS: failed), the task must land FAILED.
+    tasks = {"t1": rp.new_task("t1", "one")}
+    footprints = {"t1": {"a.py"}}
+    driver = FakeDriver(lint_outcomes=["failure"])
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t1"]["status"] == rp.STATUS_FAILED
+    assert any("lint" in b for b in run["state"]["t1"]["blockers"])
+
+
+def test_dependent_cascades_skipped_when_qa_fails_on_dep(tmp_path):
+    # t2 depends on t1; t1 passes work but fails QA -> FAILED, and t2 cascades.
+    tasks = {"t1": rp.new_task("t1", "one"), "t2": rp.new_task("t2", "two", deps=["t1"])}
+    footprints = {"t1": {"a.py"}, "t2": {"b.py"}}
+    driver = FakeDriver(qa_outcomes=["failure"])
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t1"]["status"] == rp.STATUS_FAILED
+    assert run["state"]["t2"]["status"] == rp.STATUS_SKIPPED
+
+
+# --- Hardening: plan path recorded on task so work/qa/lint honor the plan ---
+
+
+def test_plan_path_recorded_on_task(tmp_path):
+    # The planner's emitted plan path is captured onto the task record so
+    # downstream work/qa/lint phases can honor the specific rosey-plan doc.
+    tasks = {"t1": rp.new_task("t1", "one")}
+    footprints = {"t1": {"a.py"}}
+    driver = FakeDriver()
+    driver.set_plan_path("t1", "rosey/plans/2026-01-01-001-feat-x-plan.md")
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver)
+    assert run["state"]["t1"]["plan_path"] == "rosey/plans/2026-01-01-001-feat-x-plan.md"
 
 
 def test_cli_run_validates_inputs_fail_fast(tmp_path):

@@ -62,13 +62,13 @@ Then create `rosey/foundation/GROW-BUSINESS-PLAN.md` from the template and confi
 
 Run the phases in order unless intake reordered them. Each phase's Invoke reads what earlier phases wrote to `rosey/foundation/`; if an upstream phase was skipped, its reader falls back to the intake facts and flags the missing input rather than inventing it.
 
-### Phase 1 — Install the marketing operating system (references/one-page-marketing/one-page-marketing.md)
+### Phase 1 — Install the marketing operating system (.agents/shared/references/one-page-marketing/one-page-marketing.md)
 
 **Purpose:** Lay out the whole marketing machine on one page so the missing square is visible before spending on any tactic.
 
 **Brief (fallback):** A 3x3 grid across the customer journey — Before (target market, message, media), During (capture leads, nurture, convert), After (deliver the experience, increase lifetime value, orchestrate referrals). Marketing is a process, not an event; random tactics fail because they fill one square while eight stay empty. Score 0-10 on how completely and specifically all nine are filled. Run the PVP Index (Personal fulfillment, Value to market, Profitability) to pick one niche to dominate.
 
-**Invoke:** Read `references/one-page-marketing/one-page-marketing.md` and apply its framework with the intake facts (revenue, customers, current channels, candidate segments). Ask for (a) all nine squares filled and scored out of 10 with the single weakest square plus three fixes, and (b) a PVP Index across the candidate segments recommending one niche and writing its avatar.
+**Invoke:** Read `.agents/shared/references/one-page-marketing/one-page-marketing.md` and apply its framework with the intake facts (revenue, customers, current channels, candidate segments). Ask for (a) all nine squares filled and scored out of 10 with the single weakest square plus three fixes, and (b) a PVP Index across the candidate segments recommending one niche and writing its avatar.
 
 **Decide with the user:** Which niche to dominate first (the PVP winner — this becomes the Phase 6 beachhead candidate)? Which weakest square to attack first? Confirm the avatar is one named persona, not "everyone".
 
@@ -76,13 +76,13 @@ Run the phases in order unless intake reordered them. Each phase's Invoke reads 
 
 **Done when:** MARKETING.md exists, the grid is filled and scored, the PVP niche and avatar are recorded, and the user chose the niche and the weakest square.
 
-### Phase 2 — Make the offer impossible to refuse (references/hundred-million-offers/hundred-million-offers.md)
+### Phase 2 — Make the offer impossible to refuse (.agents/shared/references/hundred-million-offers/hundred-million-offers.md)
 
 **Purpose:** Turn the core product into a Grand Slam Offer so conversion stops being a fight before any traffic is turned on.
 
 **Brief (fallback):** Value = (Dream Outcome x Perceived Likelihood) / (Time Delay x Effort and Sacrifice) — maximize the top, minimize the bottom. Assemble core product + named bonuses that each kill one objection + a risk-reversing guarantee + ethical (real) scarcity, until the stack dwarfs the price. Name it with MAGIC (Magnetic reason, Avatar, Goal, time Indicator, Container). Premium pricing attracts committed customers who churn less.
 
-**Invoke:** Read `references/hundred-million-offers/hundred-million-offers.md` and apply its framework with the current offer and price from intake (and rosey/foundation/OFFER.md if it exists). Ask for a score out of 10, the weakest Value-Equation lever, three objection-killing bonuses with defensible dollar values, a guarantee type, and a MAGIC name.
+**Invoke:** Read `.agents/shared/references/hundred-million-offers/hundred-million-offers.md` and apply its framework with the current offer and price from intake (and rosey/foundation/OFFER.md if it exists). Ask for a score out of 10, the weakest Value-Equation lever, three objection-killing bonuses with defensible dollar values, a guarantee type, and a MAGIC name.
 
 **Decide with the user:** Is "too expensive" a price problem or a value-construction problem? Raise the price and add a done-for-you bonus, or hold? Which three bonuses ship?
 
@@ -90,13 +90,13 @@ Run the phases in order unless intake reordered them. Each phase's Invoke reads 
 
 **Done when:** OFFER.md holds a scored Grand Slam Offer with named bonuses, a guarantee, real scarcity, and a MAGIC name, and the pricing decision is recorded.
 
-### Phase 3 — Manufacture pipeline with outbound (references/predictable-revenue/predictable-revenue.md)
+### Phase 3 — Manufacture pipeline with outbound (.agents/shared/references/predictable-revenue/predictable-revenue.md)
 
 **Purpose:** Build a sales motion you can throttle — turn up to make deals, turn down to pause — instead of waiting for luck.
 
 **Brief (fallback):** Lead types: Seeds (referrals — highest conversion, slow to build), Nets (inbound — medium), Spears (outbound — predictable, you control volume). Most under-invest in Spears. Specialize roles: SDRs prospect, AEs close, CSMs retain — never the same person prospecting and closing. Cold Calling 2.0: email above the decision-maker for a referral in, no pitch; response runs 9-15% vs 1-3%. Qualify with ANUM (Authority, Need, Urgency, Money). Run pipeline math backward from the revenue goal.
 
-**Invoke:** Read `references/predictable-revenue/predictable-revenue.md` and apply its framework with the revenue goal, average deal, and win rate from intake, plus the USP and niche from MARKETING.md. Ask for (a) backward pipeline math to emails and SDR count, (b) a four-touch Cold Calling 2.0 sequence, and (c) an ANUM SDR-to-AE handoff.
+**Invoke:** Read `.agents/shared/references/predictable-revenue/predictable-revenue.md` and apply its framework with the revenue goal, average deal, and win rate from intake, plus the USP and niche from MARKETING.md. Ask for (a) backward pipeline math to emails and SDR count, (b) a four-touch Cold Calling 2.0 sequence, and (c) an ANUM SDR-to-AE handoff.
 
 **Decide with the user:** Is the revenue goal reachable at current conversion, or adjust the goal or hire? Specialize roles now or stay generalist a while longer? What Seeds/Nets/Spears mix to target?
 
@@ -132,13 +132,13 @@ Run the phases in order unless intake reordered them. Each phase's Invoke reads 
 
 **Done when:** OFFER.md holds a scored persuasion audit, rewritten proof placed where objections peak, and every claim verified true.
 
-### Phase 6 — Cross the chasm to the mainstream (references/crossing-the-chasm/crossing-the-chasm.md)
+### Phase 6 — Cross the chasm to the mainstream (.agents/shared/references/crossing-the-chasm/crossing-the-chasm.md)
 
 **Purpose:** Make the jump from enthusiasts to pragmatists — target one beachhead, assemble the whole product, and reposition for "it just works."
 
 **Brief (fallback):** Early adopters (visionaries) tolerate rough edges and buy the vision; the early majority (pragmatists) want proven solutions, references from peers, and a complete product. The D-Day strategy: dominate one narrow beachhead — urgent expensive pain, reachable channel, members who talk to each other — then expand from strength. Assemble the whole product (integrations, onboarding, migration, support), partnering for gaps. "Revolutionary" becomes "proven solution for [problem]"; "be first" becomes "join 500 firms like yours."
 
-**Invoke:** Read `references/crossing-the-chasm/crossing-the-chasm.md` and apply its framework with the PVP niche from MARKETING.md as the beachhead candidate. Ask for a go-to-market score out of 10, a whole-product gap analysis, and positioning rewritten for pragmatists using Moore's formula.
+**Invoke:** Read `.agents/shared/references/crossing-the-chasm/crossing-the-chasm.md` and apply its framework with the PVP niche from MARKETING.md as the beachhead candidate. Ask for a go-to-market score out of 10, a whole-product gap analysis, and positioning rewritten for pragmatists using Moore's formula.
 
 **Decide with the user:** Confirm the beachhead (urgent pain, reachable channel, members who talk to each other)? Which whole-product gaps to build vs partner for? Adopt the pragmatist repositioning?
 
@@ -146,13 +146,13 @@ Run the phases in order unless intake reordered them. Each phase's Invoke reads 
 
 **Done when:** rosey/foundation/STRATEGY.md names the beachhead and a checklisted whole-product gap list, CUSTOMER.md records the pragmatist segment, and the build/partner and repositioning decisions are recorded.
 
-### Phase 7 — Turn customers into a compounding network (references/cold-start-problem/cold-start-problem.md)
+### Phase 7 — Turn customers into a compounding network (.agents/shared/references/cold-start-problem/cold-start-problem.md)
 
 **Purpose:** Formalize the referral square and word-of-mouth into a self-reinforcing loop where the network does the acquiring.
 
 **Brief (fallback):** Network effects are a liability before an asset; they grow by saturating one tiny complete network at a time, not by launching broadly. Atomic network: the smallest self-sustaining unit (one firm, one city) — over-deliver until dense, then replicate with a playbook. The hard side: the minority who do the disproportionate work and are hardest to keep — build for them first. Tipping playbook: invite-only mechanics and two-sided referral incentives import each new user along an existing relationship.
 
-**Invoke:** Read `references/cold-start-problem/cold-start-problem.md` and apply its framework with the product's multiplayer or shared dimension and the referral square from MARKETING.md. Ask for a defined atomic network, the hard side and what retains them, and a two-sided referral/invite loop with real (never faked) incentives, scored out of 10.
+**Invoke:** Read `.agents/shared/references/cold-start-problem/cold-start-problem.md` and apply its framework with the product's multiplayer or shared dimension and the referral square from MARKETING.md. Ask for a defined atomic network, the hard side and what retains them, and a two-sided referral/invite loop with real (never faked) incentives, scored out of 10.
 
 **Decide with the user:** Which atomic-network unit (firm / city / practice area)? Who is the hard side and why do they stay? What real incentive does each side of the referral get?
 
@@ -160,13 +160,13 @@ Run the phases in order unless intake reordered them. Each phase's Invoke reads 
 
 **Done when:** MARKETING.md holds a defined atomic network, the hard side, and a two-sided referral loop with real incentives, and density (not signup) metrics are named for Phase 8.
 
-### Phase 8 — Point everything at the one metric that matters (references/lean-analytics/lean-analytics.md)
+### Phase 8 — Point everything at the one metric that matters (.agents/shared/references/lean-analytics/lean-analytics.md)
 
 **Purpose:** Cut the dashboard to the single number that says whether the riskiest part of the business is working, and let it gate every experiment.
 
 **Brief (fallback):** A good metric is comparative, a ratio or rate (not an ever-growing total), and behavior-changing — if it will not change a decision, stop measuring it. Cumulative up-and-to-the-right charts are the vanity tell. OMTM = intersection of business model (SaaS: churn, MRR, LTV:CAC, time-to-value) and stage (Empathy, Stickiness, Virality, Revenue, Scale). Pair it with a counter-metric so it cannot be gamed; draw a line in the sand — target, date, pre-committed miss-response. Cohort and segment, because blended averages hide the truth.
 
-**Invoke:** Read `references/lean-analytics/lean-analytics.md` and apply its framework with the current metric list, business model, and stage. Ask for which metrics are vanity, the OMTM derived from model and stage, a counter-metric, and a one-screen dashboard (OMTM big, 4-6 supporting metrics small).
+**Invoke:** Read `.agents/shared/references/lean-analytics/lean-analytics.md` and apply its framework with the current metric list, business model, and stage. Ask for which metrics are vanity, the OMTM derived from model and stage, a counter-metric, and a one-screen dashboard (OMTM big, 4-6 supporting metrics small).
 
 **Decide with the user:** Which stage are we in? What is the OMTM and its counter-metric? What line in the sand — target number, date, and what we do if we miss?
 
@@ -174,13 +174,13 @@ Run the phases in order unless intake reordered them. Each phase's Invoke reads 
 
 **Done when:** METRICS.md names the OMTM, its counter-metric, the line in the sand, and a cohorted funnel, and vanity metrics are flagged.
 
-### Phase 9 — Stop discounting, capture the value you create (references/negotiation/negotiation.md)
+### Phase 9 — Stop discounting, capture the value you create (.agents/shared/references/negotiation/negotiation.md)
 
 **Purpose:** Hold price in high-stakes conversations so the value the engine built lands in the bank instead of being discounted away.
 
 **Brief (fallback):** The path to yes runs through empathy and being understood, not logic or compromise — and never split the difference: no deal beats a bad deal, because a pressured discount trains every future customer to ask. Tactical empathy and labeling name the other side's concern first; calibrated questions ("how am I supposed to do that at that price?") make them solve your problem; the accusation audit preempts objections; the Ackerman method holds price in decreasing increments to precise non-round numbers, closing with a non-monetary concession.
 
-**Invoke:** Read `references/negotiation/negotiation.md` and apply its framework with a specific upcoming high-stakes conversation (a renewal at risk, a procurement squeeze, an enterprise deal). Ask for an accusation audit, five calibrated questions, an Ackerman plan (target, decreasing increments, non-monetary concession), and Black-Swan hypotheses.
+**Invoke:** Read `.agents/shared/references/negotiation/negotiation.md` and apply its framework with a specific upcoming high-stakes conversation (a renewal at risk, a procurement squeeze, an enterprise deal). Ask for an accusation audit, five calibrated questions, an Ackerman plan (target, decreasing increments, non-monetary concession), and Black-Swan hypotheses.
 
 **Decide with the user:** Which conversation to prepare? What is the Ackerman target and the walk-away? Which non-monetary concessions can substitute for a discount?
 
@@ -192,9 +192,9 @@ Run the phases in order unless intake reordered them. Each phase's Invoke reads 
 
 | Skill | Add when | Artifact |
 |---|---|---|
-| `references/monetizing-innovation/monetizing-innovation.md` | pricing was never tested against willingness to pay | Extends rosey/foundation/OFFER.md |
-| `references/good-strategy-bad-strategy/good-strategy-bad-strategy.md` | growth efforts scatter because there is no kernel | Extends rosey/foundation/STRATEGY.md |
-| `references/traction-eos/traction-eos.md` | execution rhythm cannot keep up with growth plans | Extends rosey/foundation/OPERATIONS.md |
+| `.agents/shared/references/monetizing-innovation/monetizing-innovation.md` | pricing was never tested against willingness to pay | Extends rosey/foundation/OFFER.md |
+| `.agents/shared/references/good-strategy-bad-strategy/good-strategy-bad-strategy.md` | growth efforts scatter because there is no kernel | Extends rosey/foundation/STRATEGY.md |
+| `.agents/shared/references/traction-eos/traction-eos.md` | execution rhythm cannot keep up with growth plans | Extends rosey/foundation/OPERATIONS.md |
 | `references/scorecard-marketing/scorecard-marketing.md` | lead generation needs a quiz or assessment funnel | Extends rosey/foundation/MARKETING.md |
 | `references/made-to-stick/made-to-stick.md` | the referral message is forgettable | Extends rosey/foundation/POSITIONING.md |
 
@@ -204,11 +204,11 @@ Optional phases follow the same operating rules — read each listed reference a
 
 | Mistake | Fix |
 |---|---|
-| Optimizing the funnel before fixing the offer | Run Phase 2 (`references/hundred-million-offers/hundred-million-offers.md`) against pricing before touching the funnel — the offer is the bigger lever. |
+| Optimizing the funnel before fixing the offer | Run Phase 2 (`.agents/shared/references/hundred-million-offers/hundred-million-offers.md`) against pricing before touching the funnel — the offer is the bigger lever. |
 | Treating the nine skills as a buffet | Keep the order; Phase 1 sets the shared target every later phase reads (PVP niche → beachhead, USP → cold email, referral square → network loop). |
-| Marketing to pragmatists like early adopters | Reframe as proven evolution via Phase 6 (`references/crossing-the-chasm/crossing-the-chasm.md`) — "proven solution", "join 500 firms", not "revolutionary". |
+| Marketing to pragmatists like early adopters | Reframe as proven evolution via Phase 6 (`.agents/shared/references/crossing-the-chasm/crossing-the-chasm.md`) — "proven solution", "join 500 firms", not "revolutionary". |
 | Faking scarcity, social proof, or guarantees | Use real inventory, real numbers, real deadlines; the frameworks work without the fake version (Operating Rule 8). |
-| Celebrating vanity metrics | Watch the one ratio that matters — Phase 8 (`references/lean-analytics/lean-analytics.md`) flags cumulative up-and-to-the-right charts as decoration. |
+| Celebrating vanity metrics | Watch the one ratio that matters — Phase 8 (`.agents/shared/references/lean-analytics/lean-analytics.md`) flags cumulative up-and-to-the-right charts as decoration. |
 | Building outbound on a leaky bucket | Let Phase 8's stickiness metric gate acquisition spend; if retention is broken, run improve-business first. |
 
 ## Completing the Journey

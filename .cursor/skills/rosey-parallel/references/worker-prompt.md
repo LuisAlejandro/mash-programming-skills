@@ -18,17 +18,23 @@ CONSTRAINTS:
 - Phase: {phase}  (one of: plan | work | qa | lint)
 
 PHASE CONTRACT:
-- plan:   produce the plan document; do NOT edit tracked files outside the plan.
-- work:    run rosey-work in mode:non-interactive. Emit the required handoff
-           envelope (ROSEY_WORK_HANDOFF ... END_ROSEY_WORK_HANDOFF) containing
+- plan:    run rosey-plan in mode:non-interactive for this task. Write the plan
+           document (do NOT edit tracked files outside the plan doc). Emit the
+           plan path (and its per-unit **Files:** footprint) in the handoff
+           envelope so the orchestrator can record it and QA/lint can honor it.
+- work:    run rosey-work mode:non-interactive against the recorded plan path.
+           Emit the required handoff envelope
+           (ROSEY_WORK_HANDOFF ... END_ROSEY_WORK_HANDOFF) containing
            FILES_CHANGED (repo-relative) and BLOCKERS (empty if none). ALSO emit
            an evidence artifact (ROSEY_EVIDENCE ... END_ROSEY_EVIDENCE) — a
            captured test run or output proving the work. No evidence artifact
            = not done (hardening R7).
-- qa:     run rosey-qa in mode:headless against base {qa_diff_base} (the
+- qa:     run rosey-qa mode:headless against base {qa_diff_base} (the
            previous task's end commit, or the track branch point for the first
            task). Expect terminal "Review complete".
-- lint:   run repo lint gates. Record any files lint modified.
+- lint:   run rosey-lint mode:non-interactive (delegates tooling discovery to
+           the skill). Emit LINT_HANDOFF with LINT_STATUS: pass|failed. Record
+           any files lint modified; a pass requires LINT_STATUS: pass.
 
 FINISH:
 - Emit the handoff envelope exactly when done.

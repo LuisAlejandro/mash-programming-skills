@@ -100,7 +100,6 @@ build_cmd() {
   cmd+=(--yolo --trust)
   cmd+=(-- "goal-loop-iteration")
   [[ "$continue_flag" == "1" ]] && cmd+=("--continue")
-  cmd+=("--state-dir=$STATE_DIR")
   cmd+=("--max-iterations=$MAX_ITERATIONS")
   cmd+=("--no-progress-limit=$NO_PROGRESS_LIMIT")
   cmd+=("--failure-limit=$FAILURE_LIMIT")

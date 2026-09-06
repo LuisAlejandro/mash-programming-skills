@@ -1,7 +1,7 @@
 ---
 name: docs-loop-iteration
 description: Audits one repository's documentation against current default-branch evidence and applies isolated documentation-only fixes. Invoked once per repository by the docs-loop driver script; also usable directly for a single repository. Always applies; never opens pull requests. Use only when the user explicitly invokes docs-loop-iteration.
-argument-hint: "[--state-dir=PATH | REPO_PATH ...]"
+argument-hint: "[REPO_PATH ...]"
 ---
 
 # docs-loop-iteration
@@ -24,7 +24,6 @@ Valid forms:
 ```text
 /docs-loop-iteration
 /docs-loop-iteration REPO_PATH ...
-/docs-loop-iteration --state-dir=PATH REPO_PATH ...
 ```
 
 Authorization is exact:
@@ -41,8 +40,8 @@ Authorization is exact:
 - Explicit paths are the canonical scope. Resolve and validate each path without changing it.
 - The workspace root is the sole discovery root; never discover outside it. Never use `CLAUDE.md`,
   `AGENTS.md`, or any other instruction file as a repository map.
-- `--state-dir=PATH` selects state storage; the default is `rosey/loops/docs/` relative to the invocation
-  directory.
+- State lives under `rosey/loops/docs/` relative to the workspace root. It is fixed, not configurable;
+  no `--state-dir` argument is accepted.
 
 Copy the three templates into an absent state directory, fill all run metadata, and preserve existing
 terminal statuses only when state format, canonical scope, and mode exactly match. Canonicalize the state

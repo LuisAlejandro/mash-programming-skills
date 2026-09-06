@@ -583,6 +583,16 @@ echo "-> Writing shared rosey/hindsight-pin..."
 mkdir -p rosey
 [ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ] && cp "$SOURCE_ROOT/.cursor/hindsight-pin" rosey/hindsight-pin
 
+# Install the root-relative shared reference tree (.agents/shared/references) once at
+# the install root. It is IDE-agnostic: skills reference it as a single root-relative
+# path (.agents/shared/references/...) that resolves identically in every tree.
+install_shared_refs() {
+    [ -d "$SOURCE_ROOT/.agents/shared/references" ] || return 0
+    rm -rf .agents/shared
+    mkdir -p .agents/shared
+    cp -R "$SOURCE_ROOT/.agents/shared/references/." .agents/shared/references/
+}
+
 # --- Cursor target ---
 
 install_cursor_tree() {
@@ -928,6 +938,9 @@ install_vscode_tree
 install_opencode_tree
 install_pi_tree
 
+# Shared reference tree is root-relative (.agents/shared/references) and IDE-agnostic.
+install_shared_refs
+
 # Seed MCP configs from .cursor/mcp.json.example + GITHUB_TOKEN / OBSIDIAN_API_KEY in SOURCE_ROOT/.env.
 seed_mcp_json_configs() {
     local example="$SOURCE_ROOT/.cursor/mcp.json.example"
@@ -1121,99 +1134,15 @@ append_gitignore_if_missing ".github/hooks/"
 append_gitignore_if_missing ".vscode/mcp.json"
 append_gitignore_if_missing "opencode.json"
 
-# OpenCode target
+# OpenCode target — .opencode/ covers skills/, agents/, hooks/, rules/ wholesale.
 append_gitignore_if_missing ".opencode/"
 
-# Pi target
+# Pi target — .pi/ covers skills/, agents/, scripts/ wholesale.
 append_gitignore_if_missing ".pi/"
 
-# OpenCode target
-append_gitignore_if_missing ".opencode/"
-
-# Pi target
-append_gitignore_if_missing ".pi/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/"
-
-# Pi target
-append_gitignore_if_missing ".pi/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/"
-
-# Pi target
-append_gitignore_if_missing ".pi/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/skills/"
-append_gitignore_if_missing ".opencode/agents/"
-
-# Pi target
-append_gitignore_if_missing ".pi/skills/"
-append_gitignore_if_missing ".pi/agents/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/skills/"
-append_gitignore_if_missing ".opencode/agents/"
-
-# Pi target
-append_gitignore_if_missing ".pi/skills/"
-append_gitignore_if_missing ".pi/agents/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/skills/"
-append_gitignore_if_missing ".opencode/agents/"
-
-# Pi target
-append_gitignore_if_missing ".pi/skills/"
-append_gitignore_if_missing ".pi/agents/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/"
-
-# Pi target
-append_gitignore_if_missing ".pi/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/"
-
-# Pi target
-append_gitignore_if_missing ".pi/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/skills/"
-append_gitignore_if_missing ".opencode/agents/"
-
-# Pi target
-append_gitignore_if_missing ".pi/skills/"
-append_gitignore_if_missing ".pi/agents/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/skills/"
-append_gitignore_if_missing ".opencode/agents/"
-
-# Pi target
-append_gitignore_if_missing ".pi/skills/"
-append_gitignore_if_missing ".pi/agents/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/"
-
-# Pi target
-append_gitignore_if_missing ".pi/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/"
-
-# Pi target
-append_gitignore_if_missing ".pi/"
-
-# OpenCode target
-append_gitignore_if_missing ".opencode/"
-
-# Pi target
-append_gitignore_if_missing ".pi/"
+# Shared references (generated per-tree by install.sh; canonical source lives in
+# the Rosey agentic env repo, not in downstream app repos).
+append_gitignore_if_missing ".agents/"
 
 # --- AGENTS.md / .cursorrules ---
 

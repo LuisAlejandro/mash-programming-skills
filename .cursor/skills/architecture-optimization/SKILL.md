@@ -65,7 +65,7 @@ Then create `rosey/foundation/ARCHITECTURE-OPTIMIZATION-PLAN.md` from the templa
 
 Phases run in the listed order — each assumes the previous phase's artifact exists. Structure before speed is deliberate: Phases 2-4 make the hot paths safe and cheap to change, which is what makes the Phase 5-6 optimizations small diffs instead of surgery. Any phase can be entered, skipped, or deferred per the Operating Rules, but Phase 1 gates them all — as two independent nets: pinned behavior unlocks Phases 2-4, and a recorded baseline unlocks Phases 5-6, so structure work need not wait on a profile that takes weeks to gather. Phases 5 and 6 may be swapped when the Phase 1 profile shows the database dominating: fixing an N+1 or a missing index before adding a cache is the skill's own cheapest-first law. When running any phase from its Brief, read [references/methods.md](references/methods.md) first — it carries each phase's full method, checklists, formulas, and heuristics; the Brief is only the summary.
 
-### Phase 1 — Pin it and measure it (references/working-with-legacy-code/working-with-legacy-code.md) — GATE
+### Phase 1 — Pin it and measure it (.agents/shared/references/working-with-legacy-code/working-with-legacy-code.md) — GATE
 
 **Purpose:** Make every later change provable twice over — behavior pinned by tests, performance pinned by numbers. No phase touches unpinned code or optimizes an unmeasured path.
 
@@ -79,7 +79,7 @@ per hot flow under realistic data volumes (dev-database timings lie), and work t
 per resource: Utilization, Saturation, Errors for CPU, memory, disk, network, and connection pools.
 Set the budget each metric must meet, so "done" is a number, not a feeling.
 
-**Invoke:** Read `references/working-with-legacy-code/working-with-legacy-code.md` and apply its framework with the hot-path modules from intake. Ask for the seams and the smallest characterization-test set that pins current behavior of each flow to be optimized; then capture profiler or APM baselines for those flows.
+**Invoke:** Read `.agents/shared/references/working-with-legacy-code/working-with-legacy-code.md` and apply its framework with the hot-path modules from intake. Ask for the seams and the smallest characterization-test set that pins current behavior of each flow to be optimized; then capture profiler or APM baselines for those flows.
 
 **Decide with the user:** (1) Confirm the hot paths in scope — measured pain, not suspicion. (2) The budget per metric (e.g. checkout p95 < 500ms) and the tool of record (profiler, APM, load test) so before/after numbers stay comparable. (3) Bugs found while characterizing: pin the current behavior and ledger them, never silently fix — callers may depend on the quirk.
 
@@ -87,7 +87,7 @@ Set the budget each metric must meet, so "done" is a number, not a feeling.
 
 **Done when:** every in-scope flow has pinned behavior (suite green) — which unlocks Phases 2-4 — and a recorded baseline with a budget, which unlocks Phases 5-6. Record the two separately; a profile still being gathered parks at `awaiting-evidence` with a Next Actions row rather than blocking the structure phases.
 
-### Phase 2 — Re-draw the drifted boundaries (references/clean-architecture/clean-architecture.md)
+### Phase 2 — Re-draw the drifted boundaries (.agents/shared/references/clean-architecture/clean-architecture.md)
 
 **Purpose:** Restore the Dependency Rule the codebase grew away from — mixed concerns are why changes feel risky and why the slow parts can't be optimized in isolation.
 
@@ -100,7 +100,7 @@ framework-free use cases behind owned interfaces (Dependency Inversion) — this
 boundaries only at real volatility (DB, external services, delivery); collapse ceremony layers
 elsewhere — direction matters, not folder count.
 
-**Invoke:** Read `references/clean-architecture/clean-architecture.md` and apply its framework with the module map and stack from intake. Ask for the dependency graph, every violation where business logic names the framework, ORM, or a vendor, and the extraction plan for the hot-path use cases — flagging which boundaries earn their cost.
+**Invoke:** Read `.agents/shared/references/clean-architecture/clean-architecture.md` and apply its framework with the module map and stack from intake. Ask for the dependency graph, every violation where business logic names the framework, ORM, or a vendor, and the extraction plan for the hot-path use cases — flagging which boundaries earn their cost.
 
 **Decide with the user:** How far to push the boundary this pass — hot paths first, never a big-bang re-layering; which vendor gets wrapped behind an owned interface first; which violations get fixed now versus ledgered.
 
@@ -108,7 +108,7 @@ elsewhere — direction matters, not folder count.
 
 **Done when:** the dependency graph is mapped, every violation is a tracked row, the hot-path business rules run in tests with no framework, and the suite is green.
 
-### Phase 3 — Deepen the modules (references/software-design-philosophy/software-design-philosophy.md)
+### Phase 3 — Deepen the modules (.agents/shared/references/software-design-philosophy/software-design-philosophy.md)
 
 **Purpose:** Cut the complexity tax — a grown codebase accretes shallow classes and leaked decisions, and every one of them slows the team down before it slows the code down.
 
@@ -120,7 +120,7 @@ Same-abstraction pass-throughs across layers signal a boundary that isn't earnin
 the tactical→strategic flip: invest 10-20% now so every later phase touches fewer files. Consolidation
 also collapses call-chain ceremony on hot paths — but readability, not nanoseconds, is the reason.
 
-**Invoke:** Read `references/software-design-philosophy/software-design-philosophy.md` and apply its framework with the modules mapped in Phase 2. Ask which classes are shallow, where one decision leaks across modules, and for a consolidation plan into deeper modules with smaller interfaces.
+**Invoke:** Read `.agents/shared/references/software-design-philosophy/software-design-philosophy.md` and apply its framework with the modules mapped in Phase 2. Ask which classes are shallow, where one decision leaks across modules, and for a consolidation plan into deeper modules with smaller interfaces.
 
 **Decide with the user:** Which consolidations happen now versus ledgered — guarding against over-merging genuinely unrelated concerns; the design conventions the team adopts going forward.
 
@@ -128,7 +128,7 @@ also collapses call-chain ceremony on hot paths — but readability, not nanosec
 
 **Done when:** each shallow-module cluster is consolidated or ledgered with a fix, every identified leaked decision is consolidated or a Smell Inventory row, and the suite is green.
 
-### Phase 4 — Refactor the hot paths (references/refactoring-patterns/refactoring-patterns.md)
+### Phase 4 — Refactor the hot paths (.agents/shared/references/refactoring-patterns/refactoring-patterns.md)
 
 **Purpose:** Reshape the code you're about to optimize with named, behavior-preserving transformations — clean first, then fast, because you can't safely optimize what you can't safely change.
 
@@ -141,7 +141,7 @@ operation and state context. Preparatory Refactoring is the bridge to Phases 5-6
 optimization, first make the change easy (restructure), then make the easy change (optimize) — in
 separate commits.
 
-**Invoke:** Read `references/refactoring-patterns/refactoring-patterns.md` and apply its framework with the hot-path modules and the Phase 1 tests. Ask it to name each smell, cite the transformation, and apply one at a time with tests run between each.
+**Invoke:** Read `.agents/shared/references/refactoring-patterns/refactoring-patterns.md` and apply its framework with the hot-path modules and the Phase 1 tests. Ask it to name each smell, cite the transformation, and apply one at a time with tests run between each.
 
 **Decide with the user:** Scope — which smells this pass versus ledgered; which upcoming optimization warrants a Preparatory Refactoring at its insertion point first; whether the refactored modules join the CI gate list in TESTING.md.
 
@@ -149,7 +149,7 @@ separate commits.
 
 **Done when:** targeted smells show a named refactoring and `done` / `ticketed` status, tests are green, and structural commits contain no behavior changes.
 
-### Phase 5 — Attack the measured bottleneck (references/system-design/system-design.md)
+### Phase 5 — Attack the measured bottleneck (.agents/shared/references/system-design/system-design.md)
 
 **Purpose:** Spend optimization effort where the profile says the time goes, in cheapest-first order, sized by real numbers.
 
@@ -163,7 +163,7 @@ overhead), a message queue to move slow work off the request path (Little's law:
 arrival rate × latency, so cutting latency is also a capacity fix), then read replicas — and shard
 only with evidence. Re-measure after every change; keep what moves the number, revert what doesn't.
 
-**Invoke:** Read `references/system-design/system-design.md` and apply its framework with the Phase 1 profile and the load numbers from intake. Ask which component bottlenecks first, the cheapest ordered list of moves for the measured gap, and the machinery you explicitly do NOT need yet.
+**Invoke:** Read `.agents/shared/references/system-design/system-design.md` and apply its framework with the Phase 1 profile and the load numbers from intake. Ask which component bottlenecks first, the cheapest ordered list of moves for the measured gap, and the machinery you explicitly do NOT need yet.
 
 **Decide with the user:** Which moves ship now versus defer with the trigger number written down; the first workload, if any, to move behind a queue; the invalidation rule for each cached path — what event invalidates which key.
 
@@ -171,7 +171,7 @@ only with evidence. Re-measure after every change; keep what moves the number, r
 
 **Done when:** the bottleneck is named from the profile, each move is applied with before/after in the ledger or deferred with a trigger, and no adopted move failed to beat its baseline.
 
-### Phase 6 — Fix the data layer (references/ddia-systems/ddia-systems.md)
+### Phase 6 — Fix the data layer (.agents/shared/references/ddia-systems/ddia-systems.md)
 
 **Purpose:** The database is the usual suspect — most measured slowness is queries, and most correctness debt is isolation assumptions. Fix both by evidence.
 
@@ -186,7 +186,7 @@ read-committed or snapshot, not serializable — read-then-write paths get write
 pattern (search, analytics, feeds) justifies derived data kept in sync by CDC — never dual writes; and
 replicas from Phase 5 force deliberate read-your-writes.
 
-**Invoke:** Read `references/ddia-systems/ddia-systems.md` and apply its framework with the Phase 1 profile, the Phase 5 findings, and the database from intake. If no query-level source exists yet, enable one first (`pg_stat_statements`, `auto_explain`, slow-query log) — that is Phase 1 instrumentation deferred, not a reason to guess. Ask for a query-plan audit (N+1s, missing indexes, unbounded reads), the actual default isolation level and its anomalies on your paths, and a per-workload model and engine fit.
+**Invoke:** Read `.agents/shared/references/ddia-systems/ddia-systems.md` and apply its framework with the Phase 1 profile, the Phase 5 findings, and the database from intake. If no query-level source exists yet, enable one first (`pg_stat_statements`, `auto_explain`, slow-query log) — that is Phase 1 instrumentation deferred, not a reason to guess. Ask for a query-plan audit (N+1s, missing indexes, unbounded reads), the actual default isolation level and its anomalies on your paths, and a per-workload model and engine fit.
 
 **Decide with the user:** Which indexes to add, weighing write cost; which paths get locks versus serializable transactions versus tolerated anomalies; whether any workload justifies a second datastore synced by CDC.
 
@@ -194,7 +194,7 @@ replicas from Phase 5 force deliberate read-your-writes.
 
 **Done when:** the slow queries are fixed with measured before/after, every list endpoint on the in-scope flows is paginated (the rest become Debt Ledger rows), the isolation level is documented with risky paths locked, and any derived data has a defined sync mechanism.
 
-### Phase 7 — Keep it fast when things fail (references/release-it/release-it.md)
+### Phase 7 — Keep it fast when things fail (.agents/shared/references/release-it/release-it.md)
 
 **Purpose:** A fast system that collapses under a slow dependency isn't fast — latency under failure is a performance property.
 
@@ -207,7 +207,7 @@ dependency is dying); steady-state cleanup for logs, temp data, and caches that 
 metrics (rate, errors, duration) per endpoint and alert on symptoms (p95 over budget) — the Phase 1
 budgets become production guardrails instead of a one-time snapshot.
 
-**Invoke:** Read `references/release-it/release-it.md` and apply its framework with the outbound dependencies from intake and the budgets from Phase 1. Ask for timeout values derived from the flow latency budgets, breaker and bulkhead placement, and the RED-metrics plus symptom-alert design.
+**Invoke:** Read `.agents/shared/references/release-it/release-it.md` and apply its framework with the outbound dependencies from intake and the budgets from Phase 1. Ask for timeout values derived from the flow latency budgets, breaker and bulkhead placement, and the RED-metrics plus symptom-alert design.
 
 **Decide with the user:** Timeout and breaker thresholds per dependency, tied to the flow budget; which dependencies get dedicated pools; how each core flow degrades when a non-critical dependency is down.
 
@@ -215,7 +215,7 @@ budgets become production guardrails instead of a one-time snapshot.
 
 **Done when:** every outbound call on the in-scope flows has a timeout inside its flow's budget (calls outside them become Debt Ledger rows), critical dependencies have breakers and bulkheads, unbounded result sets and blocked threads are recorded in `## Query & Resource Findings`, and RED metrics with symptom alerts guard the Phase 1 budgets in production.
 
-### Phase 8 — Lock in budgets and habits (references/pragmatic-programmer/pragmatic-programmer.md)
+### Phase 8 — Lock in budgets and habits (.agents/shared/references/pragmatic-programmer/pragmatic-programmer.md)
 
 **Purpose:** Make the gains permanent — regressions arrive one innocent commit at a time unless a gate catches them.
 
@@ -228,7 +228,7 @@ infrastructure behind owned interfaces, so the next optimization — swapping th
 queue — stays a week's work instead of a rewrite. Set the debt budget per iteration and write the
 conventions down; the ledger, not memory, carries what was deferred.
 
-**Invoke:** Read `references/pragmatic-programmer/pragmatic-programmer.md` and apply its framework across the touched modules. Ask for duplicated-knowledge hits (including duplicated queries and rules), untracked TODOs and broken windows, and a CI-gate design for the performance budgets.
+**Invoke:** Read `.agents/shared/references/pragmatic-programmer/pragmatic-programmer.md` and apply its framework across the touched modules. Ask for duplicated-knowledge hits (including duplicated queries and rules), untracked TODOs and broken windows, and a CI-gate design for the performance budgets.
 
 **Decide with the user:** Which budgets become blocking CI gates versus dashboard alerts; the debt budget per iteration; the broken-windows policy — what gets fixed now versus ticketed.
 
@@ -240,10 +240,10 @@ conventions down; the ledger, not memory, carries what was deferred.
 
 | Skill | Add when | Artifact |
 |---|---|---|
-| `references/clean-code/clean-code.md` | readability is poor beyond the hot paths — the whole codebase needs the naming, function, and error-handling pass | Extends rosey/foundation/TECH-DEBT.md `## Smell Inventory`, `## Adopted Conventions` |
-| `references/domain-driven-design/domain-driven-design.md` | boundaries keep fighting the business language — modules split where the domain doesn't | Extends rosey/foundation/ARCHITECTURE.md `## Bounded Contexts & Context Map`, `## Domain Glossary (Ubiquitous Language)` |
+| `.agents/shared/references/clean-code/clean-code.md` | readability is poor beyond the hot paths — the whole codebase needs the naming, function, and error-handling pass | Extends rosey/foundation/TECH-DEBT.md `## Smell Inventory`, `## Adopted Conventions` |
+| `.agents/shared/references/domain-driven-design/domain-driven-design.md` | boundaries keep fighting the business language — modules split where the domain doesn't | Extends rosey/foundation/ARCHITECTURE.md `## Bounded Contexts & Context Map`, `## Domain Glossary (Ubiquitous Language)` |
 | `references/high-perf-browser/high-perf-browser.md` | the measured slowness is in the browser — page load, LCP, blocking resources — not the backend | Extends rosey/foundation/METRICS.md `## Baselines & Targets`, rosey/foundation/WEBSITE.md `## Audit Findings` |
-| `references/team-topologies/team-topologies.md` | more than one team owns the system, so module boundaries must align with team boundaries (Conway) | Extends rosey/foundation/OPERATIONS.md `## Team Structure` |
+| `.agents/shared/references/team-topologies/team-topologies.md` | more than one team owns the system, so module boundaries must align with team boundaries (Conway) | Extends rosey/foundation/OPERATIONS.md `## Team Structure` |
 
 Optional phases follow the same operating rules — read each listed reference and apply its framework exactly as a core phase would; insert where the Add-when condition first becomes true. They carry no inline Brief: standalone, run clean-code as a naming, function-size, and error-handling pass, domain-driven-design as a ubiquitous-language and bounded-context map, high-perf-browser as a Core Web Vitals audit (LCP, INP, CLS), and team-topologies as a cognitive-load and team-boundary review — read the listed reference for its full framework.
 
@@ -252,12 +252,12 @@ Optional phases follow the same operating rules — read each listed reference a
 | Mistake | Fix |
 |---|---|
 | Optimizing where intuition points instead of where the profiler does | Profile first (Phase 1); Amdahl's law caps any win by the fraction of time that code actually consumes. |
-| Rewriting for speed without a safety net | Pin behavior with characterization tests first (references/working-with-legacy-code/working-with-legacy-code.md); a fast wrong answer is still wrong. |
+| Rewriting for speed without a safety net | Pin behavior with characterization tests first (.agents/shared/references/working-with-legacy-code/working-with-legacy-code.md); a fast wrong answer is still wrong. |
 | Keeping an optimization that didn't move the number | Every change gets before/after in the Optimization Ledger; revert what doesn't beat its baseline — complexity without payoff is pure debt. |
-| Reaching for infrastructure before fixing the algorithm | An O(n²) loop or an N+1 query beats any cache; fix the code, then size the machinery (references/system-design/system-design.md). |
+| Reaching for infrastructure before fixing the algorithm | An O(n²) loop or an N+1 query beats any cache; fix the code, then size the machinery (.agents/shared/references/system-design/system-design.md). |
 | Caching without an invalidation rule | Stale-data bugs cost more than the latency saved; every cached path names what event invalidates which key. |
-| Trusting the ORM to write good SQL | EXPLAIN the slow queries (references/ddia-systems/ddia-systems.md); N+1s and missing indexes hide behind innocent-looking code. |
-| Calling it fast with no timeout on outbound calls | Latency under failure is a performance property (references/release-it/release-it.md); one hanging dependency erases every optimization. |
+| Trusting the ORM to write good SQL | EXPLAIN the slow queries (.agents/shared/references/ddia-systems/ddia-systems.md); N+1s and missing indexes hide behind innocent-looking code. |
+| Calling it fast with no timeout on outbound calls | Latency under failure is a performance property (.agents/shared/references/release-it/release-it.md); one hanging dependency erases every optimization. |
 
 ## Completing the Journey
 

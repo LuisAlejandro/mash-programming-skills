@@ -42,7 +42,7 @@ Ask these before creating the tracker:
 1. What is the plateau — flat revenue, rising churn, a team working hard with nothing moving? (Frames the Phase 1 diagnosis and the Phase 6 OMTM.)
 2. What passes for your current strategy today — a deck, OKRs, a goal list, nothing written? (Feeds Phase 1; if none exists the diagnosis work is larger.)
 3. How big is the team and how is it structured? (Sizes the Rocks and 1:1 system in Phases 2-3; gates Phase 4.)
-4. Do you run technology teams, or is this a services / brick-and-mortar business? (`references/team-topologies/team-topologies.md` is engineering-specific — skip Phase 4 for non-tech orgs.)
+4. Do you run technology teams, or is this a services / brick-and-mortar business? (`.agents/shared/references/team-topologies/team-topologies.md` is engineering-specific — skip Phase 4 for non-tech orgs.)
 5. When was pricing last set, and on what basis — cost-plus, competitor, or value? (Gates Phase 8; cost/competitor pricing signals margin left on the table.)
 6. What is your sales win rate, and do you hear price objections? (Near-100% win rate with no pushback signals minivation — Phase 8.)
 7. Where does work get stuck — within teams or between them? (Between-team stalls point at Phase 4; within-team points at Phases 3 and 5.)
@@ -53,7 +53,7 @@ Then create `rosey/foundation/IMPROVE-BUSINESS-PLAN.md` from the template and co
 
 ## Phases
 
-### Phase 1 — Diagnose the real challenge (references/good-strategy-bad-strategy/good-strategy-bad-strategy.md) — GATE
+### Phase 1 — Diagnose the real challenge (.agents/shared/references/good-strategy-bad-strategy/good-strategy-bad-strategy.md) — GATE
 
 **Purpose:** Name the single critical challenge capping the business, so every later layer works the right constraint. Phases 2-8 may not start before this Diagnosis is confirmed.
 
@@ -63,7 +63,7 @@ guiding policy, and coherent actions. Bad strategy is fluff, goals dressed as st
 binding link; investing in strong links is wasted until the weak one is fixed. Set a proximate
 objective close enough that the team can see how to hit it, and force a no-list.
 
-**Invoke:** Read `references/good-strategy-bad-strategy/good-strategy-bad-strategy.md` and apply its framework with the current annual plan, OKRs, or deck pasted in. Ask
+**Invoke:** Read `.agents/shared/references/good-strategy-bad-strategy/good-strategy-bad-strategy.md` and apply its framework with the current annual plan, OKRs, or deck pasted in. Ask
 it to (a) audit the plan as strategy and score it 0-10, (b) write a proper kernel, (c) name the
 binding chain-link constraint and one proximate objective for the quarter.
 
@@ -73,7 +73,7 @@ binding chain-link constraint and one proximate objective for the quarter.
 
 **Done when:** rosey/foundation/STRATEGY.md holds a confirmed Diagnosis, a Guiding Policy, 3-5 Coherent Actions with owners, and a No-List — only then are Phases 2-8 unlocked.
 
-### Phase 2 — Install an execution rhythm (references/traction-eos/traction-eos.md)
+### Phase 2 — Install an execution rhythm (.agents/shared/references/traction-eos/traction-eos.md)
 
 **Purpose:** Convert the strategy into a weekly operating rhythm that survives Monday.
 
@@ -82,7 +82,7 @@ one owner, SMART, binary (done or not, no partial credit) — aimed at the proxi
 Install the Level 10 Meeting: same day and time, 90 minutes, fixed agenda ending in 60 minutes of
 IDS (Identify, Discuss, Solve) driven to root cause. Never cancel it.
 
-**Invoke:** Read `references/traction-eos/traction-eos.md` and apply its framework with rosey/foundation/STRATEGY.md's guiding policy and proximate objective. Ask for (a)
+**Invoke:** Read `.agents/shared/references/traction-eos/traction-eos.md` and apply its framework with rosey/foundation/STRATEGY.md's guiding policy and proximate objective. Ask for (a)
 5-7 quarterly Rocks with owners and binary criteria, flagging any that are business-as-usual, (b) a
 Level 10 agenda with time boxes, (c) an IDS pass on the top recurring issue.
 
@@ -112,7 +112,7 @@ events, and a 1:1 plus delegation system for direct reports.
 
 **Done when:** OPERATIONS.md records a 1:1 cadence for every direct report and at least one delegation decision that removes the operator as a bottleneck.
 
-### Phase 4 — Reshape teams around value streams (references/team-topologies/team-topologies.md)
+### Phase 4 — Reshape teams around value streams (.agents/shared/references/team-topologies/team-topologies.md)
 
 **Purpose:** Remove structural friction when work keeps getting stuck between teams rather than within them.
 
@@ -122,7 +122,7 @@ cognitive load: at most one complicated domain per team; never split a single do
 teams. Shed domains or remove extraneous load before adding headcount. Define each interaction mode:
 collaboration, X-as-a-service, or facilitating.
 
-**Invoke:** Read `references/team-topologies/team-topologies.md` and apply its framework with each current team and what it does day to day. Ask it to classify
+**Invoke:** Read `.agents/shared/references/team-topologies/team-topologies.md` and apply its framework with each current team and what it does day to day. Ask it to classify
 teams, flag anti-patterns (shared-services ticket queue, teams split by function not value stream),
 diagnose cognitive load, and propose value-stream-aligned boundaries with explicit interaction
 modes.
@@ -153,7 +153,7 @@ autonomy / mastery / purpose fixes including a shift to now-that recognition.
 
 **Done when:** OPERATIONS.md holds an AMP audit with at least one concrete fix per pillar, and the decision on if-then versus now-that rewards is recorded.
 
-### Phase 6 — Measure the one number that tells the truth (references/lean-analytics/lean-analytics.md)
+### Phase 6 — Measure the one number that tells the truth (.agents/shared/references/lean-analytics/lean-analytics.md)
 
 **Purpose:** Replace a dashboard of vanity metrics with one honest number tied to the riskiest assumption.
 
@@ -164,7 +164,7 @@ riskiest part of the business right now, guard it with a counter-metric so it ca
 draw a line in the sand: a target, a date, and a pre-committed miss response decided before results
 arrive.
 
-**Invoke:** Read `references/lean-analytics/lean-analytics.md` and apply its framework with the current dashboard and the business model and stage. Ask it to
+**Invoke:** Read `.agents/shared/references/lean-analytics/lean-analytics.md` and apply its framework with the current dashboard and the business model and stage. Ask it to
 purge vanity metrics into actionable ratios, name the OMTM plus counter-metric, and build cohort
 retention tables to test the stickiness gate.
 
@@ -174,7 +174,7 @@ retention tables to test the stickiness gate.
 
 **Done when:** METRICS.md names one OMTM with a counter-metric and a line in the sand, and the vanity metrics are rewritten as actionable ratios.
 
-### Phase 7 — Stop leaking margin in negotiations (references/negotiation/negotiation.md)
+### Phase 7 — Stop leaking margin in negotiations (.agents/shared/references/negotiation/negotiation.md)
 
 **Purpose:** Protect price in renewals and vendor contracts, and capture what customers truly value.
 
@@ -185,7 +185,7 @@ questions ("how am I supposed to do that?"), labeling ("it sounds like…"), and
 Black Swans — secret constraints, hidden motivations, unknown context — behind any competing bid; it
 is rarely the real story.
 
-**Invoke:** Read `references/negotiation/negotiation.md` and apply its framework with the specific renewal or vendor contract (numbers, the threat, your
+**Invoke:** Read `.agents/shared/references/negotiation/negotiation.md` and apply its framework with the specific renewal or vendor contract (numbers, the threat, your
 instinct). Ask for an accusation audit, five calibrated questions to surface the Black Swan, and an
 Ackerman plan with a non-monetary concession — never concede without getting something back.
 
@@ -195,7 +195,7 @@ Ackerman plan with a non-monetary concession — never concede without getting s
 
 **Done when:** the negotiation is prepped with an accusation audit, calibrated questions, and an Ackerman plan, and CUSTOMER.md records the real drivers surfaced.
 
-### Phase 8 — Reprice around delivered value (references/monetizing-innovation/monetizing-innovation.md)
+### Phase 8 — Reprice around delivered value (.agents/shared/references/monetizing-innovation/monetizing-innovation.md)
 
 **Purpose:** Recover margin by repricing from validated willingness to pay, not cost or competitors.
 
@@ -206,7 +206,7 @@ filler / killer; never give the leader away in the cheapest tier or bundle a kil
 buyers reject the package. Validate with acceptable / expensive / prohibitive probes before shipping
 any change.
 
-**Invoke:** Read `references/monetizing-innovation/monetizing-innovation.md` and apply its framework with current pricing, tiers, win rates, and deal data, plus the
+**Invoke:** Read `.agents/shared/references/monetizing-innovation/monetizing-innovation.md` and apply its framework with current pricing, tiers, win rates, and deal data, plus the
 WTP signals from Phase 7. Ask it to diagnose the monetization failure, run leader-filler-killer on
 the tiers, and design a WTP conversation to run before any price change ships.
 
@@ -220,11 +220,11 @@ the tiers, and design a WTP conversation to run before any price change ships.
 
 | Skill | Add when | Artifact |
 |---|---|---|
-| `references/blue-ocean-strategy/blue-ocean-strategy.md` | the market is commoditized and competition is on price | Extends rosey/foundation/STRATEGY.md (`## Strategy Canvas & ERRC Grid`) |
-| `references/hundred-million-offers/hundred-million-offers.md` | the offer itself is weak, not just the pricing | Extends rosey/foundation/OFFER.md (`## Offer Stack`) |
-| `references/jobs-to-be-done/jobs-to-be-done.md` | customers churn and nobody knows which job the product lost | Extends rosey/foundation/CUSTOMER.md (`## Job Statement`, `## Job Dimensions`) |
-| `references/obviously-awesome/obviously-awesome.md` | the market misunderstands what the business is | Extends rosey/foundation/POSITIONING.md |
-| `references/37signals-way/37signals-way.md` | the org overplans and underships | Extends rosey/foundation/OPERATIONS.md |
+| `.agents/shared/references/blue-ocean-strategy/blue-ocean-strategy.md` | the market is commoditized and competition is on price | Extends rosey/foundation/STRATEGY.md (`## Strategy Canvas & ERRC Grid`) |
+| `.agents/shared/references/hundred-million-offers/hundred-million-offers.md` | the offer itself is weak, not just the pricing | Extends rosey/foundation/OFFER.md (`## Offer Stack`) |
+| `.agents/shared/references/jobs-to-be-done/jobs-to-be-done.md` | customers churn and nobody knows which job the product lost | Extends rosey/foundation/CUSTOMER.md (`## Job Statement`, `## Job Dimensions`) |
+| `.agents/shared/references/obviously-awesome/obviously-awesome.md` | the market misunderstands what the business is | Extends rosey/foundation/POSITIONING.md |
+| `.agents/shared/references/37signals-way/37signals-way.md` | the org overplans and underships | Extends rosey/foundation/OPERATIONS.md |
 
 Optional phases follow the same operating rules — read each listed reference and apply its framework exactly as a core phase would; insert where the Add-when condition first becomes true.
 

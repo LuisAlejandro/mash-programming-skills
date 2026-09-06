@@ -1172,6 +1172,18 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
             t["status"] = STATUS_PLANNING
             outcome = driver.plan_task(tid)
             if outcome in ("done",):  # planner success
+                # Capture the plan the planner produced so work/qa/lint honor it.
+                # Driver may expose optional plan_path(tid); fall back to the
+                # footprint-derived plan path only if the driver has one recorded.
+                plan_path = None
+                pp_fn = getattr(driver, "plan_path", None)
+                if callable(pp_fn):
+                    plan_path = pp_fn(tid)
+                if plan_path:
+                    t["plan_path"] = plan_path
+                    set_pp = getattr(driver, "set_plan_path", None)
+                    if callable(set_pp):
+                        set_pp(tid, plan_path)
                 t["status"] = STATUS_PLANNED
             else:
                 t["status"] = STATUS_BLOCKED if outcome == "blocker" else STATUS_FAILED
@@ -1240,6 +1252,12 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
 
         for tid in admitted:
             t = state[tid]
+            # Full per-task loop: work -> qa -> lint -> done (hardening:
+            # QA and lint previously never executed — only work_phase was
+            # dispatched and tasks jumped straight to done). Each phase runs
+            # inline while the task holds its track slot; a failure at any
+            # phase halts the task (and via the frontier, cascades its
+            # dependents) the same way a work failure did.
             t["status"] = STATUS_WORKING
             outcome = driver.work_phase(tid)
             raw = _worker_output(tid)
@@ -1251,8 +1269,24 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
                         "work: done without evidence artifact"
                     )
                 else:
-                    t["status"] = STATUS_DONE
-                    done.add(tid)
+                    # work passed its evidence gate -> QA
+                    t["status"] = STATUS_QA
+                    outcome = driver.qa_phase(tid)
+                    if outcome != "done":
+                        t["status"] = STATUS_FAILED
+                        t["blockers"].append(
+                            f"qa: {outcome} (expected terminal 'Review complete')"
+                        )
+                    else:
+                        # QA passed -> lint
+                        t["status"] = STATUS_LINT
+                        outcome = driver.lint_phase(tid)
+                        if outcome != "done":
+                            t["status"] = STATUS_FAILED
+                            t["blockers"].append(f"lint: {outcome} (expected LINT_STATUS: pass)")
+                        else:
+                            t["status"] = STATUS_DONE
+                            done.add(tid)
             elif outcome == "blocker":
                 t["status"] = STATUS_BLOCKED
                 t["blockers"].append("work: blocked")
@@ -1452,12 +1486,39 @@ class HarnessPhaseDriver:
         self.run_id = run_id
         self._prompt_builder = prompt_builder or self._default_prompt
         self._outputs: dict[str, str] = {}
+        self._plan_paths: dict[str, str] = {}
+
+    def set_plan_path(self, task_id: str, path: str) -> None:
+        """Record the plan file a task's planner produced (honored by work/qa/lint)."""
+        self._plan_paths[task_id] = path
+
+    def plan_path(self, task_id: str) -> str | None:
+        """Return the plan file a task's planner wrote.
+
+        Prefers an explicitly set path (via set_plan_path); otherwise derives
+        it from a `PLAN PATH: <path>` line in the planner's captured output,
+        matching the worker-prompt contract that plan emits its path.
+        """
+        if task_id in self._plan_paths:
+            return self._plan_paths[task_id]
+        raw = self._outputs.get(task_id) or ""
+        for line in raw.splitlines():
+            line = line.strip()
+            if line.lower().startswith("plan path:"):
+                value = line.split(":", 1)[1].strip()
+                if value:
+                    return value
+        return None
 
     def _default_prompt(self, task_id: str, phase: str) -> str:
-        return (
+        plan = self._plan_paths.get(task_id)
+        lines = [
             f"You are a rosey worker running task {task_id!r} phase {phase!r} "
-            f"of run {self.run_id!r}. Follow the worker prompt contract."
-        )
+            f"of run {self.run_id!r}. Follow the worker prompt contract.",
+        ]
+        if plan:
+            lines.append(f"PLAN PATH: {plan}")
+        return "\n".join(lines)
 
     def _invoke(self, task_id: str, phase: str) -> str:
         """Run the harness, return the interpreted outcome string."""
@@ -1477,6 +1538,12 @@ class HarnessPhaseDriver:
 
     def work_phase(self, task_id: str) -> str:
         return self._invoke(task_id, "work")
+
+    def qa_phase(self, task_id: str) -> str:
+        return self._invoke(task_id, "qa")
+
+    def lint_phase(self, task_id: str) -> str:
+        return self._invoke(task_id, "lint")
 
     def evidence(self, task_id: str) -> str | None:
         return self._outputs.get(task_id)

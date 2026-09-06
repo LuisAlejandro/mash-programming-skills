@@ -64,7 +64,7 @@ Done when `rosey/foundation/IMPROVE-CODE-QUALITY-PLAN.md` exists with every phas
 
 Phases run in the listed order — each assumes the previous phase's artifact exists. Any phase can be entered, skipped, or deferred per the Operating Rules, but Phase 1 gates them all: nothing downstream touches unpinned code.
 
-### Phase 1 — Build the safety net (references/working-with-legacy-code/working-with-legacy-code.md) — GATE
+### Phase 1 — Build the safety net (.agents/shared/references/working-with-legacy-code/working-with-legacy-code.md) — GATE
 
 **Purpose:** Pin current behavior at the change points so every later phase is verifiable. No phase may touch code absent from the Safety Net Map.
 
@@ -75,7 +75,7 @@ buried call), then write characterization tests that photograph actual behavior 
 wrong, read the failure, pin the real value. When full coverage isn't feasible in time, Sprout/Wrap
 the new code and track the untested host as debt.
 
-**Invoke:** Read `references/working-with-legacy-code/working-with-legacy-code.md` and apply its framework with the starting module chosen at intake. Ask for an effect
+**Invoke:** Read `.agents/shared/references/working-with-legacy-code/working-with-legacy-code.md` and apply its framework with the starting module chosen at intake. Ask for an effect
 sketch from the entry method, the seams, and the smallest characterization-test set that pins current
 signup / billing / core behavior.
 
@@ -85,7 +85,7 @@ signup / billing / core behavior.
 
 **Done when:** the target module's behavior is pinned, the suite runs green, both files exist, and Phase 1 shows `done` — only then are later phases unlocked.
 
-### Phase 2 — Make the code readable (references/clean-code/clean-code.md)
+### Phase 2 — Make the code readable (.agents/shared/references/clean-code/clean-code.md)
 
 **Purpose:** Optimize for the reader — names, small single-purpose functions, safe error handling — now that changes are verifiable.
 
@@ -96,7 +96,7 @@ value, never both. Error handling: prefer exceptions to return codes, catch spec
 return or pass null (use an empty collection, Optional, or Null Object), and put operation + state
 context in every thrown error.
 
-**Invoke:** Read `references/clean-code/clean-code.md` and apply its framework with a target module. Ask for a 0-10 score across the six disciplines plus the top ten fixes in priority order, and an error-handling audit (bare catches, null returns, contextless errors).
+**Invoke:** Read `.agents/shared/references/clean-code/clean-code.md` and apply its framework with a target module. Ask for a 0-10 score across the six disciplines plus the top ten fixes in priority order, and an error-handling audit (bare catches, null returns, contextless errors).
 
 **Decide with the user:** Which fixes to apply now versus log as debt, the naming / error-handling conventions the team adopts going forward, and whether the clean-code score becomes a CI gate.
 
@@ -104,7 +104,7 @@ context in every thrown error.
 
 **Done when:** the module scores 8+ or every gap below 8 is a Smell Inventory row with a fix, conventions are recorded, and the Phase 1 tests still pass.
 
-### Phase 3 — Apply named refactorings (references/refactoring-patterns/refactoring-patterns.md)
+### Phase 3 — Apply named refactorings (.agents/shared/references/refactoring-patterns/refactoring-patterns.md)
 
 **Purpose:** Turn "clean it up" into named, behavior-preserving transformations executed in small steps.
 
@@ -115,7 +115,7 @@ Conditional with Polymorphism, Introduce Parameter Object. Workflow: tests green
 tests green, commit; a red test means revert, not debug. Preparatory Refactoring (make the change
 easy, then make the easy change) and the Rule of Three guard against premature abstraction.
 
-**Invoke:** Read `references/refactoring-patterns/refactoring-patterns.md` and apply its framework with a smelly function and the Phase 1 tests. Ask it to name each smell, cite the transformation, and apply one at a time with tests run between each.
+**Invoke:** Read `.agents/shared/references/refactoring-patterns/refactoring-patterns.md` and apply its framework with a smelly function and the Phase 1 tests. Ask it to name each smell, cite the transformation, and apply one at a time with tests run between each.
 
 **Decide with the user:** Scope — which smells to address this pass, whether an upcoming feature warrants a Preparatory Refactoring at its insertion point first, and whether the refactored module joins the CI gate list in TESTING.md.
 
@@ -123,7 +123,7 @@ easy, then make the easy change) and the Rule of Three guard against premature a
 
 **Done when:** targeted smells show a named refactoring and `done` / `ticketed` status, tests are green, and structural changes landed in structure-only commits.
 
-### Phase 4 — Reduce complexity with deep modules (references/software-design-philosophy/software-design-philosophy.md)
+### Phase 4 — Reduce complexity with deep modules (.agents/shared/references/software-design-philosophy/software-design-philosophy.md)
 
 **Purpose:** Fight the classitis an unsupervised agent creates — hide real machinery behind simple interfaces instead of multiplying shallow classes.
 
@@ -134,7 +134,7 @@ share state. Watch information leakage (one decision reflected in many modules) 
 decomposition (organizing by order-of-execution, not by knowledge). This is the tactical→strategic
 flip: invest 10-20% to keep the design clean.
 
-**Invoke:** Read `references/software-design-philosophy/software-design-philosophy.md` and apply its framework with the module set touched so far. Ask which classes are shallow, where information leaks across boundaries, and how to consolidate into deeper modules with simpler interfaces.
+**Invoke:** Read `.agents/shared/references/software-design-philosophy/software-design-philosophy.md` and apply its framework with the module set touched so far. Ask which classes are shallow, where information leaks across boundaries, and how to consolidate into deeper modules with simpler interfaces.
 
 **Decide with the user:** Which consolidations to make now versus defer, guarding against over-merging unrelated concerns.
 
@@ -142,7 +142,7 @@ flip: invest 10-20% to keep the design clean.
 
 **Done when:** each shallow-module cluster is consolidated or logged with a fix, interface count did not grow for the sake of "modularity", and tests are green.
 
-### Phase 5 — Draw the architecture boundary (references/clean-architecture/clean-architecture.md)
+### Phase 5 — Draw the architecture boundary (.agents/shared/references/clean-architecture/clean-architecture.md)
 
 **Purpose:** Make the framework and database depend on the business rules, not the reverse.
 
@@ -153,7 +153,7 @@ owns a repository interface; the Postgres/Stripe implementation lives in an oute
 the mid-level tools. Microservices sharing one data model are a distributed monolith — apply the rule
 inside the service first.
 
-**Invoke:** Read `references/clean-architecture/clean-architecture.md` and apply its framework with the current module map and the stack from intake. Ask it to map the dependency graph, list every violation where business logic imports the ORM or framework, and show the extraction to framework-free Use Cases behind owned interfaces.
+**Invoke:** Read `.agents/shared/references/clean-architecture/clean-architecture.md` and apply its framework with the current module map and the stack from intake. Ask it to map the dependency graph, list every violation where business logic imports the ORM or framework, and show the extraction to framework-free Use Cases behind owned interfaces.
 
 **Decide with the user:** How far to push the boundary this pass, which vendors (payments, storage) to wrap behind owned interfaces first, and whether any planned service split waits until the in-service boundary holds (avoid a distributed monolith).
 
@@ -161,7 +161,7 @@ inside the service first.
 
 **Done when:** every Dependency Rule violation is a tracked row with a fix, at least the highest-risk vendor is wrapped, business-rule tests run with no framework, and tests are green.
 
-### Phase 6 — Lock in the habits (references/pragmatic-programmer/pragmatic-programmer.md)
+### Phase 6 — Lock in the habits (.agents/shared/references/pragmatic-programmer/pragmatic-programmer.md)
 
 **Purpose:** Set the meta-principles that keep the codebase changeable after this journey ends.
 
@@ -172,7 +172,7 @@ a tracked ticket — never an untracked `// TODO`. Reversibility: wrap third-par
 own interfaces. Tracer bullets: build the next feature as one thin real end-to-end slice, not layer
 by layer.
 
-**Invoke:** Read `references/pragmatic-programmer/pragmatic-programmer.md` and apply its framework across the codebase. Ask it to flag duplicated knowledge (ignoring coincidental duplication) and any broken windows or untracked TODOs that need boarding up.
+**Invoke:** Read `.agents/shared/references/pragmatic-programmer/pragmatic-programmer.md` and apply its framework across the codebase. Ask it to flag duplicated knowledge (ignoring coincidental duplication) and any broken windows or untracked TODOs that need boarding up.
 
 **Decide with the user:** The debt budget per iteration and the broken-windows policy — what gets fixed now versus ticketed.
 
@@ -180,7 +180,7 @@ by layer.
 
 **Done when:** duplicated-knowledge hits are ledgered or fixed, no untracked hacks remain, and the debt-budget policy is written down.
 
-### Phase 7 — Make it survive production (references/release-it/release-it.md)
+### Phase 7 — Make it survive production (.agents/shared/references/release-it/release-it.md)
 
 **Purpose:** Harden every integration point so a slow or failing dependency degrades gracefully instead of taking the whole app down.
 
@@ -191,7 +191,7 @@ half-open recovery); Bulkheads to isolate resource pools; Retry with exponential
 Steady State cleanup of accumulating cruft. Decouple deploy from release with feature flags and
 expand-contract migrations. Add deep health checks, RED metrics, symptom-based alerts.
 
-**Invoke:** Read `references/release-it/release-it.md` and apply its framework with the outbound dependencies from intake. Ask for an audit of calls with no timeout, circuit-breaker + bulkhead placement, and a deep health check + RED metrics + alert design.
+**Invoke:** Read `.agents/shared/references/release-it/release-it.md` and apply its framework with the outbound dependencies from intake. Ask for an audit of calls with no timeout, circuit-breaker + bulkhead placement, and a deep health check + RED metrics + alert design.
 
 **Decide with the user:** Breaker thresholds, which dependencies get dedicated pools, and the alert symptoms and thresholds (error rate, latency).
 
@@ -199,7 +199,7 @@ expand-contract migrations. Add deep health checks, RED metrics, symptom-based a
 
 **Done when:** every outbound call has a timeout, critical dependencies have breakers and bulkheads, a deep health check + RED metrics + symptom alerts exist, steady-state cleanup is scheduled for accumulating cruft, a release can be rolled back without a redeploy, and the audit table has no open rows for critical paths.
 
-### Phase 8 — Size for real load (references/system-design/system-design.md)
+### Phase 8 — Size for real load (.agents/shared/references/system-design/system-design.md)
 
 **Purpose:** Scale deliberately from requirements and numbers, not reactively — add machinery only when estimates justify it.
 
@@ -210,7 +210,7 @@ invalidation) for read-heavy paths, then read replicas, and shard only as a last
 message queue to decouple slow work from the request path. Reach for known designs (rate limiter →
 token bucket returning `429 Retry-After`).
 
-**Invoke:** Read `references/system-design/system-design.md` and apply its framework with the load reality from intake. Ask for average and peak QPS, yearly storage, which component bottlenecks first, and a priority-ordered list of cache / queue / replica moves without over-engineering.
+**Invoke:** Read `.agents/shared/references/system-design/system-design.md` and apply its framework with the load reality from intake. Ask for average and peak QPS, yearly storage, which component bottlenecks first, and a priority-ordered list of cache / queue / replica moves without over-engineering.
 
 **Decide with the user:** Which scaling moves to make now versus defer, tied to the actual numbers (don't build for 50k users while at 50), and name the first slow workload to move behind a message queue, if any.
 
@@ -218,7 +218,7 @@ token bucket returning `429 Retry-After`).
 
 **Done when:** the QPS and storage numbers are recorded, the first bottleneck is named, and each scaling move is either applied or deferred with the triggering number written down.
 
-### Phase 9 — Get the data layer right (references/ddia-systems/ddia-systems.md)
+### Phase 9 — Get the data layer right (.agents/shared/references/ddia-systems/ddia-systems.md)
 
 **Purpose:** Protect the data that outlives the code — correctness under concurrency, and datastore choices made by requirement, not habit.
 
@@ -229,7 +229,7 @@ Replication lag means read-your-writes and monotonic-reads must be deliberate on
 Match data model to access pattern; polyglot persistence is often correct; separate system-of-record
 from derived data (CDC / event sourcing) rather than dual writes.
 
-**Invoke:** Read `references/ddia-systems/ddia-systems.md` and apply its framework with the database from intake and the replica plan from Phase 8. Ask it to find write-skew-prone read-then-write paths, state the actual default isolation level and its anomalies, and fix the risky paths.
+**Invoke:** Read `.agents/shared/references/ddia-systems/ddia-systems.md` and apply its framework with the database from intake and the replica plan from Phase 8. Ask it to find write-skew-prone read-then-write paths, state the actual default isolation level and its anomalies, and fix the risky paths.
 
 **Decide with the user:** Which paths need locking versus a serializable transaction, and whether a new workload (search, feed) justifies a second datastore kept in sync by CDC.
 
@@ -241,7 +241,7 @@ from derived data (CDC / event sourcing) rather than dual writes.
 
 | Skill | Add when | Artifact |
 |---|---|---|
-| `references/domain-driven-design/domain-driven-design.md` | Business logic tangles because the code speaks no domain language | Extends rosey/foundation/ARCHITECTURE.md (`## Bounded Contexts & Context Map`, `## Domain Glossary (Ubiquitous Language)`) |
+| `.agents/shared/references/domain-driven-design/domain-driven-design.md` | Business logic tangles because the code speaks no domain language | Extends rosey/foundation/ARCHITECTURE.md (`## Bounded Contexts & Context Map`, `## Domain Glossary (Ubiquitous Language)`) |
 
 Optional phases follow the same operating rules — read each listed reference and apply its framework exactly as a core phase would; insert where the Add-when condition first becomes true — here, right after Phase 5 once the boundary exists.
 
@@ -249,12 +249,12 @@ Optional phases follow the same operating rules — read each listed reference a
 
 | Mistake | Fix |
 |---|---|
-| Cleaning up before writing a single test | Pin behavior with characterization tests in Phase 1 (references/working-with-legacy-code/working-with-legacy-code.md) first; the safety net gates every later phase. |
+| Cleaning up before writing a single test | Pin behavior with characterization tests in Phase 1 (.agents/shared/references/working-with-legacy-code/working-with-legacy-code.md) first; the safety net gates every later phase. |
 | Letting the agent "modularize" into a swarm of tiny classes | Apply software-design-philosophy's deep-module rule — merge shallow classes that travel together; reduce interfaces, don't multiply them. |
-| Calling external APIs with no timeout | In Phase 7 (references/release-it/release-it.md) add connect + read timeouts on every outbound call, plus a circuit breaker on critical dependencies. |
-| Scaling before sizing anything | Do back-of-envelope estimation first (references/system-design/system-design.md); the numbers usually say a cache and a read replica are years of runway. |
-| Mistaking microservices for architecture | Apply the Dependency Rule inside the service first (references/clean-architecture/clean-architecture.md); services sharing one data model are a distributed monolith. |
-| Assuming the database is serializable | Check the actual default isolation level and lock read-then-write paths (references/ddia-systems/ddia-systems.md) — write skew passes every single-user test. |
+| Calling external APIs with no timeout | In Phase 7 (.agents/shared/references/release-it/release-it.md) add connect + read timeouts on every outbound call, plus a circuit breaker on critical dependencies. |
+| Scaling before sizing anything | Do back-of-envelope estimation first (.agents/shared/references/system-design/system-design.md); the numbers usually say a cache and a read replica are years of runway. |
+| Mistaking microservices for architecture | Apply the Dependency Rule inside the service first (.agents/shared/references/clean-architecture/clean-architecture.md); services sharing one data model are a distributed monolith. |
+| Assuming the database is serializable | Check the actual default isolation level and lock read-then-write paths (.agents/shared/references/ddia-systems/ddia-systems.md) — write skew passes every single-user test. |
 
 ## Completing the Journey
 
