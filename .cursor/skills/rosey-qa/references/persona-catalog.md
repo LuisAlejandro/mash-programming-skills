@@ -13,6 +13,7 @@ Spawned on every review regardless of diff content.
 | `correctness` | `rosey-correctness-reviewer` | Logic errors, edge cases, state bugs, error propagation, intent compliance |
 | `testing` | `rosey-testing-reviewer` | Coverage gaps, weak assertions, brittle tests, missing edge case tests |
 | `maintainability` | `rosey-maintainability-reviewer` | Structural quality, complexity deletion, 1k-line regressions, coupling, type-boundary leaks, dead code, premature abstraction |
+| `ponytail` | `rosey-ponytail-reviewer` | Over-engineering only: reinvented standard library, unneeded dependencies, speculative abstractions, dead flexibility, shrinkable logic. Complements maintainability; this one only hunts complexity |
 | `project-standards` | `rosey-project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, cross-platform portability, tool selection |
 
 **Rosey agents (unstructured output, synthesized separately):**
@@ -46,7 +47,7 @@ Spawn `rosey-deployment-verification-agent` when the migration-artifact gate app
 
 ## Selection rules
 
-1. **Always spawn all 4 always-on personas** plus the 2 Rosey always-on agents.
+1. **Always spawn all 5 always-on personas** plus the 2 Rosey always-on agents.
 2. **For each cross-cutting conditional persona**, the orchestrator reads the diff and decides whether the persona's domain is relevant. This is a judgment call, not a keyword match.
 3. **For `data-migration`**, spawn only when the diff includes migration or schema artifacts (`db/migrate/*`, `db/schema.rb`, `db/structure.sql`, Alembic/Flyway/Liquibase paths, or explicit backfill/data-transform scripts). Do **not** spawn for model-only or query-only changes without those files.
 4. **For Rosey conditional agents**, spawn `rosey-deployment-verification-agent` when the migration-artifact gate applies and the change is risky (see above).

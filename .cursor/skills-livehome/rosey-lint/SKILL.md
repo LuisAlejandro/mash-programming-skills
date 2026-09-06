@@ -1,7 +1,6 @@
 ---
 name: rosey-lint
 description: "Runs lint, format, type-check, and build commands for this session's files by discovering the project's tooling (for example package.json scripts, Makefiles, pyproject.toml). Use when the user asks to lint or format this session's changes, or invokes rosey-lint."
-disable-model-invocation: true
 ---
 
 ## Communication while using this skill

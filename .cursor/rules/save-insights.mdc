@@ -13,6 +13,28 @@ Save an insight only when the answer is clearly yes. Good candidates include non
 
 Do not save routine task summaries, obvious facts, temporary state, secrets, credentials, private data, or anything already captured clearly in `rosey/solutions/` or a nearby plan.
 
+## Counterfactual capture gate (do not skip)
+
+An insight earns its place only when it holds durable project reasoning that is **not readily recoverable** from the final code, tests, types, comments, or existing documentation, and losing it would plausibly cause recurrence, material risk, or substantial rediscovery.
+
+Apply this counterfactual: **if the insight file disappeared, would a future engineer reading the final implementation still be likely to repeat the mistake or redo substantial investigation?**
+
+- If yes → save it.
+- If no → write nothing and move on. Completion, effort, and diff size alone do **not** establish eligibility.
+
+Judge this from the session rather than asking the user. An explicit "save this" request does not lower the bar.
+
+## Learning vs pattern
+
+- **Learning** — a documented solution to one past problem (a bug fix, a convention, a workflow pattern). Incident-level, stored as the unit of compounded knowledge.
+- **Pattern doc** — guidance generalized from several learnings into a broader rule. Higher-leverage than any single learning, and higher-risk when stale because future work treats it as broadly applicable.
+
+When a second insight in the same area arrives, prefer generalizing into a pattern doc over stacking near-duplicate learnings.
+
+## One insight per run
+
+A session that produced several qualifying insights gets several sequential saves, never one batched run. Batching blurs which evidence grounds which claim.
+
 ## How To Save
 
 1. Create `rosey/insights/` if it does not exist.
@@ -31,7 +53,8 @@ Do not save routine task summaries, obvious facts, temporary state, secrets, cre
  - `## When It Applies`
  - `## What To Do`
  - `## Evidence`
-6. Keep the entry actionable and brief. Prefer bullets over narrative.
+6. **Ground code-behavior claims in source, not session memory.** Before asserting how code behaves (enum values, status semantics, limits, defaults), read the defining line at the current tree and cite `file:line` alongside the claim. A claim that cannot be verified against the tree is softened or attributed ("per this session's conclusion…"), never stated as fact.
+7. Keep the entry actionable and brief. Prefer bullets over narrative.
 
 ## Anti-Patterns
 

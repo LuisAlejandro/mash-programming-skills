@@ -177,6 +177,7 @@ Routing rules:
 | `rosey-correctness-reviewer` | Logic errors, edge cases, state bugs, error propagation |
 | `rosey-testing-reviewer` | Coverage gaps, weak assertions, brittle tests |
 | `rosey-maintainability-reviewer` | Structural quality, complexity deletion, 1k-line regressions, coupling, type-boundary leaks, dead code, abstraction debt |
+| `rosey-ponytail-reviewer` | Over-engineering only: reinvented standard library, unneeded dependencies, speculative abstractions, dead flexibility, shrinkable logic |
 | `rosey-project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, portability |
 | `rosey-agent-native-reviewer` | Verify new features are agent-accessible |
 | `rosey-learnings-researcher` | Search rosey/solutions/ for past issues related to this PR |
@@ -203,7 +204,7 @@ Schema drift detection is folded into `rosey-data-migration-reviewer` (Step 0) a
 
 ## Review Scope
 
-Every review spawns all 4 always-on personas plus the 2 Rosey always-on agents, then adds whichever cross-cutting conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 6 reviewers. A Rails auth feature might trigger security + reliability + adversarial = 9 reviewers.
+Every review spawns all 5 always-on personas plus the 2 Rosey always-on agents, then adds whichever cross-cutting conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 7 reviewers. A Rails auth feature might trigger security + reliability + adversarial = 10 reviewers.
 
 ## Protected Artifacts
 
@@ -408,7 +409,7 @@ If a plan is found, read its **Requirements** section — `## Requirements` in c
 
 ### Stage 3: Select reviewers
 
-Read the diff and file list from Stage 1. The 4 always-on personas and 2 Rosey always-on agents are automatic. For each cross-cutting conditional persona in the persona catalog included below, decide whether the diff warrants it. This is agent judgment, not keyword matching.
+Read the diff and file list from Stage 1. The 5 always-on personas and 2 Rosey always-on agents are automatic. For each cross-cutting conditional persona in the persona catalog included below, decide whether the diff warrants it. This is agent judgment, not keyword matching.
 
 **File-type awareness for conditional selection:** Instruction-prose files (Markdown skill definitions, JSON schemas, config files) are product code but do not benefit from runtime-focused reviewers. The adversarial reviewer's techniques (race conditions, cascade failures, abuse cases) target executable code behavior. For diffs that only change instruction-prose files, skip adversarial unless the prose describes auth, payment, or data-mutation behavior. Count only executable code lines toward line-count thresholds.
 
@@ -432,6 +433,7 @@ Review team:
 - correctness (always)
 - testing (always)
 - maintainability (always)
+- ponytail (always)
 - project-standards (always)
 - rosey-agent-native-reviewer (always)
 - rosey-learnings-researcher (always)

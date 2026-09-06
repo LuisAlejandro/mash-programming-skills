@@ -17,7 +17,28 @@ Capture the headless envelope so it can drive the contextual summary above the p
 - The count of remaining findings, broken out by user-facing bucket (proposed fixes, decisions, FYI observations)
 - The severity breakdown of decisions and proposed fixes (specifically the P0/P1 count, since those benefit from explicit user attention)
 
-When rosey-doc-review returns "Review complete", proceed to Final Checks.
+When rosey-doc-review returns "Review complete", proceed to the ponytail sanity-check.
+
+## 5.3.8b Ponytail Sanity-Check
+
+Before final checks, run a lightweight over-engineering pass on the plan's Implementation Units. This is the write-time gate: catch speculative abstractions, unneeded dependencies, and over-scoped units *before* `rosey-work` commits to them, when they are cheapest to cut.
+
+For each Implementation Unit, ask the ponytail ladder:
+
+1. Does this unit need to exist at all? (YAGNI — is it speculative scope?)
+2. Does it reuse what already exists in the codebase, or does it plan a new abstraction/helper?
+3. Does it reach for the standard library or a native platform feature before a new dependency?
+4. Is the unit the minimum that works, or does it carry dead flexibility / config nobody sets / a layer with one caller?
+
+Flag only concrete cuts with a one-line replacement, e.g.:
+
+- `U3: yagni — "configurable retry policy" with no consumer. Hardcode the retry count until a second caller exists.`
+- `U5: stdlib — hand-rolled date parsing. Use the stdlib datetime/dateutil already in the tree.`
+- `U2: shrink — unit spans 3 files for one behavior. Collapse to one file.`
+
+Do **not** flag: correctness, security, performance, or domain complexity the requirements genuinely require. Do not flag a unit's single smoke test / `assert` self-check — that is the ponytail minimum, not bloat.
+
+**Routing:** Apply `safe_auto`-style cuts (drop a speculative unit, inline a one-caller abstraction) directly to the plan. Surface anything that changes scope or needs a user decision in the post-generation menu summary line alongside the doc-review state. If nothing to cut, note `Ponytail: lean — no cuts.` and move on.
 
 **Non-interactive mode:** Non-interactive planning always invokes `rosey-doc-review` with `mode:headless` and the plan path — the headless mode is identical to the interactive default at this phase. No further routing is offered in non-interactive mode; the caller decides what to do with the returned findings. Address any P0/P1 findings before returning control to the caller.
 
