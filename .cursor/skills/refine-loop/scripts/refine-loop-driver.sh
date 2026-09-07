@@ -35,7 +35,8 @@ STATE_DIR="rosey/loops/refine"
 THETA=""
 FOCUS=""
 MAX_ITERATIONS=50
-AGENT="cursor-agent"
+AGENT="opencode"
+DEFAULT_OPENCODE_MODEL="opencode/deepseek-v4-flash"
 WORKSPACE="$(pwd)"
 MODEL=""
 DRY_RUN=0
@@ -87,11 +88,24 @@ terminal_state() {
 # ---- build the agent invocation -------------------------------------------
 build_cmd() {
   local continue_flag="$1"
+
+  if [[ "$AGENT" == "opencode" ]]; then
+    local skill_md
+    skill_md="$(cd "$(dirname "$0")/../.." && pwd)/refine-loop-iteration/SKILL.md"
+    local model="${MODEL:-$DEFAULT_OPENCODE_MODEL}"
+    local prompt="Run the refine-loop-iteration skill by reading and following ${skill_md} completely. Working directory is the repository."
+    [[ "$continue_flag" == "1" ]] && prompt+=" --continue"
+    [[ -n "$THETA" ]] && prompt+=" theta=$THETA"
+    [[ -n "$FOCUS" ]] && prompt+=" focus=$FOCUS"
+    if [[ ${#INTENT_ARGS[@]} -gt 0 ]]; then
+      prompt+=" ${INTENT_ARGS[*]}"
+    fi
+    printf 'cd %q && opencode run --model %q --auto %q\n' "$WORKSPACE" "$model" "$prompt"
+    return 0
+  fi
+
   local -a cmd=("$AGENT" -p --workspace "$WORKSPACE")
   [[ -n "$MODEL" ]] && cmd+=(--model "$MODEL")
-  # Always unattended: --yolo runs everything without approval prompts; --trust
-  # trusts the workspace without prompting. The agent runs in a shell the user
-  # cannot see or answer, so any approval prompt would hang the run.
   cmd+=(--yolo --trust)
   cmd+=(-- "refine-loop-iteration")
   [[ "$continue_flag" == "1" ]] && cmd+=("--continue")
@@ -102,6 +116,60 @@ build_cmd() {
   fi
   printf '%q ' "${cmd[@]}"
 }
+
+# ---- automatic integration (rosey-parallel style) --------------------------
+# After a terminal outcome, commit the deliverable worktree recorded in the
+# backlog markers, merge into the fetched default branch, gate with repo lint,
+# and advance the local default branch. Local-only: no push, no PR.
+DEFAULT_BRANCH="$(cd "$WORKSPACE" && (git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#origin/##' || echo develop))"
+
+loop_integrate() {
+  [[ -f "$BACKLOG" ]] || return 0
+  local branch worktree
+  branch="$(grep -E '^\s*- integration branch: ' "$BACKLOG" | tail -1 | sed 's/.*: //' | tr -d '` ')"
+  worktree="$(grep -E '^\s*- integration worktree: ' "$BACKLOG" | tail -1 | sed 's/.*: //' | tr -d '` ')"
+  if [[ -z "$branch" || -z "$worktree" || ! -e "$worktree/.git" ]]; then
+    echo "refine-loop-driver: integrate: no committed worktree markers found; skipped"
+    return 0
+  fi
+
+  local int_wt="$WORKSPACE/rosey/loops/refine/integration"
+  git -C "$WORKSPACE" worktree remove --force "$int_wt" 2>/dev/null || true
+  git -C "$WORKSPACE" fetch origin "$DEFAULT_BRANCH" >/dev/null 2>&1 || true
+  if ! git -C "$WORKSPACE" worktree add --detach "$int_wt" "origin/$DEFAULT_BRANCH" >/dev/null 2>&1; then
+    echo "refine-loop-driver: integrate: cannot create integration worktree" >&2
+    return 1
+  fi
+
+  if ! git -C "$int_wt" merge --no-ff "$branch" -m "refine: integrate refine-loop deliverable ($branch)" >/tmp/loop-merge.log 2>&1; then
+    echo "refine-loop-driver: integrate: merge conflict on '$branch'; deliverable preserved at $worktree" >&2
+    git -C "$int_wt" merge --abort 2>/dev/null || true
+    git -C "$WORKSPACE" worktree remove --force "$int_wt" 2>/dev/null || true
+    return 1
+  fi
+
+  echo "refine-loop-driver: integrate: merged; running lint gate"
+  local gate_ok=1 attempt
+  for attempt in 1 2; do
+    (cd "$int_wt" && docker run --rm -v "$PWD":/home/agoras/app -w /home/agoras/app \
+      luisalejandro/agoras:latest tox -e lint) && { gate_ok=0; break; }
+    echo "refine-loop-driver: integrate: lint gate attempt $attempt failed; retrying" >&2
+    sleep 10
+  done
+  if [[ "$gate_ok" -ne 0 ]]; then
+    echo "refine-loop-driver: integrate: lint gate FAILED; develop not advanced; merged tree at $int_wt" >&2
+    return 1
+  fi
+
+  local tip
+  tip="$(git -C "$int_wt" rev-parse HEAD)"
+  git -C "$WORKSPACE" branch -f "$DEFAULT_BRANCH" "$tip"
+  git -C "$WORKSPACE" worktree remove --force "$int_wt" 2>/dev/null || true
+  echo "refine-loop-driver: integrate: OK — local '$DEFAULT_BRANCH' advanced to $(git -C "$WORKSPACE" rev-parse --short "$DEFAULT_BRANCH")"
+  git -C "$WORKSPACE" worktree remove --force "$worktree" 2>/dev/null && \
+    git -C "$WORKSPACE" branch -D "$branch" 2>/dev/null || true
+}
+
 
 # ---- run ------------------------------------------------------------------
 echo "refine-loop-driver: workspace=$WORKSPACE state=$STATE_DIR_ABS"
@@ -126,6 +194,7 @@ while true; do
     echo
     echo "refine-loop-driver: terminal state reached: $outcome"
     echo "refine-loop-driver: done after $iteration round(s)."
+    loop_integrate
     exit 0
   fi
 

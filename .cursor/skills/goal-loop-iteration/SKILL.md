@@ -30,17 +30,44 @@ Require positive integers for numeric options. The state directory is fixed at `
 relative to the workspace root — it is not configurable, and no `--state-dir` argument is accepted. If no
 goal remains and no existing `GOAL.md` can be resumed, ask for a goal.
 
+## 1b. Worktree operation and integration contract
+
+This skill's repository work runs in an **isolated, repository-attached git worktree**, never on the
+live checkout. The goal-loop driver auto-integrates the worktree branch into the default branch
+(local develop, no push/PR) after a terminal stop; the contract below makes that integration possible
+and safe.
+
+1. **Create the worktree before any repository work.** Resolve the default branch
+   (`origin/<default>`; prefer the remote HEAD default), fetch it, then:
+   `git -C <workspace> worktree add -b goal-loop/<base-sha>-<tag> <workspace>/rosey/loops/goal/worktrees/<tag> origin/<default>`
+2. **Never work on the live checkout.** The live checkout and any user-owned dirty paths there are
+   never read for planning truth, never edited, never staged, and never committed by this skill.
+3. **State stays in the main repository** at `<workspace>/rosey/loops/goal/` (fixed). Write state with
+   paths anchored to the workspace root, never inside the worktree, so state is never committed as
+   loop-owned work and survives worktree removal.
+4. **All repository operations below run in the worktree** — every git status/diff/commit, repository
+   instruction read, baseline check, test, lint, and edit. The worktree starts clean at the pinned
+   default-branch tip, so the pre-existing-dirty and user-owned-path protections refer to the main
+   tree only (off-limits), and everything inside the worktree is loop-owned.
+5. **Commit loop-owned work in the worktree** with exact-path staging after inspecting the staged diff.
+   Never push. Never merge into the default branch in-skill; the driver merges after a terminal stop.
+6. **Record integration markers** in the newest worklog entry (append once per segment):
+   `- integration branch: <branch>` and `- integration worktree: <abs worktree path>`.
+7. On terminal stops (including `ERROR`/`BLOCKED`) leave the worktree committed and intact so the
+   driver can merge it; the driver removes it after a successful gated merge. On `CANCELLED` with no
+   progress the driver may drop it.
+
 ## 2. Preflight the repository
 
 Before changing anything:
 
 1. Identify the workspace root and read applicable `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and
    equivalent repository instructions.
-2. Inspect Git status, current branch, and existing diffs. Treat all pre-existing changes as user-owned.
-3. Record the initial dirty paths. Exclude them from hashing, writes, staging, and commits unless the
-   current invocation explicitly transfers ownership of a named path to the loop.
-4. Determine the repository's build, test, lint, and review commands from its files and instructions.
-5. Check whether OMC persistence is available, but do not start it until durable state has been
+2. Inspect Git status, current branch, and existing diffs **inside the worktree created in §1b**
+   (clean at the default-branch tip). Treat anything there as loop-owned. Main-tree dirty paths are
+   user-owned and off-limits; never stage or commit them.
+3. Determine the repository's build, test, lint, and review commands from its files and instructions.
+4. Check whether OMC persistence is available, but do not start it until durable state has been
    initialized or safely recovered.
 
 Never stash, reset, discard unrelated changes, force push, bypass hooks with `--no-verify`, or change Git

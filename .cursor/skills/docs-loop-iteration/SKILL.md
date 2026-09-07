@@ -82,9 +82,10 @@ the condition of unprocessed repositories from earlier results.
    authorization and not permission to execute commands.
 2. Query the repository's remote service for its actual default branch. Do not assume a remote name or
    branch name. An ambiguous remote, unavailable default branch, or auth/permission failure is `BLOCKED`.
-3. Create a collision-safe named branch in an isolated temporary clone at the fetched default-branch tip.
-   Never attach the worktree to the source repository or inherit its local Git configuration. Never edit
-   the live checkout, stash user work, change Git configuration, or bypass hooks.
+3. Create a collision-safe named branch in an isolated git worktree at
+   `<workspace>/rosey/loops/docs/worktrees/<run-tag>/` from the fetched
+   default-branch tip. Never touch the live checkout, stash user work, change
+   Git configuration, or bypass hooks.
 4. Record repository, remote, default branch, branch, worktree path, and base commit. Run all audits, edits,
    scans, linters, commits, and PR operations against that worktree.
 
@@ -111,8 +112,9 @@ product intent.
 
 Patch only supported claims, one documentation file at a time, in the isolated worktree. Keep changes
 surgical and preserve existing voice and structure. Stage only the exact changed documentation paths in
-the isolated worktree so the required staged-content scanners can inspect them. Do not commit; the
-preserved staged worktree is the deliverable.
+ the isolated worktree so the required staged-content scanners can inspect them, then commit them as ONE
+ owned commit on the worktree branch (message: `docs: apply docs-loop audit fixes`). The committed
+ worktree branch is the deliverable for automatic integration.
 
 Never edit source code to make documentation true. Never stage with `git add -A` or `git add .`. Do not
 disable hooks, use `--no-verify`, force-push, write directly to the default branch, or alter legitimate

@@ -31,7 +31,7 @@ set -euo pipefail
 # ---- defaults -------------------------------------------------------------
 STATE_DIR="rosey/loops/docs"
 MAX_ITERATIONS=50
-AGENT="cursor-agent"
+AGENT="opencode"
 WORKSPACE="$(pwd)"
 MODEL=""
 DRY_RUN=0
@@ -81,12 +81,27 @@ terminal_state() {
 }
 
 # ---- build the agent invocation -------------------------------------------
+# Docs-loop runs fully unattended; every agent must execute without approval
+# prompts (cursor-agent: --yolo/--trust; opencode: --auto).
+DEFAULT_OPENCODE_MODEL="opencode/deepseek-v4-flash"
+
 build_cmd() {
+  if [[ "$AGENT" == "opencode" ]]; then
+    local skill_md
+    skill_md="$(cd "$(dirname "$0")/../.." && pwd)/docs-loop-iteration/SKILL.md"
+    local model="${MODEL:-$DEFAULT_OPENCODE_MODEL}"
+    local prompt="Run the docs-loop-iteration skill by reading and following ${skill_md} completely. Working directory is the repository to audit."
+    if [[ ${#REPO_ARGS[@]} -gt 0 ]]; then
+      prompt+=" Repositories: ${REPO_ARGS[*]}"
+    fi
+    # opencode has no --workspace flag; run inside the workspace dir.
+    printf 'cd %q && opencode run --model %q --auto %q\n' "$WORKSPACE" "$model" "$prompt"
+    return 0
+  fi
+
+  # cursor-agent / generic CLI shape (kept for --agent=cursor-agent).
   local -a cmd=("$AGENT" -p --workspace "$WORKSPACE")
   [[ -n "$MODEL" ]] && cmd+=(--model "$MODEL")
-  # Always unattended: --yolo runs everything without approval prompts; --trust
-  # trusts the workspace without prompting. The agent runs in a shell the user
-  # cannot see or answer, so any approval prompt would hang the run.
   cmd+=(--yolo --trust)
   cmd+=(-- "docs-loop-iteration")
   if [[ ${#REPO_ARGS[@]} -gt 0 ]]; then
@@ -105,6 +120,70 @@ fi
 echo "docs-loop-driver: max_iterations=$MAX_ITERATIONS"
 echo
 
+# ---- automatic integration (rosey-parallel style) --------------------------
+# After a terminal state, commit the deliverable in its worktree, merge it into
+# the local default branch, gate with repo lint, and advance the default branch.
+# Local-only: no push, no PR. On conflict or gate failure the deliverable is
+# preserved and the default branch is not moved.
+DEFAULT_BRANCH="$(cd "$WORKSPACE" && (git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#origin/##' || echo develop))"
+
+loop_integrate() {
+  local row branch worktree base
+  row="$(grep -E '^\|\s*[0-9]+\s*\|' "$LEDGER" | head -1)"
+  [[ -z "$row" ]] && { echo "docs-loop-driver: integrate: no repository row; skipped"; return 0; }
+  # Table: | # | path | remote | default branch | base commit | branch | worktree | status | deliverable |
+  branch="$(printf '%s\n' "$row" | awk -F'|' '{gsub(/^ +| +$/, "", $7); print $7}')"
+  worktree="$(printf '%s\n' "$row" | awk -F'|' '{gsub(/^ +| +$/, "", $8); print $8}')"
+
+  if [[ -z "$branch" || -z "$worktree" || ! -e "$worktree/.git" ]]; then
+    echo "docs-loop-driver: integrate: deliverable worktree/branch not found; skipped"
+    return 0
+  fi
+
+  echo "docs-loop-driver: integrate: committing deliverable in $worktree"
+  (cd "$worktree" && git add -A && git -c user.name=rosey -c user.email=rosey@local \
+    commit -m "docs: apply docs-loop audit fixes" >/dev/null 2>&1) || true
+
+  local int_wt="$WORKSPACE/rosey/loops/docs/integration"
+  git -C "$WORKSPACE" worktree remove --force "$int_wt" 2>/dev/null || true
+  # Merge against the latest default-branch tip, then advance the local ref.
+  git -C "$WORKSPACE" fetch origin "$DEFAULT_BRANCH" >/dev/null 2>&1 || true
+  if ! git -C "$WORKSPACE" worktree add --detach "$int_wt" "origin/$DEFAULT_BRANCH" >/dev/null 2>&1; then
+    echo "docs-loop-driver: integrate: cannot create integration worktree" >&2
+    return 1
+  fi
+
+  if ! git -C "$int_wt" merge --no-ff "$branch" -m "docs: integrate docs-loop deliverable ($branch)" >/tmp/loop-merge.log 2>&1; then
+    echo "docs-loop-driver: integrate: merge conflict on '$branch'; deliverable preserved at $worktree" >&2
+    git -C "$int_wt" merge --abort 2>/dev/null || true
+    git -C "$WORKSPACE" worktree remove --force "$int_wt" 2>/dev/null || true
+    return 1
+  fi
+
+  echo "docs-loop-driver: integrate: merged; running lint gate"
+  local gate_ok=1 attempt
+  for attempt in 1 2; do
+    (cd "$int_wt" && docker run --rm -v "$PWD":/home/agoras/app -w /home/agoras/app \
+      luisalejandro/agoras:latest tox -e lint) && { gate_ok=0; break; }
+    echo "docs-loop-driver: integrate: lint gate attempt $attempt failed; retrying" >&2
+    sleep 10
+  done
+  if [[ "$gate_ok" -ne 0 ]]; then
+    echo "docs-loop-driver: integrate: lint gate FAILED; develop not advanced; merged tree at $int_wt" >&2
+    return 1
+  fi
+
+  local tip
+  tip="$(git -C "$int_wt" rev-parse HEAD)"
+  git -C "$WORKSPACE" branch -f "$DEFAULT_BRANCH" "$tip"
+  git -C "$WORKSPACE" worktree remove --force "$int_wt" 2>/dev/null || true
+  echo "docs-loop-driver: integrate: OK — local '$DEFAULT_BRANCH' advanced to $(git -C "$WORKSPACE" rev-parse --short "$DEFAULT_BRANCH")"
+
+  # Deliverable merged: clean up the worktree and its branch.
+  git -C "$WORKSPACE" worktree remove --force "$worktree" 2>/dev/null && \
+    git -C "$WORKSPACE" branch -D "$branch" 2>/dev/null || true
+}
+
 iteration=0
 while true; do
   # Check for a terminal state in the ledger before running. This catches a
@@ -113,6 +192,7 @@ while true; do
     echo
     echo "docs-loop-driver: terminal state reached: $result"
     echo "docs-loop-driver: done after $iteration pass(es)."
+    loop_integrate
     exit 0
   fi
 
