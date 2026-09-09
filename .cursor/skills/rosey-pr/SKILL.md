@@ -62,24 +62,7 @@ Strip recognized tokens before interpreting remaining text as description focus,
 
 ## Context
 
-**On platforms other than Claude Code**, run the Context fallback below. **In Claude Code**, the labeled sections contain pre-populated data — use them directly.
-
-**Git status:**
-!`git status`
-
-**Working tree diff:**
-!`git diff HEAD`
-
-**Current branch:**
-!`git branch --show-current`
-
-**Recent commits:**
-!`git log --oneline -10`
-
-**Develop branch status:**
-!`git rev-parse --verify origin/develop >/dev/null 2>&1 && echo HAS_ORIGIN_DEVELOP || echo MISSING_ORIGIN_DEVELOP`
-
-### Context fallback
+Gather the working state in one call before Step 1 — status, working-tree diff, current branch, recent commits, and whether `origin/develop` exists:
 
 ```bash
 printf '=== STATUS ===\n'; git status; printf '\n=== DIFF ===\n'; git diff HEAD; printf '\n=== BRANCH ===\n'; git branch --show-current; printf '\n=== LOG ===\n'; git log --oneline -10; printf '\n=== DEVELOP ===\n'; git rev-parse --verify origin/develop >/dev/null 2>&1 && echo HAS_ORIGIN_DEVELOP || echo MISSING_ORIGIN_DEVELOP

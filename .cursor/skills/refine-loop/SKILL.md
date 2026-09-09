@@ -18,7 +18,7 @@ Recognize options only while they are leading, whitespace-delimited tokens:
 - `theta=N` (ROI threshold; default `2.0`)
 - `focus=LENS,...` (allowlisted subset of `architecture`, `usability`, `production`, `refactoring`)
 - `--max-iterations=N` (hard cap on rounds; default `50`)
-- `--agent=AGENT` (agent binary to invoke; default `cursor-agent`)
+- `--agent=AGENT` (agent binary to invoke; default `opencode`, alternative `pi`)
 - `--workspace=PATH` (workspace root; default current directory)
 - `--model=MODEL` (optional model override)
 
@@ -31,9 +31,9 @@ resumed, ask what should be refined.
 ## 2. Delegate to the driver
 
 Locate `scripts/refine-loop-driver.sh` relative to this skill's directory and execute it with the parsed
-options and the intent. The driver always runs **unattended** — it passes `--yolo --trust` to the agent
-so no approval prompt can hang the run, because the agent executes in a shell the user cannot see or
-answer. The target is always the workspace root; state always lives under
+options and the intent. The driver always runs **unattended** — it passes `--auto` (opencode) or
+`--approve` (pi) to the agent so no approval prompt can hang the run, because the agent executes in a
+shell the user cannot see or answer. The target is always the workspace root; state always lives under
 `<workspace>/rosey/loops/refine/`; neither is configurable. The script invokes the
 `refine-loop-iteration` skill once per round in single-round mode (never this orchestrator), so this
 delegation is not recursive.

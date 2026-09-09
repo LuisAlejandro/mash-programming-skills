@@ -12,26 +12,13 @@ A great brainstorm produces a doc that enables three audiences to act:
 
 Sections earn their place by serving one of these audiences. Omit padding.
 
-## Decide whether a doc is warranted at all
-
-Brainstorm dialogue does not always need to produce a durable document. Skip document creation when **both** hold:
-
-- The user only needs brief alignment — no exploration produced novel scope, framing, or decisions worth preserving in IDed shape.
-- Any durable decisions made during the dialogue can flow naturally to downstream artifacts (`rosey-plan`, the commit message, `rosey/solutions/`) without a brainstorm doc as an intermediary.
-
-The trigger for creating a doc is when the dialogue surfaced enough structural decisions, scope boundaries, or acceptance criteria that downstream consumers (planner, reviewer, future reader) need them in a durable, IDed form — not just as conversational artifacts.
-
-**Stress test:** a brainstorm about a tiny bug fix where the user asks "fix this with a null check or with upstream validation?" and the agent confirms "upstream validation, here's why" doesn't need a brainstorm doc. The decision flows to `rosey-plan` (or directly to commit message, or to `rosey/solutions/` if it's a pattern worth carrying) without a brainstorm artifact in the middle.
-
-Conversely, a brainstorm about a multi-actor feature with contested scope and several behavioral conditions probably does need a doc — the planning agent needs the structured content the dialogue produced.
-
 ## Match depth to content
 
-When a doc IS warranted, depth matches what the dialogue produced. A brainstorm with sparse content produces a sparse doc; one with rich content produces a rich doc. Don't add ceremony to make a slim brainstorm look substantial.
+Depth matches what the dialogue produced. A brainstorm with sparse content produces a sparse doc; one with rich content produces a rich doc. Don't add ceremony to make a slim brainstorm look substantial.
 
 ## Hard floor
 
-When a doc is warranted, these are present.
+These are always present.
 
 - **Summary** — what is being proposed, in 1-3 lines. Forward-looking. Orients the reader before they invest in detail.
 - **Requirements** (with stable R-IDs) — what must be true about the proposed thing. For very sparse brainstorms (≤3 simple items where the bullets ARE the summary), plain bullets without IDs are acceptable; the trigger for R-IDs is whether downstream consumers will reference them. When requirements span distinct concerns (e.g., "Packaging" / "Migration and compatibility" / "Contributor workflow"), group them under bold inline headers within the Requirements section — group by capability or concern, not by the order requirements were discussed. The trigger is distinct concerns, not item count — even four requirements benefit if they cover three different topics. Skip grouping only when all requirements are genuinely about the same thing; a long flat list is a smell that subgroups were missed. R-IDs stay continuous across groups (R1, R2 in the first group; R3, R4 in the second; never restart at R1 per group).

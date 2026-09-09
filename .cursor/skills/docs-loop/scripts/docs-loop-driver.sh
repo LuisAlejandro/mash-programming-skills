@@ -26,6 +26,7 @@ AGENT="opencode"
 WORKSPACE="$(pwd)"
 MODEL=""
 DEFAULT_OPENCODE_MODEL="opencode/deepseek-v4-flash"
+DEFAULT_PI_MODEL="deepseek-v4-flash"
 DRY_RUN=0
 
 # ---- parse leading options ------------------------------------------------
@@ -71,6 +72,16 @@ terminal_state() {
 
 # ---- build the agent invocation -------------------------------------------
 build_cmd() {
+  if [[ "$AGENT" == "pi" ]]; then
+    local skill_md
+    skill_md="$(cd "$(dirname "$0")/../.." && pwd)/docs-loop-iteration/SKILL.md"
+    local model="${MODEL:-$DEFAULT_PI_MODEL}"
+    local prompt="Run the docs-loop-iteration skill by reading and following ${skill_md} completely. Working directory is the repository whose documentation is audited."
+    prompt+=" --max-iterations=$MAX_ITERATIONS --clean-passes=$CLEAN_PASSES --failure-limit=$FAILURE_LIMIT"
+    printf 'cd %q && pi -p --approve --mode json --model %q %q\n' "$WORKSPACE" "$model" "$prompt"
+    return 0
+  fi
+
   if [[ "$AGENT" == "opencode" ]]; then
     local skill_md
     skill_md="$(cd "$(dirname "$0")/../.." && pwd)/docs-loop-iteration/SKILL.md"
@@ -81,13 +92,8 @@ build_cmd() {
     return 0
   fi
 
-  # cursor-agent / generic CLI shape (kept for --agent=cursor-agent).
-  local -a cmd=("$AGENT" -p --workspace "$WORKSPACE")
-  [[ -n "$MODEL" ]] && cmd+=(--model "$MODEL")
-  cmd+=(--yolo --trust)
-  cmd+=(-- "docs-loop-iteration")
-  cmd+=("--max-iterations=$MAX_ITERATIONS" "--clean-passes=$CLEAN_PASSES" "--failure-limit=$FAILURE_LIMIT")
-  printf '%q ' "${cmd[@]}"
+  echo "docs-loop-driver: unsupported agent '$AGENT' (supported: opencode, pi)" >&2
+  return 2
 }
 
 # ---- automatic integration (rosey-parallel style) --------------------------

@@ -19,8 +19,6 @@ The gate is **territory-scoped, not conversation-wide**. Questions about the use
 
 Never silently switch into teaching. The offer is a blocking question, asked once per flagged territory. If the user declines, do not re-offer for that territory — fill gaps with recommended defaults recorded as explicit assumptions, per the normal rigor-probe discipline.
 
-**The offer counts as a blocking question** for the Phase 2.5 Path A / Path B gate, by design. See `references/synthesis-summary.md`.
-
 **Non-interactive degradation:** in `mode:non-interactive` no user can answer, so never fire the offer. Treat flagged territory exactly like a declined offer — recommended defaults recorded as explicit assumptions — and continue.
 
 ## Offer

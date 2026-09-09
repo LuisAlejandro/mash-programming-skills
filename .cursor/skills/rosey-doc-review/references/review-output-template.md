@@ -39,7 +39,7 @@ Applied 5 fixes. 4 items need attention (2 errors, 2 omissions). 2 FYI observati
 
 | # | Section | Issue | Reviewer | Confidence | Tier |
 |---|---------|-------|----------|------------|------|
-| 1 | Requirements Trace | Goal states "offline support" but technical approach assumes persistent connectivity | coherence | 100 | manual |
+| 1 | Requirements | Goal states "offline support" but technical approach assumes persistent connectivity | coherence | 100 | manual |
 
 ### P1 — Should Fix
 

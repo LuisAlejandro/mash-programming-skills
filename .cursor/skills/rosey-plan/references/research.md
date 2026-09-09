@@ -11,19 +11,18 @@ Phase 1 of `rosey-plan`. Read this before gathering context or dispatching any r
 The skip is about **dispatch, not reading**. A grounding dossier handed off at Phase 0.2 is still read on every tier — it costs one file read and is the cheapest grounding available.
 
 For Standard and Deep, prepare a concise planning context summary (a paragraph or two) to pass as input to the research agents:
-- If an origin document exists, summarize the problem frame, requirements, and key decisions from that document
-- Otherwise use the feature description directly
+- Summarize the problem frame, requirements, and key decisions from the origin document
 - If `STRATEGY.md` exists, read it and include the relevant pieces (target problem, approach, active tracks) in the summary so downstream research and planning decisions are anchored to product strategy
 - If `CONCEPTS.md` exists at the repo root, read it — its definitions are the canonical names for domain entities, named processes, and status concepts. Plan in those terms rather than synonyms.
 
-Before dispatching local research agents, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory with the planning context summary. If the Phase 0 gate already ran, fold recall into planning context; do not skip recall unless unavailable was documented. Treat useful recall output as additional planning context, alongside but separate from `rosey/solutions/` institutional learnings. If Hindsight is unavailable or not configured, continue Phase 1 and note memory unavailability only when it materially affects the plan context.
+Before dispatching local research agents, read [`rosey-hindsight`](../../rosey-hindsight/SKILL.md) and recall memory with the planning context summary. If the Phase 0 gate already ran, fold recall into planning context; do not skip recall unless unavailable was documented. Treat useful recall output as additional planning context, alongside but separate from `rosey/solutions/` institutional learnings. If Hindsight is unavailable or not configured, continue Phase 1 and note memory unavailability only when it materially affects the plan context.
 
 Run these agents in parallel:
 
 - Task rosey-repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
 - Task rosey-learnings-researcher(planning context summary)
 
-**When a named agent is not installed**, do not skip its work. Read the matching prompt asset in `references/agents/` and seed a generic subagent with that prompt plus the planning context summary. Named agents remain the primary path — they are richer and more discoverable; the assets exist so a partial install degrades instead of leaving the phase undefined. Dispatch tiering and the degradation ladder (no model override → inherit and keep the read budgets; no subagent primitive → run the work inline) follow [`rosey-brainstorm`'s `model-tiers.md`](../../rosey-brainstorm/references/model-tiers.md); the win is context isolation, not cost, so the budgets matter more than the tier.
+Dispatch tiering and the degradation ladder (no model override → inherit and keep the read budgets; no subagent primitive → run the work inline) follow `.agents/shared/references/model-tiers/model-tiers.md`; the win is context isolation, not cost, so the budgets matter more than the tier.
 
 Collect:
 - Technology stack and versions (used in section 1.2 to make sharper external research decisions)
@@ -99,7 +98,7 @@ Announce the decision and the intent briefly before continuing. Examples:
 
 #### 1.3 External Research (Conditional)
 
-If Step 1.2 indicates external research is useful, dispatch by the **intent** classified in Stage 2, using the platform's subagent primitive (`Agent`/`Task` in Claude Code, `spawn_agent` in Codex, `subagent` in Pi, `runSubagent` in VS Code, `default.task` in OpenCode — match by capability, not by another harness's tool name). For `rosey-web-researcher`, pass a focus hint plus the planning context summary and do **not** pass codebase content — it operates externally. When a named agent is unavailable, use its prompt asset in `references/agents/` per Phase 1.1.
+If Step 1.2 indicates external research is useful, dispatch by the **intent** classified in Stage 2, using the platform's subagent primitive (`subagent` in Pi, `default.task` in OpenCode, `runSubagent` in VS Code, the Task-equivalent in Cursor — match by capability, not by another harness's tool name). For `rosey-web-researcher`, pass a focus hint plus the planning context summary and do **not** pass codebase content — it operates externally.
 
 - **Implementation-guidance** — run in parallel:
   - Task rosey-best-practices-researcher(planning context summary)
@@ -142,8 +141,6 @@ This ensures flow analysis (Phase 1.5) runs and the confidence check (Phase 5.3)
 For **Standard** or **Deep** plans, or when user flow completeness is still unclear, run:
 
 - Task rosey-spec-flow-analyzer(planning context summary, research findings)
-
-When that agent is unavailable, seed a generic subagent with `references/agents/spec-flow-analyzer.md`.
 
 Use the output to:
 - Identify missing edge cases, state transitions, or handoff gaps

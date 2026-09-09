@@ -4,17 +4,13 @@ If `INTERACTION_MODE=non-interactive`, skip collaborative dialogue. Use the feat
 
 ## 1.1 Existing Context Scan
 
-Scan the repo before substantive brainstorming. Match depth to scope:
-
-**Lightweight** — Search for the topic, check if something similar already exists, and move on.
-
-**Standard and Deep** — Two passes:
+Scan the repo before substantive brainstorming, in two passes:
 
 *Constraint Check* — Check project instruction files (`AGENTS.md`, and `CLAUDE.md` only if retained as compatibility context) for workflow, product, or scope constraints that affect the brainstorm. Also read `STRATEGY.md` if it exists — the product's target problem, approach, persona, and active tracks are direct input to what this brainstorm should deliver and should shape scope, success criteria, and which approaches are aligned vs out-of-scope. If these add nothing, move on.
 
 *Topic Scan (grounding scout)* — Dispatch a sub-agent to do the topic scan in its own context, so the quoted material never enters this conversation.
 
-Read `references/model-tiers.md` before dispatching. Then, **only at this point** — the directory is created lazily, so a run that never dispatches a scout leaves no scratch behind — create the per-run scratch directory and capture its absolute path:
+Read `.agents/shared/references/model-tiers/model-tiers.md` before dispatching. Then, **only at this point** — the directory is created lazily, so a run that never dispatches a scout leaves no scratch behind — create the per-run scratch directory and capture its absolute path:
 
 ```bash
 ROOT="$(git rev-parse --show-toplevel)/rosey/brainstorms/scratch";
@@ -26,9 +22,9 @@ echo "$SCRATCH_DIR";
 
 Use the echoed absolute path as `<scratch-dir>` for the rest of the run; the dossier is `<scratch-dir>/grounding.md`. Pass that **resolved absolute path** to the sub-agent — never an unresolved shell-variable string. The directory is not cleaned up: `rosey/brainstorms/` is gitignored, and the Phase 4 handoff gives the dossier path to `rosey-plan`, so deleting it would hand off a dead path.
 
-Read `references/agents/grounding-scout.md` and seed a generic sub-agent with that prompt. Carry only the returned gist into the dialogue; read the dossier on demand when the conversation needs specifics the gist cannot answer.
+Dispatch `rosey-grounding-scout` with the topic and the resolved dossier path. Carry only the returned gist into the dialogue; read the dossier on demand when the conversation needs specifics the gist cannot answer.
 
-**Lightweight skips the scout entirely** per the Lightweight rule in `references/phase-0.md` — search for the topic inline, check whether something similar exists, and move on. The non-software route skips it too. When no sub-agent primitive is available, do the scan inline and still write the dossier to `<scratch-dir>`, per the degradation rule in `references/model-tiers.md`.
+The non-software route skips the scout. When no sub-agent primitive is available, do the scan inline and still write the dossier to `<scratch-dir>`, per the degradation rule in `.agents/shared/references/model-tiers/model-tiers.md`.
 
 If nothing obvious appears after a short scan, say so and continue. Two rules govern technical depth during the scan:
 
@@ -38,7 +34,7 @@ If nothing obvious appears after a short scan, say so and continue. Two rules go
 
 ## 1.2 Product Pressure Test
 
-Read `references/product-pressure-test.md` for the per-tier lens catalog (Lightweight / Standard / Deep / Deep-product) and the synthesis questions the agent weighs in its own reasoning. Match depth to the Phase 0.3 scope. Phase 1.3 below owns how each found gap fires as a probe.
+Read `references/product-pressure-test.md` for the per-tier lens catalog (Standard / Deep / Deep-product) and the synthesis questions the agent weighs in its own reasoning. Match depth to the Phase 0.3 scope. Phase 1.3 below owns how each found gap fires as a probe.
 
 ## 1.3 Collaborative Dialogue
 

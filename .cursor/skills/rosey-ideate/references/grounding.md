@@ -8,6 +8,10 @@ Before generating ideas, gather grounding. The dispatch set depends on the mode 
 
 **Surprise-me grounding depth.** In surprise-me mode, grounding goes deeper than specified mode — apply the 0.2 table's `1 grounding` row, and pass issue themes as first-class input rather than a footnote when issue intelligence runs. Specified mode keeps the shallower scan: the user's named subject anchors what is relevant.
 
+**Ideation invocation contract.** Pass this with every grounding dispatch. The named agents serve planning and review too, so ideation intent is the caller's to supply:
+
+> This is an **ideation** invocation. Convert findings into idea-generation inputs — prior art, adjacent solutions, previous attempts, approaches that worked or failed, market and category patterns, surprising examples, cross-domain analogies, unmet needs, pain points, and opportunity gaps. Prioritize breadth and generative signal over implementation prescription; include constraints only where they materially shape idea feasibility. Do not narrow the evidence to one shape — bug learnings, architecture decisions, conventions, and workflow learnings can all reveal better ideas or useful boundaries. Output is consumed as prose: prioritize distilled, actionable takeaways over structural rigor.
+
 **Pre-resolve the scratch directory.** Generate a `<run-id>` once (8 hex chars) and reuse it for the V15 cache and the Phase 2/4 checkpoints so they share one per-run directory. Scratch lives under the artifact root — `<repo-root>/rosey/ideation/scratch/<run-id>/` (`<repo-root>` = `git rev-parse --show-toplevel`). Run this to create the run directory and capture its absolute path:
 
 ```bash
@@ -49,7 +53,7 @@ Run grounding agents in parallel in the **foreground** (do not background — re
    >
    > Research artifacts (gist-only under `Additional context` — do not fully read; a separate agent distills these): {research_artifact_files, or "none"}
 
-2. **Learnings search** — read `references/agents/learnings-researcher.md` and dispatch a generic subagent seeded with that local prompt plus a brief summary of the ideation focus.
+2. **Learnings search** — dispatch `rosey-learnings-researcher` with a brief summary of the ideation focus plus the **ideation invocation contract** (see below).
 
 3. **Web research** (always-on; see "Web research" subsection below for skip-phrase and V15 cache handling).
 
@@ -69,7 +73,7 @@ Run grounding agents in parallel in the **foreground** (do not background — re
 
 1. **User-context synthesis** — dispatch a general-purpose sub-agent (cheapest capable model) to read the user-supplied context from Phase 0.4 intake plus any rich-prompt material — **excluding any file the routing test above classified as evidence**, which goes to a distiller instead and must not also reach synthesis — and return a structured grounding summary that mirrors the codebase-context shape (project shape → topic shape; notable patterns → stated constraints; pain points → user-named pain points; leverage points → opportunity hooks the context implies). This keeps Phase 2 sub-agents agnostic to grounding source.
 
-2. **Learnings search** *(elsewhere-software only; skipped by default in elsewhere-non-software)* — read `references/agents/learnings-researcher.md` and dispatch a generic subagent seeded with that local prompt plus the topic summary in case relevant institutional knowledge exists (skill-design patterns, prior solutions in similar shape). Skip for elsewhere-non-software: the CWD's `<repo-root>/rosey/solutions/` is unlikely to be topically relevant for non-digital topics, and running it risks polluting generation with unrelated engineering patterns.
+2. **Learnings search** *(elsewhere-software only; skipped by default in elsewhere-non-software)* — dispatch `rosey-learnings-researcher` with the topic summary plus the **ideation invocation contract** (see below), in case relevant institutional knowledge exists (skill-design patterns, prior solutions in similar shape). Skip for elsewhere-non-software: the CWD's `<repo-root>/rosey/solutions/` is unlikely to be topically relevant for non-digital topics, and running it risks polluting generation with unrelated engineering patterns.
 
 3. **Web research** — same as repo mode (see subsection below).
 
@@ -81,7 +85,7 @@ Always-on for both modes. Skip when the user said "no external research", "skip 
 
 Reuse prior web research within a session via a sidecar cache — see `references/web-research-cache.md` for the cache file shape, reuse check, append behavior, and platform-degradation rules. Read it the first time the `web-researcher` local prompt would be dispatched in this run (and on every subsequent dispatch where the cache might apply).
 
-When dispatching web research, read `references/agents/web-researcher.md` and seed a generic subagent with that prompt. Pass the focus hint, a brief planning context summary (one or two sentences), and the mode. Do not pass codebase content — the prompt operates externally. Use the platform's mid-tier model when a known override exists; otherwise omit the override and inherit.
+When dispatching web research, dispatch `rosey-web-researcher` with the focus hint, a brief planning context summary (one or two sentences), the mode, and the **ideation invocation contract** (see below). Do not pass codebase content — the agent operates externally. Use the platform's mid-tier model when a known override exists; otherwise omit the override and inherit.
 
 #### User-Supplied Research Artifacts
 
@@ -108,7 +112,7 @@ Consolidate all dispatched results into a short grounding summary using these se
 
 **Failure handling.** Grounding subagent failures follow "warn and proceed" — never block on grounding failure. If the web-research local prompt fails (network, tool unavailable), log a warning ("External research unavailable: {reason}. Proceeding with internal grounding only.") and continue. If elsewhere-mode intake produced no usable context, note in the grounding summary that context is thin so Phase 2 subagents can compensate with broader generation.
 
-**Slack context** (opt-in, both modes) — never auto-dispatch. When the user asks for Slack context and Slack tools are available, read `references/agents/slack-researcher.md` and dispatch a generic subagent seeded with that local prompt plus the focus hint in parallel with other Phase 1 subagents. When tools are present but the user did not ask, mention availability in the grounding summary so they can opt in. When the user asked but no Slack tools are reachable, surface the install hint instead.
+**Slack context** (opt-in, both modes) — never auto-dispatch. When the user asks for Slack context and Slack tools are available, dispatch `rosey-slack-researcher` with the focus hint and the ideation invocation contract, in parallel with other Phase 1 subagents. When tools are present but the user did not ask, mention availability in the grounding summary so they can opt in. When the user asked but no Slack tools are reachable, surface the install hint instead.
 
 ## Model tiers (applies to every dispatch in this skill)
 

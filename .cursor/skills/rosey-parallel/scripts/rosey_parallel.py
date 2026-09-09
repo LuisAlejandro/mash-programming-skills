@@ -1081,16 +1081,14 @@ def ensure_task_worktree(
 # Harness drivers (plan U6: R26, R14, R17)
 # ---------------------------------------------------------------------------
 
-HARNESS_PRIORITY = ["pi", "opencode", "cursor-agent"]
+HARNESS_PRIORITY = ["pi", "opencode"]
 
 # Default model per harness when a run does not override via options.model.
 # pi: deepseek-v4-flash (matches ~/.pi/agent/settings.json default).
 # opencode: opencode/deepseek-v4-flash (opencode's hosted deepseek).
-# cursor-agent: cursor-grok-4.6-high = plain "Cursor Grok 4.6" (non-fast).
 _DEFAULT_MODELS = {
     "pi": "deepseek-v4-flash",
     "opencode": "opencode/deepseek-v4-flash",
-    "cursor-agent": "cursor-grok-4.6-high",
 }
 
 
@@ -1105,7 +1103,6 @@ class HarnessDriver:
         default_binary = {
             "pi": "pi",
             "opencode": "opencode",
-            "cursor-agent": "agent",
         }[name]
         self.binary = binary or default_binary
         self.model = model or _DEFAULT_MODELS[name]
@@ -1126,12 +1123,10 @@ class HarnessDriver:
         base = {
             "pi": ["pi", "-p", "--approve", "--mode", "json"],
             "opencode": ["opencode", "run", "--format", "json"],
-            "cursor-agent": ["agent", "-p", "--force", "--trust", "--output-format", "json"],
         }[self.name]
         model_flag = {
             "pi": ["--model", self.model],
             "opencode": ["--model", self.model],
-            "cursor-agent": ["--model", self.model],
         }[self.name]
         return base + model_flag
 
@@ -1153,12 +1148,6 @@ class HarnessDriver:
             # worker is misread as failed and its plan is discarded. pi marks
             # the event with `type`, not `event`.
             if not any(e.get("type") == "agent_end" for e in parsed):
-                return "failure"
-        elif self.name == "cursor-agent":
-            # Same defensive pattern: accept the terminal `result` event
-            # appearing anywhere, not just as the last event, so a trailing
-            # non-terminal event cannot misread a successful worker as failed.
-            if not any(e.get("type") == "result" for e in parsed):
                 return "failure"
         else:  # opencode
             # opencode emits step_start / text / step_finish, so the last
@@ -1206,7 +1195,7 @@ def select_harness(override, available, priority=HARNESS_PRIORITY) -> str:
         if probe(name):
             return name
     raise ValidationError(
-        "no harness available (tried pi, opencode, cursor-agent)",
+        "no harness available (tried pi, opencode)",
         ["no harness available"],
     )
 
@@ -1440,6 +1429,10 @@ def orchestrate_run(
             )
 
     run["fingerprints"] = fingerprints
+    # rosey-plan requires an upstream requirements doc; project one per task.
+    origin_docs = write_task_origin_docs(repo_root, state)
+    for tid, rel in origin_docs.items():
+        state[tid]["origin_doc"] = rel
     # Scaffold before planning (R19). Resume that already planned skips it.
     if callable(getattr(driver, "scaffold_phase", None)):
         already = resume.get("scaffold") if resume else None
@@ -1531,6 +1524,15 @@ def _run_execution(state, tracks, driver, run, repo_root=None, max_parallel=4, g
             save_run(repo_root, run)
 
     def _plan_one(tid: str) -> tuple[str, str]:
+        # Planning runs before _prepare_isolation, so seed the goal and the
+        # origin doc here or the planner prompt would carry neither.
+        set_ctx = getattr(driver, "set_task_context", None)
+        if callable(set_ctx):
+            set_ctx(
+                tid,
+                goal=state[tid].get("goal") or "",
+                origin_doc=state[tid].get("origin_doc") or "",
+            )
         outcome = driver.plan_task(tid)
         return tid, outcome
 
@@ -1708,6 +1710,7 @@ def _run_execution(state, tracks, driver, run, repo_root=None, max_parallel=4, g
                     branch=branch,
                     plan_path=t.get("plan_path"),
                     qa_diff_base=prev_sha,
+                    origin_doc=t.get("origin_doc") or "",
                 )
             return lock_path
 
@@ -1895,6 +1898,68 @@ def run_scaffold(driver, tasks: dict) -> dict:
         "contract_doc": "rosey/parallel/scaffold-contract.md" if outcome == "done" else None,
         "blockers": [] if outcome == "done" else [f"scaffold: {outcome}"],
     }
+
+
+def task_origin_doc_path(task_id: str) -> str:
+    """Repo-relative path of the per-task origin requirements doc."""
+    slug = re.sub(r"[^a-z0-9]+", "-", str(task_id).lower()).strip("-") or "task"
+    return f"rosey/brainstorms/{slug}-requirements.md"
+
+
+def write_task_origin_docs(repo_root, tasks: dict) -> dict[str, str]:
+    """Materialize a per-task origin requirements doc for each task.
+
+    rosey-plan requires an upstream requirements document and stops without
+    one. The epic-level brainstorm that produced this task list happens
+    outside the run, so each task's {id, goal, deps} is projected into a
+    minimal requirements doc that serves as that task's origin. Existing
+    files are never overwritten -- a real brainstorm doc for the same slug
+    wins over the generated projection.
+
+    Returns {task_id: repo-relative path}.
+    """
+    if repo_root is None:
+        return {}
+    out: dict[str, str] = {}
+    for tid, t in tasks.items():
+        rel = task_origin_doc_path(tid)
+        dest = Path(repo_root) / rel
+        out[tid] = rel
+        if dest.exists():
+            continue
+        goal = (t.get("goal") or tid).strip()
+        deps = [d for d in (t.get("deps") or [])]
+        lines = [
+            f"# {goal}",
+            "",
+            "## Summary",
+            "",
+            f"{goal}",
+            "",
+            "## Requirements",
+            "",
+            f"- R1: {goal}",
+            "",
+            "## Scope Boundaries",
+            "",
+            "- This document scopes one task of a parallel epic. Work outside "
+            "the stated goal belongs to a sibling task.",
+        ]
+        if deps:
+            lines += ["", "## Dependencies", ""]
+            lines += [f"- {d}" for d in deps]
+        lines += [
+            "",
+            "## Assumptions",
+            "",
+            "- Projected from the epic task list rather than an interactive "
+            "brainstorm. Requirements not stated in the task goal are "
+            "un-validated.",
+            "",
+        ]
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text("\n".join(lines))
+    return out
 
 
 def run_parallel_verification(driver, integrated_tip: str | None) -> dict:
@@ -2118,11 +2183,12 @@ class HarnessPhaseDriver:
             template = (
                 "You are a rosey worker running one task of an epic inside a "
                 "pre-created worktree.\n\nTASK GOAL: {goal}\nPLAN PATH: {plan_path}\n"
-                "Phase: {phase}\n"
+                "ORIGIN DOC: {origin_doc}\nPhase: {phase}\n"
             )
         return template.format(
             goal=ctx.get("goal", task_id),
             plan_path=plan,
+            origin_doc=ctx.get("origin_doc") or "",
             track_branch=ctx.get("branch") or overrides.get("branch") or "",
             phase=phase,
             qa_diff_base=qa_base,

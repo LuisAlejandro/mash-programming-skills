@@ -11,8 +11,6 @@ Created on the first run (Intake). Never shared with another journey.
 
 ## Context
 Intake answers, date started, hot paths in scope.
-Mode: skills-installed | fallback (Briefs + references/methods.md) — set at the first phase, so a
-resumed session knows whether earlier artifacts are skill-grade or Brief-grade.
 
 ## Phase Status
 | Phase | Skill | Status | Artifact | Date |

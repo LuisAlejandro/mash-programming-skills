@@ -2,7 +2,7 @@
 #
 # refine-loop-driver.sh — run refine-loop as a real loop, no OMC required.
 #
-# Each round invokes the Cursor agent non-interactively with the
+# Each round invokes the agent CLI non-interactively with the
 # refine-loop-iteration skill. State lives on disk (REFINE-BACKLOG.md), so every
 # round starts fresh and resumes from the last recorded state. The loop stops
 # when the backlog records a terminal outcome.
@@ -15,13 +15,14 @@
 #   theta=N                ROI threshold (default: 2.0)
 #   focus=LENS,...         Allowlisted lens subset
 #   --max-iterations=N     Hard cap on rounds (default: 50)
-#   --agent=AGENT          Agent binary to invoke (default: cursor-agent)
+#   --agent=AGENT          Agent binary to invoke (default: opencode; alt: pi)
 #   --workspace=PATH       Workspace root (default: current directory)
 #   --model=MODEL          Optional model override passed to the agent
 #   --dry-run              Print the agent command without running it
 #
-# The agent always runs unattended (--yolo --trust): it executes in a shell the
-# user cannot see or answer, so any approval prompt would hang the run.
+# The agent always runs unattended (opencode: --auto; pi: --approve): it
+# executes in a shell the user cannot see or answer, so any approval prompt
+# would hang the run.
 #
 # The target is always the workspace root. State always lives under
 # <workspace>/rosey/loops/refine/.
@@ -37,6 +38,7 @@ FOCUS=""
 MAX_ITERATIONS=50
 AGENT="opencode"
 DEFAULT_OPENCODE_MODEL="opencode/deepseek-v4-flash"
+DEFAULT_PI_MODEL="deepseek-v4-flash"
 WORKSPACE="$(pwd)"
 MODEL=""
 DRY_RUN=0
@@ -89,6 +91,21 @@ terminal_state() {
 build_cmd() {
   local continue_flag="$1"
 
+  if [[ "$AGENT" == "pi" ]]; then
+    local skill_md
+    skill_md="$(cd "$(dirname "$0")/../.." && pwd)/refine-loop-iteration/SKILL.md"
+    local model="${MODEL:-$DEFAULT_PI_MODEL}"
+    local prompt="Run the refine-loop-iteration skill by reading and following ${skill_md} completely. Working directory is the repository."
+    [[ "$continue_flag" == "1" ]] && prompt+=" --continue"
+    [[ -n "$THETA" ]] && prompt+=" theta=$THETA"
+    [[ -n "$FOCUS" ]] && prompt+=" focus=$FOCUS"
+    if [[ ${#INTENT_ARGS[@]} -gt 0 ]]; then
+      prompt+=" ${INTENT_ARGS[*]}"
+    fi
+    printf 'cd %q && pi -p --approve --mode json --model %q %q\n' "$WORKSPACE" "$model" "$prompt"
+    return 0
+  fi
+
   if [[ "$AGENT" == "opencode" ]]; then
     local skill_md
     skill_md="$(cd "$(dirname "$0")/../.." && pwd)/refine-loop-iteration/SKILL.md"
@@ -104,17 +121,8 @@ build_cmd() {
     return 0
   fi
 
-  local -a cmd=("$AGENT" -p --workspace "$WORKSPACE")
-  [[ -n "$MODEL" ]] && cmd+=(--model "$MODEL")
-  cmd+=(--yolo --trust)
-  cmd+=(-- "refine-loop-iteration")
-  [[ "$continue_flag" == "1" ]] && cmd+=("--continue")
-  [[ -n "$THETA" ]] && cmd+=("theta=$THETA")
-  [[ -n "$FOCUS" ]] && cmd+=("focus=$FOCUS")
-  if [[ ${#INTENT_ARGS[@]} -gt 0 ]]; then
-    cmd+=("--" "${INTENT_ARGS[@]}")
-  fi
-  printf '%q ' "${cmd[@]}"
+  echo "refine-loop-driver: unsupported agent '$AGENT' (supported: opencode, pi)" >&2
+  return 2
 }
 
 # ---- automatic integration (rosey-parallel style) --------------------------

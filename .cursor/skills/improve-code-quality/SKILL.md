@@ -15,8 +15,8 @@ it is verifiable because of that net.
 
 **A week-old untested prototype is already legacy code: flip tactical to strategic — safety net
 first, then readability, structure, and production hardening in order.** This skill sequences the
-phases, asks the decision questions, and records every choice in `rosey/foundation/`. The constituent skills
-carry the method — read the references under `references/` rather than improvising their frameworks. Skipping ahead (refactoring
+phases, asks the decision questions, and records every choice in `rosey/foundation/`. The shared
+references carry the method — read the one each phase names rather than improvising its framework. Skipping ahead (refactoring
 before tests, scaling before sizing) is the exact failure mode this ordering exists to prevent.
 
 ## Journey Map
@@ -38,7 +38,7 @@ before tests, scaling before sizing) is the exact failure mode this ordering exi
 1. **Resume first.** Before anything else, read `rosey/foundation/IMPROVE-CODE-QUALITY-PLAN.md` and every artifact in the Journey Map. If the tracker exists, summarize the journey state in 3-5 lines and ask which phase to enter. Done when the user has confirmed an entry point. A journey with a tracker is resumed, never restarted.
 2. **Intake on first run only.** No tracker: run the Intake below, then create `rosey/foundation/IMPROVE-CODE-QUALITY-PLAN.md` with every phase statused `pending | in-progress | awaiting-evidence | done | deferred: reason | skipped: reason`. Done when the tracker exists and the user has confirmed the phase plan.
 3. **Phase entry.** Announce: what the phase does, the decision it forces, the artifact it produces, rough effort. Offer proceed / skip / defer — phases marked GATE may be deferred, never skipped. Mark the phase `in-progress` on proceed. Done when the user chose.
-4. **Reference invocation and fallback.** Read the phase's reference and apply it: each phase's Invoke line names the reference path under `references/` — read that reference to run the phase. If the user declines, run the phase from its Brief — the minimum viable method. State which mode you are in.
+4. **Reference invocation.** Read the phase's reference and apply it: each phase's Invoke line names the reference path — read that reference to run the phase. The reference carries the method; do not improvise its framework from memory.
 5. **In-phase decisions.** Ask every question under "Decide with the user" — with concrete options and your recommendation. Record the choice in the tracker's Key Decisions. A decision made silently is a defect.
 6. **Phase exit.** Present the draft artifact content for sign-off before writing. On approval: write or extend the rosey/foundation/ files, update the tracker (status, Key Decisions, Next Actions). Done when the files are written and the phase row shows `done`.
 7. **Artifact discipline.** Read before writing; create a file only if missing, otherwise extend — add or update your sections, preserve everyone else's. Files are UPPERCASE in `rosey/foundation/`. Every recommendation lands as a checkbox or a table row with owner and priority. See [references/artifact-templates.md](references/artifact-templates.md) when creating a rosey/foundation/ file for the first time — create it from the full skeleton (all section headings), then fill the sections your phase names.
@@ -68,13 +68,6 @@ Phases run in the listed order — each assumes the previous phase's artifact ex
 
 **Purpose:** Pin current behavior at the change points so every later phase is verifiable. No phase may touch code absent from the Safety Net Map.
 
-**Brief (fallback):** Legacy code is code without tests, so a week-old prototype qualifies. Cover and
-modify, never edit and pray: identify change points, break inline dependencies with the
-least-invasive seam (Parameterize Constructor with a production default; Extract and Override for one
-buried call), then write characterization tests that photograph actual behavior — assert something
-wrong, read the failure, pin the real value. When full coverage isn't feasible in time, Sprout/Wrap
-the new code and track the untested host as debt.
-
 **Invoke:** Read `.agents/shared/references/working-with-legacy-code/working-with-legacy-code.md` and apply its framework with the starting module chosen at intake. Ask for an effect
 sketch from the entry method, the seams, and the smallest characterization-test set that pins current
 signup / billing / core behavior.
@@ -89,13 +82,6 @@ signup / billing / core behavior.
 
 **Purpose:** Optimize for the reader — names, small single-purpose functions, safe error handling — now that changes are verifiable.
 
-**Brief (fallback):** Code is read far more than written. Names reveal intent (`elapsedTimeInDays`,
-not `d`); booleans read as predicates; functions do one thing at one level of abstraction with 0-2
-arguments (a flag argument is two functions). Command-Query Separation: change state or return a
-value, never both. Error handling: prefer exceptions to return codes, catch specific types, never
-return or pass null (use an empty collection, Optional, or Null Object), and put operation + state
-context in every thrown error.
-
 **Invoke:** Read `.agents/shared/references/clean-code/clean-code.md` and apply its framework with a target module. Ask for a 0-10 score across the six disciplines plus the top ten fixes in priority order, and an error-handling audit (bare catches, null returns, contextless errors).
 
 **Decide with the user:** Which fixes to apply now versus log as debt, the naming / error-handling conventions the team adopts going forward, and whether the clean-code score becomes a CI gate.
@@ -107,13 +93,6 @@ context in every thrown error.
 ### Phase 3 — Apply named refactorings (.agents/shared/references/refactoring-patterns/refactoring-patterns.md)
 
 **Purpose:** Turn "clean it up" into named, behavior-preserving transformations executed in small steps.
-
-**Brief (fallback):** Each smell maps to a named refactoring. Extract Method is the workhorse — if
-you would write a comment to explain a block, extract it and name it after the comment. Also Replace
-Magic Number with Symbolic Constant, Replace Nested Conditional with Guard Clauses, Replace
-Conditional with Polymorphism, Introduce Parameter Object. Workflow: tests green, one transformation,
-tests green, commit; a red test means revert, not debug. Preparatory Refactoring (make the change
-easy, then make the easy change) and the Rule of Three guard against premature abstraction.
 
 **Invoke:** Read `.agents/shared/references/refactoring-patterns/refactoring-patterns.md` and apply its framework with a smelly function and the Phase 1 tests. Ask it to name each smell, cite the transformation, and apply one at a time with tests run between each.
 
@@ -127,13 +106,6 @@ easy, then make the easy change) and the Rule of Three guard against premature a
 
 **Purpose:** Fight the classitis an unsupervised agent creates — hide real machinery behind simple interfaces instead of multiplying shallow classes.
 
-**Brief (fallback):** Complexity is the enemy; minimize what a module imposes on the rest of the
-system. Module depth = functionality ÷ interface complexity; deep modules hide machinery behind small
-interfaces, shallow ones don't (classitis). Merge shallow classes that always travel together and
-share state. Watch information leakage (one decision reflected in many modules) and temporal
-decomposition (organizing by order-of-execution, not by knowledge). This is the tactical→strategic
-flip: invest 10-20% to keep the design clean.
-
 **Invoke:** Read `.agents/shared/references/software-design-philosophy/software-design-philosophy.md` and apply its framework with the module set touched so far. Ask which classes are shallow, where information leaks across boundaries, and how to consolidate into deeper modules with simpler interfaces.
 
 **Decide with the user:** Which consolidations to make now versus defer, guarding against over-merging unrelated concerns.
@@ -145,13 +117,6 @@ flip: invest 10-20% to keep the design clean.
 ### Phase 5 — Draw the architecture boundary (.agents/shared/references/clean-architecture/clean-architecture.md)
 
 **Purpose:** Make the framework and database depend on the business rules, not the reverse.
-
-**Brief (fallback):** The Dependency Rule: source dependencies point inward — Entities, then Use
-Cases, then Interface Adapters, then Frameworks/Drivers; nothing inner names anything outer. The
-database and web are details, plugins to your rules. Enforce with Dependency Inversion: a Use Case
-owns a repository interface; the Postgres/Stripe implementation lives in an outer adapter. SOLID are
-the mid-level tools. Microservices sharing one data model are a distributed monolith — apply the rule
-inside the service first.
 
 **Invoke:** Read `.agents/shared/references/clean-architecture/clean-architecture.md` and apply its framework with the current module map and the stack from intake. Ask it to map the dependency graph, list every violation where business logic imports the ORM or framework, and show the extraction to framework-free Use Cases behind owned interfaces.
 
@@ -165,13 +130,6 @@ inside the service first.
 
 **Purpose:** Set the meta-principles that keep the codebase changeable after this journey ends.
 
-**Brief (fallback):** DRY is about knowledge, not text — de-duplicate the same rule in two places
-(validation on client and server), leave coincidental look-alikes alone. Orthogonality: changing one
-component shouldn't affect another. Broken Window Theory: fix hacks immediately or board them up with
-a tracked ticket — never an untracked `// TODO`. Reversibility: wrap third-party vendors behind your
-own interfaces. Tracer bullets: build the next feature as one thin real end-to-end slice, not layer
-by layer.
-
 **Invoke:** Read `.agents/shared/references/pragmatic-programmer/pragmatic-programmer.md` and apply its framework across the codebase. Ask it to flag duplicated knowledge (ignoring coincidental duplication) and any broken windows or untracked TODOs that need boarding up.
 
 **Decide with the user:** The debt budget per iteration and the broken-windows policy — what gets fixed now versus ticketed.
@@ -183,13 +141,6 @@ by layer.
 ### Phase 7 — Make it survive production (.agents/shared/references/release-it/release-it.md)
 
 **Purpose:** Harden every integration point so a slow or failing dependency degrades gracefully instead of taking the whole app down.
-
-**Brief (fallback):** The software that passes QA is not what survives production. Integration points
-are the number-one killer — a slow response is worse than none. Non-negotiables: connect + read
-timeouts on every outbound call; a Circuit Breaker on failing dependencies (trips open, fails fast,
-half-open recovery); Bulkheads to isolate resource pools; Retry with exponential backoff + jitter;
-Steady State cleanup of accumulating cruft. Decouple deploy from release with feature flags and
-expand-contract migrations. Add deep health checks, RED metrics, symptom-based alerts.
 
 **Invoke:** Read `.agents/shared/references/release-it/release-it.md` and apply its framework with the outbound dependencies from intake. Ask for an audit of calls with no timeout, circuit-breaker + bulkhead placement, and a deep health check + RED metrics + alert design.
 
@@ -203,13 +154,6 @@ expand-contract migrations. Add deep health checks, RED metrics, symptom-based a
 
 **Purpose:** Scale deliberately from requirements and numbers, not reactively — add machinery only when estimates justify it.
 
-**Brief (fallback):** Start with requirements, not solutions. Back-of-envelope: QPS =
-daily-active-users × actions/day ÷ 86,400, peak 2-5× average; storage = records/day × size ×
-retention. Scale in order: vertical first, then cache (cache-aside with a TTL and explicit
-invalidation) for read-heavy paths, then read replicas, and shard only as a last resort. Use a
-message queue to decouple slow work from the request path. Reach for known designs (rate limiter →
-token bucket returning `429 Retry-After`).
-
 **Invoke:** Read `.agents/shared/references/system-design/system-design.md` and apply its framework with the load reality from intake. Ask for average and peak QPS, yearly storage, which component bottlenecks first, and a priority-ordered list of cache / queue / replica moves without over-engineering.
 
 **Decide with the user:** Which scaling moves to make now versus defer, tied to the actual numbers (don't build for 50k users while at 50), and name the first slow workload to move behind a message queue, if any.
@@ -221,13 +165,6 @@ token bucket returning `429 Retry-After`).
 ### Phase 9 — Get the data layer right (.agents/shared/references/ddia-systems/ddia-systems.md)
 
 **Purpose:** Protect the data that outlives the code — correctness under concurrency, and datastore choices made by requirement, not habit.
-
-**Brief (fallback):** Data outlives code. Most databases default to read-committed or snapshot, not
-serializable — naive read-then-write triggers write skew (two requests both selling the last item).
-Fix explicitly with `SELECT ... FOR UPDATE` or a serializable transaction; know your actual default.
-Replication lag means read-your-writes and monotonic-reads must be deliberate once replicas exist.
-Match data model to access pattern; polyglot persistence is often correct; separate system-of-record
-from derived data (CDC / event sourcing) rather than dual writes.
 
 **Invoke:** Read `.agents/shared/references/ddia-systems/ddia-systems.md` and apply its framework with the database from intake and the replica plan from Phase 8. Ask it to find write-skew-prone read-then-write paths, state the actual default isolation level and its anomalies, and fix the risky paths.
 

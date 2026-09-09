@@ -8,7 +8,7 @@ Read this before anything else on every run, including the non-software route �
 
 ## Memory gate (required check)
 
-Before Phase 1.2 on Standard/Deep scope (before Phase 3 write on Lightweight with material scope):
+Before Phase 1.2:
 
 1. Read [`rosey-hindsight`](../../rosey-hindsight/SKILL.md) and run `hindsight-embed daemon status` + `hindsight-embed memory recall` (prepend `~/.local/bin` to PATH; see skill) OR document `Hindsight: unavailable — <reason>`.
 2. Do not write the requirements doc until step 1 completes or is explicitly marked unavailable.
@@ -60,23 +60,20 @@ Before proceeding to Phase 0.2, classify whether this is a software task. The ke
 - Constrained, well-defined scope
 
 **If requirements are already clear:**
-Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Whether a file is written is decided by the Lightweight rule in 0.3 below. Skip Phase 1.1 and 1.2 entirely — still classify tier in Phase 0.3, then go straight to Phase 1.3 or Phase 2.5 and follow `references/synthesis-summary.md`'s Path A / Path B gate exactly. Do not assume the synthesis is announce-only: a richly pre-loaded prompt classifies as Standard or Deep, which routes to Path B (full scoping synthesis + confirmation), not Path A.
+Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Skip Phase 1.1 and 1.2 entirely — still classify tier in Phase 0.3, then go straight to Phase 1.3 or Phase 2.5 and compose the full scoping synthesis per `references/synthesis-summary.md`. A pre-loaded prompt does not earn a thinner checkpoint: the synthesis and its confirmation gate fire on every interactive run.
 
 ### 0.3 Assess Scope
 
 Use the feature description plus a light repo scan to classify the work:
 
-- **Lightweight** - small, well-bounded, low ambiguity
 - **Standard** - normal feature or bounded refactor with some decisions to make
 - **Deep** - cross-cutting, strategic, or highly ambiguous
 
-If the scope is unclear, ask one targeted question to disambiguate and then proceed; when it stays uncertain, take the heavier tier.
+Standard is the floor. Work too small for a requirements document does not belong in this skill at all — see the scope floor in `SKILL.md`. If the scope is unclear, ask one targeted question to disambiguate and then proceed; when it stays uncertain, take the heavier tier.
 
 In non-interactive mode, do not ask. Classify conservatively from the supplied feature description and record the classification as an assumption when it materially affects the document.
 
-**Lightweight ends in chat.** The result is a paragraph in the Phase 2.5 synthesis: what is being built, the one or two decisions made, and where they go next. No file is written, and the Phase 1.1 grounding scout, Phase 2's approach generation, and Phase 2.6's claim verifier do not run. A file is earned only by a decision a downstream consumer needs in IDed form, or by the user asking for one; then Phase 3 writes it from the dialogue's decisions.
-
-This skip is **interactive-only**. In `mode:non-interactive` a file is always written — chat is not a channel the caller can read — so the scout and verifier run per their own gates and Phase 3 always produces a document. This mirrors the rule in `references/plan-write.md`.
+**Every run writes a requirements document.** The Phase 1.1 grounding scout, Phase 2's approach generation, and Phase 2.6's claim verifier run per their own gates on every run, and Phase 3 always produces a document. There is no chat-only outcome and no tier that skips the artifact — `/rosey-plan` requires the document as its origin.
 
 **Deep sub-mode: feature vs product.** For Deep scope, also classify whether the brainstorm must establish product shape or inherit it:
 

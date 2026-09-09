@@ -21,7 +21,7 @@ Spawned on every review regardless of diff content.
 | Agent | Focus |
 |-------|-------|
 | `rosey-agent-native-reviewer` | Verify new features are agent-accessible |
-| `rosey-learnings-researcher` | Search rosey/solutions/ for past issues related to this PR's modules and patterns |
+| `rosey-learnings-researcher` | Search rosey/solutions/ and rosey/insights/ for past issues and durable lessons related to this PR's modules and patterns |
 
 ## Conditional (7 personas)
 
@@ -47,7 +47,7 @@ Spawn `rosey-deployment-verification-agent` when the migration-artifact gate app
 
 ## Selection rules
 
-1. **Always spawn all 5 always-on personas** plus the 2 Rosey always-on agents.
+1. **Always spawn all 5 always-on personas** plus the 2 Rosey always-on agents — unless the quick tier is active, which runs `correctness` plus at most one conditional (see `SKILL.md`, Quick Tier).
 2. **For each cross-cutting conditional persona**, the orchestrator reads the diff and decides whether the persona's domain is relevant. This is a judgment call, not a keyword match.
 3. **For `data-migration`**, spawn only when the diff includes migration or schema artifacts (`db/migrate/*`, `db/schema.rb`, `db/structure.sql`, Alembic/Flyway/Liquibase paths, or explicit backfill/data-transform scripts). Do **not** spawn for model-only or query-only changes without those files.
 4. **For Rosey conditional agents**, spawn `rosey-deployment-verification-agent` when the migration-artifact gate applies and the change is risky (see above).

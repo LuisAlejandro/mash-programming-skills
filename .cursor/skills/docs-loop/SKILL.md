@@ -18,7 +18,7 @@ This skill **always applies** documentation fixes and **never opens pull request
 Recognize options only while they are leading, whitespace-delimited tokens:
 
 - `--max-iterations=N` (hard cap on passes; default `50`)
-- `--agent=AGENT` (agent binary to invoke; default `cursor-agent`)
+- `--agent=AGENT` (agent binary to invoke; default `opencode`, alternative `pi`)
 - `--workspace=PATH` (workspace root; default current directory)
 - `--model=MODEL` (optional model override)
 
@@ -31,9 +31,9 @@ ask for a goal.
 ## 2. Delegate to the driver
 
 Locate `scripts/docs-loop-driver.sh` relative to this skill's directory and execute it with the parsed
-options and any repository paths. The driver always runs **unattended** — it passes `--yolo --trust` to
-the agent so no approval prompt can hang the run, because the agent executes in a shell the user cannot
-see or answer. State always lives under `<workspace>/rosey/loops/docs/`; it is not configurable. The
+options and any repository paths. The driver always runs **unattended** — it passes `--auto` (opencode)
+or `--approve` (pi) to the agent so no approval prompt can hang the run, because the agent executes in
+a shell the user cannot see or answer. State always lives under `<workspace>/rosey/loops/docs/`; it is not configurable. The
 script invokes the `docs-loop-iteration` skill once per repository in single-repository mode (never this
 orchestrator), so this delegation is not recursive.
 

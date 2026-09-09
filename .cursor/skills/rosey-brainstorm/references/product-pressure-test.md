@@ -6,13 +6,9 @@ This is agent-internal analysis, not a user-facing checklist. Read the opening, 
 
 Phase 1.3 in `references/dialogue.md` owns how each found gap fires as a probe.
 
-**Lightweight:**
-
-- Is this solving the real user problem?
-- Are we duplicating something that already covers this?
-- Is there a clearly better framing with near-zero extra cost?
-
 **Standard — scan for these gaps:**
+
+- **Duplication gap.** The opening proposes building something the product may already cover — an existing feature, entity, or flow that solves the same user problem under a different name. When present, name the existing thing and ask whether this should extend it rather than sit alongside it.
 
 - **Evidence gap.** The opening asserts want or need, but doesn't point to anything the would-be user has already done — time spent, money paid, workarounds built — that would make the want observable. When present, ask for the most concrete thing someone has already done about this.
 

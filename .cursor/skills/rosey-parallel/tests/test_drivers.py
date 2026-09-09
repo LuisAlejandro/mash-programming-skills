@@ -10,7 +10,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 import rosey_parallel as rp  # noqa: E402
 
-PRIORITY = ["pi", "opencode", "cursor-agent"]
+PRIORITY = ["pi", "opencode"]
 
 # Realistic structured-output fixtures, truncated to the terminal event.
 # pi marks events with `type` (not `event`) and emits a trailing
@@ -21,7 +21,6 @@ OPENCODE_END = "{\"type\": \"text\", \"part\": {\"type\": \"text\", \"text\": \"
 # Real opencode output ends with step_finish after the text event; text is
 # nested under part.text.
 OPENCODE_STEP_FINISH = "{\"type\": \"text\", \"part\": {\"type\": \"text\", \"text\": \"Done.\"}}\n{\"type\": \"step_finish\", \"part\": {\"type\": \"step-finish\"}}\n"
-CURSOR_END = "{\"type\": \"result\", \"result\": {\"status\": \"ok\"}}\n"
 
 # opencode bug shape: exit 0 but only a mid-session auto-reject (empty final text)
 OPENCODE_NO_TEXT = "{\"type\": \"permission\", ...}\n"
@@ -57,11 +56,6 @@ def test_opencode_done_with_step_finish():
     assert h.interpret(0, OPENCODE_STEP_FINISH) == "done"
 
 
-def test_cursor_done():
-    h = rp.HarnessDriver.from_name("cursor-agent")
-    assert h.interpret(0, CURSOR_END) == "done"
-
-
 def test_opencode_empty_final_text_is_failure():
     # exit 0 + no final text event (auto-reject bug) -> failure, not done
     h = rp.HarnessDriver.from_name("opencode")
@@ -74,8 +68,8 @@ def test_missing_terminal_event_exit0_is_failure():
 
 
 def test_exit_nonzero_is_failure():
-    h = rp.HarnessDriver.from_name("cursor-agent")
-    assert h.interpret(1, CURSOR_END) == "failure"
+    h = rp.HarnessDriver.from_name("opencode")
+    assert h.interpret(1, OPENCODE_END) == "failure"
 
 
 def test_probe_missing_binary_returns_false():
@@ -84,16 +78,14 @@ def test_probe_missing_binary_returns_false():
 
 
 def test_default_models_per_harness():
-    # Default model flags are wired per harness (pi/opencode deepseek, cursor grok non-fast).
+    # Default model flags are wired per harness (pi/opencode deepseek).
     assert rp.HarnessDriver.from_name("pi").model == "deepseek-v4-flash"
     assert rp.HarnessDriver.from_name("opencode").model == "opencode/deepseek-v4-flash"
-    assert rp.HarnessDriver.from_name("cursor-agent").model == "cursor-grok-4.6-high"
 
 
 def test_launch_cmd_includes_model_flag():
     assert "--model" in rp.HarnessDriver.from_name("pi").launch_cmd()
     assert "--model" in rp.HarnessDriver.from_name("opencode").launch_cmd()
-    assert "--model" in rp.HarnessDriver.from_name("cursor-agent").launch_cmd()
 
 
 def test_launch_cmd_model_override():
@@ -114,15 +106,15 @@ def test_select_override_wins():
 
 def test_select_highest_priority_available():
     # pi unavailable, opencode available
-    availability = {"pi": False, "opencode": True, "cursor-agent": True}
+    availability = {"pi": False, "opencode": True}
     assert rp.select_harness(None, availability.get, PRIORITY) == "opencode"
     # all available -> pi default
-    availability = {"pi": True, "opencode": True, "cursor-agent": True}
+    availability = {"pi": True, "opencode": True}
     assert rp.select_harness(None, availability.get, PRIORITY) == "pi"
 
 
 def test_select_none_available_fails():
-    availability = {"pi": False, "opencode": False, "cursor-agent": False}
+    availability = {"pi": False, "opencode": False}
     with pytest.raises(rp.ValidationError):
         rp.select_harness(None, availability.get, PRIORITY)
 

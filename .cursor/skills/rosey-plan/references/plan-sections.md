@@ -12,10 +12,6 @@ A great plan enables three audiences to act:
 
 Sections earn their place by serving one of these audiences. Omit padding.
 
-## Whether a plan file is warranted
-
-The Output Contract gate in SKILL.md decides this at intake, before any research: Direct and Chat brief results stay in chat, and a Durable run writes the file this reference describes. By the time you are reading this, that gate has already resolved Durable — compose the sections below.
-
 ## Section ID Registry
 
 These are the stable logical sections and their exact markdown headings. Downstream skills locate content by these heading names, so the names are the contract — not a hint layered over free-form headings.
@@ -48,7 +44,7 @@ When a plan doc is warranted, these sections are present. They carry the contrac
 - **Requirements** (with stable R-IDs) — what must be true after the work ships. Reviewer's checklist; downstream code review verifies against these.
 - **Key Technical Decisions** (KTDs) — the load-bearing choices that constrain implementation. Each entry is `<decision>: <rationale>`. Without these, the implementer can't tell which design choices are open and which are pinned.
 - **Implementation Units** (with stable U-IDs) — the discrete units of work, sized so each is independently landable. `rosey-work` consumes these to execute. For trivial single-step plans the work may collapse into Summary prose and U-IDs may be omitted; this is rare.
-  - **Unit Index (large plans only, ~10+ units).** When the plan has roughly ten or more units, open the section with a compact navigation table — one row per unit: **U-ID · one-line title · files touched · depends-on**. It lets an executor map units to files and resolve dependency order without scanning every unit body. It is a **navigation aid only**: the unit bodies stay authoritative, it carries nothing beyond those four fields (no approach, tests, or rationale), and `files touched` is the key paths rather than an exhaustive restatement. **Omit it below ~10 units**, where the per-unit `Dependencies` and `Files` already suffice and an index would be ceremony.
+  - **Unit Index (large plans only, ~10+ units).** When the plan has roughly ten or more units, open the section with a compact navigation table — one row per unit: **U-ID · one-line title · files touched · depends-on**. It lets an executor map units to files and resolve dependency order without scanning every unit body. It is a **navigation aid only**: the unit bodies stay authoritative, it carries nothing beyond those four fields (no approach, tests, or rationale), and `files touched` is the key paths rather than an exhaustive restatement. **Never use it to derive a file footprint** — `rosey-parallel` sequences tracks from each unit's `Files:` section, and the index is deliberately non-exhaustive, so a footprint taken from it would silently under-report overlap. **Omit it below ~10 units**, where the per-unit `Dependencies` and `Files` already suffice and an index would be ceremony.
 - **Verification Contract** — the repo-specific commands and quality gates that prove the plan: which tests to run, which lint or build gates apply, and what behavioral checks are required. Name the repo's actual commands; avoid generic "run tests" language when concrete ones exist. When the goal is optimization-shaped (build time, latency, coverage, bundle size), express a measurable threshold as the exit criterion (e.g. "p95 latency < 200ms", "build time reduced 30%") — a metric target is a sharper done signal than a boolean check.
 - **Definition of Done** — global and per-unit completion criteria. This is the completion contract for long-running or autonomous execution. Include a **cleanup criterion**: a long run accumulates dead-end and experimental code from approaches that did not pan out, and declaring done requires that abandoned-attempt code is removed, not left in the diff.
 
@@ -101,7 +97,7 @@ No `status` or lifecycle field. A plan is a point-in-time record, not a tracked 
 
 These fields are not required, but when set they have fixed names and semantics so downstream tooling can rely on them:
 
-- **`origin`** — repo-relative path to an upstream brainstorm requirements doc (e.g., `rosey/brainstorms/2026-05-12-pagination-requirements.md`). Set when planning from an upstream brainstorm; carried for traceability and re-resolved when `rosey-plan` re-deepens.
+- **`origin`** — repo-relative path to the upstream brainstorm requirements doc (e.g., `rosey/brainstorms/2026-05-12-pagination-requirements.md`). Always set: every plan has an origin. Carried for traceability and re-resolved when `rosey-plan` re-deepens.
 - **`deepened`** — ISO 8601 date marking the first time the confidence check substantively strengthened the plan. Presence affects Phase 0.1 resume fast-path logic (see `references/deepening-workflow.md`).
 
 Field names are stable across plan revisions — never rename a field or repurpose its semantics. Agents composing new plans MUST use these exact names; adding new fields is fine, but renaming `title` to `name` or `origin` to `source` breaks the downstream consumers above.

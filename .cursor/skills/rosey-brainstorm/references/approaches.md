@@ -37,15 +37,15 @@ In non-interactive mode, do not present an approach menu. Choose the approach th
 
 ## Phase 2.5: Synthesis Summary
 
-**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The two-stage shape (internal three-bucket draft → chat-time scoping synthesis), the Path A / Path B gate, the four scoping synthesis sections with their keep tests, the tier-aware bullet budget with re-cut rule, anti-pattern guidance, soft-cut behavior, self-redirect support, and internal-draft routing into doc body sections all live there. Composing a synthesis without these rules loaded reliably produces malformed output — pasting the full internal three-bucket draft verbatim into chat, implementation-detail leakage into the scoping synthesis, the proposal-pitch anti-pattern. **Each scoping synthesis bullet must pass the affirmability test (can the user evaluate this without reading code?) AND the detail test (1–2 lines max, conversational not documentary); over-share and over-detail are the failure modes to avoid.** This is not optional supplementary reading; it is the source of truth for how the phase behaves.
+**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The two-stage shape (internal three-bucket draft → chat-time scoping synthesis), the four scoping synthesis sections with their keep tests, the tier-aware bullet budget with re-cut rule, anti-pattern guidance, soft-cut behavior, self-redirect support, and internal-draft routing into doc body sections all live there. Composing a synthesis without these rules loaded reliably produces malformed output — pasting the full internal three-bucket draft verbatim into chat, implementation-detail leakage into the scoping synthesis, the proposal-pitch anti-pattern. **Each scoping synthesis bullet must pass the affirmability test (can the user evaluate this without reading code?) AND the detail test (1–2 lines max, conversational not documentary); over-share and over-detail are the failure modes to avoid.** This is not optional supplementary reading; it is the source of truth for how the phase behaves.
 
 Surface a scoping synthesis to the user before Phase 3 writes the requirements doc — the user's last opportunity to correct scope before the artifact lands. The scoping synthesis is shaped like what two product collaborators would confirm before writing a PRD, not like a comprehensive audit or a one-line preview.
 
-Fires for **all tiers** including Lightweight. Skip Phase 2.5 entirely on the Phase 0.1b non-software (universal-brainstorming) route.
+Fires on **every interactive run**. Skip Phase 2.5 entirely on the Phase 0.1b non-software (universal-brainstorming) route.
 
 In non-interactive mode, compose the internal draft and route it directly into the requirements document. Do not emit the chat-time synthesis, ask for confirmation, or wait for revisions.
 
-**Path A vs Path B** is decided by `references/synthesis-summary.md` from two signals: whether any blocking question fired, and the Phase 0.3 tier. Path A (announce-only, no confirmation) fires **solely** for Lightweight tier with no blocking questions; every other case — including a richly pre-loaded Standard/Deep opener that needed no dialogue — is Path B (full tier-aware scoping synthesis with an unconditional confirmation gate). Follow the reference's gate exactly; do not decide the path or compose the synthesis from memory.
+**The confirmation gate is unconditional.** There is no announce-only path: a richly pre-loaded opener that needed no dialogue still gets the full tier-aware scoping synthesis and an explicit confirmation request. Follow the reference exactly; do not compose the synthesis from memory.
 
 ## Phase 2.6: Claim Verification
 
@@ -53,7 +53,7 @@ When the requirements document will assert checkable claims about the repo — a
 
 Why a separate agent rather than self-review: the author confirming its own claims is anchored on the reasoning that produced them. The verifier never saw the dialogue, so it checks the claim rather than the story behind it. Phase 1.1's verify-before-claiming rule is the first line of defense; this is the one that catches what survived it.
 
-Read `references/model-tiers.md` for the tier and dispatch rules. Pass the verifier: the claim list, one line each; the grounding dossier path when one exists; and this instruction:
+Read `.agents/shared/references/model-tiers/model-tiers.md` for the tier and dispatch rules. Pass the verifier: the claim list, one line each; the grounding dossier path when one exists; and this instruction:
 
 > Verify each claim directly against the codebase — budget roughly 15 targeted reads. Return a per-claim verdict: **confirmed** (with `file:line`), **refuted** (with the contradicting evidence), or **unverifiable** (with what you looked for). Do not evaluate whether the claims are good ideas; only whether they are true.
 
@@ -61,4 +61,4 @@ Consume the verdicts at Phase 3: correct refuted claims before writing, and labe
 
 **Dispatch blocking**, immediately before the Phase 3 write. CE fires this during the confirmation wait to overlap with user think-time; that needs background dispatch, which is not portable, so the cost here is latency rather than correctness.
 
-Skip when Path A fires, when the document will make no checkable claims, or on the non-software route. When no sub-agent primitive is available, verify the claims inline before the Phase 3 write with the same read budget.
+Skip when the document will make no checkable claims, or on the non-software route. When no sub-agent primitive is available, verify the claims inline before the Phase 3 write with the same read budget.

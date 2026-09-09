@@ -207,11 +207,11 @@ If agent outputs conflict:
 - Prefer official framework documentation over secondary best-practice summaries when the conflict is about library behavior
 - If a real tradeoff remains, record it explicitly in the plan
 
-## 5.3.6b Interactive Finding Review (Interactive Mode Only)
+## 5.3.6b Interactive Finding Review (review-each-finding posture only)
 
-Skip this step in auto mode — proceed directly to 5.3.7.
+Skip this step under the integrate-directly posture (see `references/final-review.md` 5.3) — proceed directly to 5.3.7. That posture is always in force when `mode:non-interactive` is active.
 
-In interactive mode, present each agent's findings to the user before integration. For each agent that returned findings:
+Under the review-each-finding posture, present each agent's findings to the user before integration. For each agent that returned findings:
 
 1. **Summarize the agent and its target section** — e.g., "The rosey-architecture-strategist reviewed Key Technical Decisions and found:"
 2. **Present the findings concisely** — bullet the key points, not the raw agent output. Include enough context for the user to evaluate: what the agent found, what evidence supports it, and what plan change it implies.
@@ -226,7 +226,7 @@ When presenting findings from multiple agents targeting the same section, presen
 
 After all agents have been reviewed, carry only the accepted findings forward to 5.3.7.
 
-If the user accepted no findings, report "No findings accepted — plan unchanged." Then proceed directly to Phase 5.4 (skip document-review and synthesis — the plan was not modified). This interactive-mode-only skip does not apply in auto mode; auto mode always proceeds through 5.3.7 and 5.3.8. No explicit scratch cleanup required — `$SCRATCH_DIR` lives under gitignored `rosey/deepening/`; leaving it in place preserves rejected agent artifacts for debugging.
+If the user accepted no findings, report "No findings accepted — plan unchanged." Then proceed directly to Phase 5.4 (skip document-review and synthesis — the plan was not modified). This skip belongs to the review-each-finding posture only; integrate-directly always proceeds through 5.3.7 and 5.3.8. No explicit scratch cleanup required — `$SCRATCH_DIR` lives under gitignored `rosey/deepening/`; leaving it in place preserves rejected agent artifacts for debugging.
 
 If findings were accepted and the plan was modified, proceed through 5.3.7 and 5.3.8 as normal — document-review acts as a quality gate on the changes.
 
@@ -234,7 +234,7 @@ If findings were accepted and the plan was modified, proceed through 5.3.7 and 5
 
 Strengthen only the selected sections. Keep the plan coherent and preserve its overall structure.
 
-**In interactive mode:** Only integrate findings the user accepted in 5.3.6b. If some findings from different agents touch the same section, reconcile them coherently but do not reintroduce rejected findings.
+**Under review-each-finding:** Only integrate findings the user accepted in 5.3.6b. If some findings from different agents touch the same section, reconcile them coherently but do not reintroduce rejected findings.
 
 Allowed changes:
 - Clarify or strengthen decision rationale

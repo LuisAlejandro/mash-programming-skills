@@ -37,7 +37,7 @@
           },
           "section": {
             "type": "string",
-            "description": "Document section where the issue appears (e.g., 'Requirements Trace', 'Implementation Unit 3', 'Overview')"
+            "description": "Document section where the issue appears (e.g., 'Requirements', 'Implementation Unit 3', 'Overview')"
           },
           "why_it_matters": {
             "type": "string",

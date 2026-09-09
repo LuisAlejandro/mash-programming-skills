@@ -12,7 +12,6 @@ Before finalizing, check:
 - **The Verification Contract names the repo's actual commands**, not generic "run tests" — with a measurable threshold when the goal is optimization-shaped.
 - **The Definition of Done carries a cleanup criterion** so a long run cannot declare done with dead-end code still in the diff.
 - The plan does not invent product behavior that should have been defined in `rosey-brainstorm`
-- If there was no origin document, the bounded planning bootstrap established enough product clarity to plan responsibly
 - Every major decision is grounded in the origin document or research
 - Each implementation unit is concrete, dependency-ordered, and implementation-ready
 - If test-first or characterization-first posture was explicit or strongly implied, the relevant units carry it forward with a lightweight `Execution note`
@@ -36,57 +35,19 @@ If the plan originated from a requirements document, re-read that document and v
 - If origin supplies A/F/AE IDs: every origin R/F/AE that *affects implementation* is referenced in Requirements, a U-ID unit, test scenarios, verification, scope boundaries, or explicitly deferred. Actors are carried forward when they affect behavior, permissions, UX, orchestration, handoff, or verification. The standard is preservation of product intent, not mandatory ID spam — irrelevant origin IDs may be omitted
 - If origin was Deep-product (origin contains an `Outside this product's identity` subsection): the plan's Scope Boundaries preserves the three-way split — `Deferred for later` and `Outside this product's identity` carried verbatim from origin, `Deferred to Follow-Up Work` reserved for plan-local implementation sequencing
 
-#### 5.1.5 Brainstorm-Sourced Scoping Synthesis
+#### 5.1.5 Scoping Synthesis
 
 Surface plan-time call-outs to the user before Phase 5.2 commits the plan to disk — the latest cheap moment to catch plan-time scope errors. The brainstorm already validated WHAT to build; this phase surfaces HOW the plan will execute on the forks that matter.
 
-Fires **only when the plan was sourced from an upstream brainstorm doc** (Phase 0.2 found a `*-requirements.md` match) AND not on Phase 0.1 fast paths (resume normal, deepen-intent). Skip Phase 5.1.5 in solo invocation — solo plans handled their synthesis in Phase 0.7.
+Fires on every run except the Phase 0.1 fast paths (resume normal, deepen-intent). Every plan is brainstorm-sourced — the missing-origin stop at Phase 0.3b guarantees an origin document.
 
-**Read `references/synthesis-summary.md` before composing the scoping synthesis.** It carries the affirmability test, keep-test criteria, detail test, summary shape budgets, granularity rules, anti-patterns, revision-vs-confirmation discipline, doc-body reading rules, doc-shape routing, soft-cut behavior, self-redirect support, the worked PII compression example, and full headless-mode routing — all required for a well-shaped synthesis.
+**Read `references/synthesis-summary.md` before composing the scoping synthesis** — and the shared reference it points to. Between them they carry the two-stage shape, the affirmability and keep tests, the detail test, budgets, granularity rules, anti-patterns, both literal templates, the auto-proceed guard, soft-cut behavior, self-redirect, the worked compression example, and non-interactive routing. Composing without them reliably produces malformed output.
 
-**Required gate output — do not skip; silent proceeding is not allowed.** Compose an internal three-bucket scope draft (Stated / Inferred / Out of scope — internal thinking that feeds plan-body routing at Phase 5.2, not the chat output below). Derive call-outs (specific forks where user input materially changes the plan), then emit one of the two literal templates below in chat before continuing to Phase 5.2.
+**Required gate output — do not skip; silent proceeding is not allowed.** Compose the internal three-bucket draft, derive call-outs, then emit the reference's confirmation template (or its auto-proceed template, which fires only for Lightweight depth with zero call-outs surviving) before continuing to Phase 5.2. On the confirmation path, wait for the user.
 
-**Synthesis is pre-plan-write.** The agent does NOT yet know how plan-write will sequence the work. Do not claim PR count ("one PR"), commit/branch shape, effort or time estimates, Implementation Unit boundaries, or exact file paths in the synthesis. The synthesis surfaces decisions knowable at THIS point (brainstorm + research + agent posture); plan-write produces the rest. This rule holds even when the agent has formed plan-write opinions earlier in the session — those stay internal until plan-write.
+**Synthesis is pre-plan-write.** The agent does NOT yet know how plan-write will sequence the work. Do not claim PR count ("one PR"), commit/branch shape, effort or time estimates, Implementation Unit boundaries, or exact file paths. The synthesis surfaces decisions knowable at THIS point (brainstorm + research + agent posture); plan-write produces the rest. This holds even when the agent formed plan-write opinions earlier in the session — those stay internal until plan-write.
 
-**Summary shape: two paragraphs.**
-
-1. **Brainstorm-scope restatement** (1-2 sentences, prose). Restates the brainstorm's scope as orientation, in the brainstorm's own vocabulary. NOT an enumeration of Implementation Units, restated constraints, or listed acceptance examples — the user wrote those.
-2. **Plan-specific scoping decisions** (prose, or bullets when multi-faceted). Scope-level commitments the agent made that the brainstorm did not: full brainstorm coverage vs. narrowed subset; adjacent refactors pulled in vs. held out; test scope at scenario level. Each item must be affirmable by the user without reading code. Form follows substance; tier budgets are **ceilings, not targets** (Lightweight 1-3 lines; Standard up to 3-5 lines or 2-4 bullets; Deep up to 4-6 lines or 3-6 bullets). 1-2 lines per bullet. Less is correct when there isn't more to say. See reference for keep test, detail test, and source-vocabulary discipline.
-
-**Do NOT enumerate the touch surface.** Sentences like "The touch surface is...", "This plan touches...", "The implementation reaches into...", "Files modified include..." are plan-pitch leaks. File paths, module names, directory introductions, and per-file change descriptions belong in the plan body (Implementation Units at Phase 5.2), not the synthesis. The synthesis names *what* the plan targets, not *where* the code lives.
-
-**Pre-emit scans.** Before emitting the synthesis, scan the output:
-- Bare ID references (`AE\d+`, `R\d+`, `F\d+`, `A\d+`, `U\d+`) → replace with plain names.
-- File paths (`path/like.md`, `path/like.py`, etc.) → cut unless the path IS the topic of an explicit fork in the call-outs.
-
-**Tier guard on auto-proceed:** the auto-proceed path (announce without waiting for confirmation) fires only when plan depth is **Lightweight AND zero call-outs survive**. Standard and Deep plans always fire the confirmation gate, even with zero call-outs — substance earns the checkpoint, not interaction history.
-
-**Confirmation template (Standard/Deep regardless of call-out count, or any tier with one or more call-outs surviving):**
-
-````text
-The brainstorm scopes [1-2 sentence restatement in the brainstorm's vocabulary as orientation; NOT an enumeration of Implementation Units, constraints, or acceptance examples].
-
-This plan [plan-specific scoping decisions: full-brainstorm coverage vs. narrowed subset; adjacent refactors in or out; test scope at scenario level. NOT PR count, sequencing, IU lists, or file paths].
-
-**Call outs:** (omit this header when zero forks survived the keep test)
-- [plan-time fork in 1-2 lines: name the choice and optional one-clause trade-off in parens. NO multi-sentence rationale, NO "my default is X" pitch]
-
-Confirm and I'll write the plan next, drawing on the brainstorm, research, and this synthesis.
-````
-
-Wait for user confirmation before continuing to Phase 5.2.
-
-**Auto-proceed template (Lightweight with zero call-outs only):**
-
-````text
-Planning [brief brainstorm-scope restatement] — [plan-specific shape in one clause].
-
-No open decisions to weigh in on — proceeding to plan-write. Interrupt if I have the scope wrong.
-````
-
-Then continue to Phase 5.2 without a blocking question.
-
-**Non-interactive mode**: internal draft is composed but stage 2 (chat-time call-outs) is skipped — no synchronous user to confirm to. Proceed to Phase 5.2 plan-write. Inferred bets from the internal draft route to a `## Assumptions` section in the plan instead of Key Technical Decisions. See `references/synthesis-summary.md` Non-interactive mode for the full routing.
+**Do NOT enumerate the touch surface.** Sentences like "The touch surface is...", "This plan touches...", "The implementation reaches into...", "Files modified include..." are plan-pitch leaks. File paths, module names, directory introductions, and per-file change descriptions belong in the plan body (Implementation Units at Phase 5.2). The synthesis names *what* the plan targets, not *where* the code lives.
 
 #### 5.2 Write Plan File
 
@@ -122,7 +83,7 @@ Plan written to <absolute path to plan>
 
 ##### Handoff envelope (`mode:non-interactive` only)
 
-Emit a compact, stable envelope so an automated caller can consume the result without parsing prose. [`rosey-parallel`](../rosey-parallel/SKILL.md)'s `plan:` phase reads `PLAN PATH:` from this block and passes it to the `work:` phase that follows.
+Emit a compact, stable envelope so an automated caller can consume the result without parsing prose. [`rosey-parallel`](../../rosey-parallel/SKILL.md)'s `plan:` phase reads `PLAN PATH:` from this block and passes it to the `work:` phase that follows.
 
 ```text
 ROSEY_PLAN_HANDOFF
@@ -140,18 +101,18 @@ END_ROSEY_PLAN_HANDOFF
 
 After writing the plan file, automatically evaluate whether the plan needs strengthening.
 
-**Two deepening modes:**
+**Two deepening postures** — this is a separate axis from `mode:interactive` / `mode:non-interactive`, which govern the run as a whole:
 
-- **Auto mode** (default during plan generation): Runs without asking the user for approval. The user sees what is being strengthened but does not need to make a decision. Sub-agent findings are synthesized directly into the plan.
-- **Interactive mode** (activated by the re-deepen fast path in Phase 0.1): The user explicitly asked to deepen an existing plan. Sub-agent findings are presented individually for review before integration. The user can accept, reject, or discuss each agent's findings. Only accepted findings are synthesized into the plan.
+- **Integrate-directly** (default during plan generation): Runs without asking the user for approval. The user sees what is being strengthened but does not need to make a decision. Sub-agent findings are synthesized directly into the plan.
+- **Review-each-finding** (activated by the re-deepen fast path in Phase 0.1, interactive runs only): The user explicitly asked to deepen an existing plan. Sub-agent findings are presented individually for review before integration. The user can accept, reject, or discuss each agent's findings. Only accepted findings are synthesized into the plan.
 
-Interactive mode exists because on-demand deepening is a different user posture — the user already has a plan they are invested in and wants to be surgical about what changes. This applies whether the plan was generated by this skill, written by hand, or produced by another tool.
+Review-each-finding exists because on-demand deepening is a different user posture — the user already has a plan they are invested in and wants to be surgical about what changes. This applies whether the plan was generated by this skill, written by hand, or produced by another tool.
 
 `rosey-doc-review` and this confidence check are different:
 - Use the `rosey-doc-review` skill when the document needs clarity, simplification, completeness, or scope control
 - This confidence check strengthens rationale, sequencing, risk treatment, and system-wide thinking when the plan is structurally sound but still needs stronger grounding
 
-**Non-interactive mode:** This phase always runs in auto mode when `mode:non-interactive` is active. No user interaction needed.
+**Non-interactive mode:** This phase always uses the integrate-directly posture when `mode:non-interactive` is active — there is no synchronous user to review findings with.
 
 ##### 5.3.1 Classify Plan Depth and Topic Risk
 

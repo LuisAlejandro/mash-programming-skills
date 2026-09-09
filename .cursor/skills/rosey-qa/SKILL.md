@@ -49,26 +49,22 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 
 **Conflicting mode flags:** If multiple mode tokens appear in arguments, stop and do not dispatch agents. If `mode:headless` is one of the conflicting tokens, emit the headless error envelope: `Review failed (headless mode). Reason: conflicting mode flags — <mode_a> and <mode_b> cannot be combined.` Otherwise emit the generic form: `Review failed. Reason: conflicting mode flags — <mode_a> and <mode_b> cannot be combined.`
 
-## Quick Review Short-Circuit
+## Quick Tier
 
-If `$ARGUMENTS` indicates the user wants a quick, fast, or light code review, do not dispatch the multi-agent flow.
+When `$ARGUMENTS` indicates the user wants a quick, fast, or light code review, run a **reduced roster** instead of the full team. Same pipeline, same schema, same synthesis — fewer reviewers.
 
-**Announce the chosen path** before any other work (Quick review vs Multi-agent review).
+**Announce the chosen path** before any other work (Quick review vs Multi-agent review), naming the roster. Programmatic callers (`mode:autofix`, `mode:report-only`, `mode:headless`) skip the announcement — the orchestrator owns user-facing messaging.
 
-Programmatic callers (when `mode:autofix`, `mode:report-only`, or `mode:headless` is present) skip this announcement -- the orchestrator owns user-facing messaging.
+**Roster:** `rosey-correctness-reviewer` plus **at most one** conditional persona, selected by the same diff judgment the full flow uses (Stage 4) — `security` for an auth or input-handling diff, `data-migration` for migration artifacts, and so on. When no conditional clearly fits, correctness alone is the roster. Two reviewers is the ceiling, not a target.
 
-Sequence:
+Correctness is non-negotiable because it is the only persona whose findings are *defects* rather than improvements; everything else in the catalog is quality signal that a quick pass is explicitly trading away.
 
-1. **Run the harness's built-in code review.** If `$ARGUMENTS` contained a review target (PR number, GitHub URL, or branch name) after stripping recognized tokens, forward that target to the built-in. If no target was provided, run the bare command and let the built-in default to the current branch.
-   - If you are Claude Code, run the `/review` tool, passing the target if present (e.g., `/review 123`, `/review <PR-URL>`, `/review <branch>`); otherwise run bare `/review`.
-   - If you are Gemini, run a quick code review against the resolved target (or the current branch when none was provided).
-   - For all other coding harnesses, run your built-in code review tool, forwarding the target when its syntax accepts one.
+Everything downstream is unchanged: confidence anchors, the synthesis pipeline, `safe_auto` application, and the output template all run normally. A quick review is a smaller team, not a different contract.
 
-   Then stop. Do not dispatch the multi-agent reviewer pipeline.
+**The quick tier never applies when:**
 
-2. **Exemption -- no built-in code review exists.** If the current harness has no built-in code review command or skill, do not short-circuit. Continue into the full multi-agent review described in the rest of this skill (Tier 2).
-
-3. **Programmatic callers bypass this short-circuit.** When `mode:autofix`, `mode:report-only`, or `mode:headless` is present, ignore quick intent and run the full multi-agent review. Skill-to-skill callers that want the lightweight pass should invoke `/review` (or the harness equivalent) directly rather than route through this short-circuit.
+- `mode:autofix`, `mode:report-only`, or `mode:headless` is present — programmatic callers always get the full roster. A quick pass is a human convenience, and an automated caller that wanted one would ask for a narrower review, not a cheaper one.
+- The diff trips the `adversarial` gate (>=50 substantive changed lines, or auth / payments / data mutations / external API integrations). **Say so and run the full roster** — the request is declined explicitly, never silently upgraded. Quick is for small and boring; a risky diff is neither.
 
 ## Mode Detection
 
@@ -180,7 +176,7 @@ Routing rules:
 | `rosey-ponytail-reviewer` | Over-engineering only: reinvented standard library, unneeded dependencies, speculative abstractions, dead flexibility, shrinkable logic |
 | `rosey-project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, portability |
 | `rosey-agent-native-reviewer` | Verify new features are agent-accessible |
-| `rosey-learnings-researcher` | Search rosey/solutions/ for past issues related to this PR |
+| `rosey-learnings-researcher` | Search rosey/solutions/ and rosey/insights/ for past issues and durable lessons related to this PR |
 
 **Cross-cutting conditional (selected per diff):**
 
@@ -206,6 +202,8 @@ Schema drift detection is folded into `rosey-data-migration-reviewer` (Step 0) a
 
 Every review spawns all 5 always-on personas plus the 2 Rosey always-on agents, then adds whichever cross-cutting conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 7 reviewers. A Rails auth feature might trigger security + reliability + adversarial = 10 reviewers.
 
+**Exception: the quick tier** (see above) runs `correctness` plus at most one conditional. It is the only path that spawns fewer than the always-on set.
+
 ## Protected Artifacts
 
 The following paths are Rosey pipeline artifacts and must never be flagged for deletion, removal, or gitignore by any reviewer:
@@ -213,6 +211,7 @@ The following paths are Rosey pipeline artifacts and must never be flagged for d
 - `rosey/brainstorms/*` -- requirements documents created by rosey-brainstorm
 - `rosey/plans/*.md` -- plan files created by rosey-plan (decision artifacts; execution progress is derived from git, not stored in plan bodies)
 - `rosey/solutions/*.md` -- solution documents created during the pipeline
+- `rosey/insights/*.md` -- durable repo lessons surfaced by rosey-learnings-researcher
 
 If a reviewer flags any file in these directories for cleanup or removal, discard that finding during synthesis.
 
@@ -260,7 +259,7 @@ Use GitHub MCP `pull_request_read` with `method: "get"` and `method: "get_files"
 Apply skip rules in order:
 
 - `state` is `CLOSED` or `MERGED` -> stop with message `PR is closed/merged; not reviewing.`
-- **Trivial-PR judgment**: spawn a lightweight sub-agent (use `model: haiku` in Claude Code; gpt-5.4-nano or equivalent in Codex) with the PR title, body, and changed file paths. The agent's task: "Is this an automated or trivial PR that does not warrant a code review? Consider: dependency lock-file or manifest-only bumps, automated release commits, chore version increments with no substantive code changes. When in doubt, answer no — false negatives (skipped reviews that should have run) are more costly than false positives (unnecessary reviews)." If the judgment returns yes: stop with message `PR appears to be a trivial automated PR; not reviewing. Run without a PR argument to review the current branch, or pass base:<ref> if review is intended.`
+- **Trivial-PR judgment**: spawn a lightweight sub-agent with the PR title, body, and changed file paths. Follow `.agents/shared/references/model-tiers/model-tiers.md` — use the platform's cheapest capable model where a per-dispatch override exists, otherwise omit the override and inherit. The agent's task: "Is this an automated or trivial PR that does not warrant a code review? Consider: dependency lock-file or manifest-only bumps, automated release commits, chore version increments with no substantive code changes. When in doubt, answer no — false negatives (skipped reviews that should have run) are more costly than false positives (unnecessary reviews)." If the judgment returns yes: stop with message `PR appears to be a trivial automated PR; not reviewing. Run without a PR argument to review the current branch, or pass base:<ref> if review is intended.`
 
 When any skip rule fires, emit the message and stop without dispatching reviewers, switching the checkout, or running scope detection. **Standalone branch mode and `base:` mode are unaffected** -- they always run the full review. **Draft PRs are reviewed normally** -- draft status is not a skip condition; early feedback on in-progress work is valuable.
 
@@ -399,13 +398,25 @@ Locate the plan document so Stage 6 can verify requirements completeness. Check 
 2. **PR body.** If PR metadata was fetched in Stage 1, scan the body for paths matching `rosey/plans/*.md`. If exactly one match is found and the file exists, use it as `plan_source: explicit`. If multiple plan paths appear, treat as ambiguous — demote to `plan_source: inferred` for the most recent match that exists on disk, or skip if none exist or none clearly relate to the PR title/intent. Always verify the selected file exists before using it — stale or copied plan links in PR descriptions are common.
 3. **Auto-discover.** Extract 2-3 keywords from the branch name (e.g., `feat/onboarding-skill` -> `onboarding`, `skill`). Glob `rosey/plans/*` and filter filenames containing those keywords. If exactly one match, use it. If multiple matches or the match looks ambiguous (e.g., generic keywords like `review`, `fix`, `update` that could hit many plans), **skip auto-discovery** — a wrong plan is worse than no plan. If zero matches, skip.
 
+   This step exists for PRs that arrive without pipeline context — someone else's branch, or a PR opened outside `rosey-pr`. A Rosey-produced PR carries the plan path in its body, and `rosey-work` and `rosey-pr` always pass it explicitly, so steps 1-2 should resolve it. Everything auto-discovery finds is tagged `inferred` and never blocks a verdict on its own.
+
 **Confidence tagging:** Record how the plan was found:
 - `plan:` argument -> `plan_source: explicit` (high confidence)
 - Single unambiguous PR body match -> `plan_source: explicit` (high confidence)
 - Multiple/ambiguous PR body matches -> `plan_source: inferred` (lower confidence)
 - Auto-discover with single unambiguous match -> `plan_source: inferred` (lower confidence)
 
-If a plan is found, read its **Requirements** section — `## Requirements` in current plans, `## Requirements Trace` in legacy ones — and the R-IDs (R1, R2, etc.) listed there, plus **Implementation Units** (current numeric subsections such as `### U1.`, `### U2.`, or `### Unit 1:` under `## Implementation Units`; legacy bullet or checkbox unit entries under that section also count). Store the extracted requirements list and `plan_source` for Stage 6. Do not block the review if no plan is found — requirements verification is additive, not required.
+If a plan is found, read its **Requirements** section — `## Requirements` in current plans, `## Requirements Trace` in legacy ones — and the R-IDs (R1, R2, etc.) listed there, plus **Implementation Units** (current numeric subsections such as `### U1.`, `### U2.`, or `### Unit 1:` under `## Implementation Units`; legacy bullet or checkbox unit entries under that section also count).
+
+Also read these three sections when present — they carry the contracts the plan agreed to, and reviewing against a stated bar beats re-deriving one:
+
+- **`## Goal Capsule`** — Objective, Means, and stop conditions. Use it to judge whether an omission is intentional (Stage 6 verdict) and whether the diff drifted past what the plan committed to.
+- **`## Verification Contract`** — the repo's actual commands and quality gates. Where the diff's test and gate coverage falls short of what the plan named, that gap is concrete rather than a reviewer's opinion about adequacy.
+- **`## Definition of Done`** — global and per-unit completion criteria, including the **cleanup criterion** (abandoned-approach code removed, not left in the diff).
+
+Do **not** read a `Unit Index` table as a file footprint if the plan carries one — it is a navigation aid and deliberately non-exhaustive. Unit bodies are authoritative.
+
+Store the extracted requirements list, the three contract sections when found, and `plan_source` for Stage 6. Do not block the review if no plan is found, or if a plan predates these sections — all of this is additive, not required.
 
 ### Stage 3: Select reviewers
 
@@ -448,7 +459,7 @@ This is progress reporting, not a blocking confirmation.
 
 Before spawning, find relevant standards file paths for the `project-standards` persona:
 
-1. Use the native file-search tool (e.g., Glob in Claude Code) to find all `**/CLAUDE.md` and `**/AGENTS.md` in the repo.
+1. Use the harness's native file-search/glob tool to find all `**/CLAUDE.md` and `**/AGENTS.md` in the repo.
 2. Filter to those whose directory is an ancestor of at least one changed file. A standards file governs all files below it (e.g., `AGENTS.md` at a plugin root applies to everything under that plugin).
 
 Pass the path list in a `<standards-paths>` block. The persona reads only relevant sections, keeping orchestrator context cheap.
@@ -480,7 +491,7 @@ Pass `{run_id}` to every persona sub-agent so they can write their full analysis
 
 Omit the `mode` parameter when dispatching sub-agents so the user's configured permission settings apply. Do not pass `mode: "auto"`.
 
-**Model at dispatch time.** Do not set `model` (or any model-slug argument) on Task / Agent / spawn_agent / subagent calls. Leave inheritance to the harness and each agent's `model: inherit` frontmatter so reviewers run on the same model as the parent session (e.g. Grok 4.5 when that is the session model).
+**Model at dispatch time.** Do not set `model` (or any model-slug argument) on any subagent dispatch. Leave inheritance to the harness and each agent's `model: inherit` frontmatter so reviewers run on the same model as the parent session (e.g. Grok 4.5 when that is the session model).
 
 **Bounded parallel dispatch.** Respect the current harness's active-subagent limit. Queue selected reviewers, dispatch only as many as the harness accepts, and fill freed slots as reviewers complete. Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure: leave the reviewer queued and retry after a slot frees. Record a reviewer as failed only after a successful dispatch times out/fails, or when dispatch fails for a non-capacity reason.
 
@@ -638,14 +649,19 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
    - **`explicit`** (caller-provided or PR body): Flag unaddressed requirements or implementation units as P1 findings with `autofix_class: manual`, `owner: downstream-resolver`. These enter the residual actionable queue.
    - **`inferred`** (auto-discovered): Flag unaddressed requirements or implementation units as P3 findings with `autofix_class: advisory`, `owner: human`. These stay in the report only — no autonomous follow-up. An inferred plan match is a hint, not a contract.
    Omit this section entirely when no plan was found — do not mention the absence of a plan.
+
+   **Contract checks (same section, same `plan_source` routing).** When Stage 2b captured them:
+   - **Definition of Done** — check each criterion against the diff, and check the **cleanup criterion** specifically: abandoned-approach code, dead experimental branches, and scaffolding from directions that did not pan out must not survive in the diff. The implementer self-checks this at handoff; a reviewer reading the diff cold is the one who actually catches it. Route leftovers as `maintainability` findings.
+   - **Verification Contract** — where the diff does not exercise the commands or gates the plan named, report the gap against the plan's own bar rather than a generic coverage opinion.
+   - **Goal Capsule** — when the diff reaches past the Objective or trips a stated stop condition, that is a scope finding, not a style note.
 4. **Applied Fixes.** Include only if a fix phase ran in this invocation.
 5. **Residual Actionable Work.** Include when unresolved actionable findings were handed off or should be handed off.
 6. **Pre-existing.** Separate section, does not count toward verdict.
-7. **Learnings & Past Solutions.** Surface rosey-learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to rosey/solutions/ files.
+7. **Learnings & Past Solutions.** Surface rosey-learnings-researcher results: if past solutions or durable insights are relevant, flag them as "Known Pattern" with links to the `rosey/solutions/` or `rosey/insights/` files.
 8. **Agent-Native Gaps.** Surface rosey-agent-native-reviewer results. Omit section if no gaps found.
 9. **Deployment Notes.** If rosey-deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage. Schema drift appears in the findings tables as `data-migration` P1 rows — do not add a separate Schema Drift section.
 10. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, and any intent uncertainty carried by non-interactive modes.
-11. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements or implementation units, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements or implementation units, note it in the verdict reasoning but do not block on it alone.
+11. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements or implementation units, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional; the Goal Capsule's stop conditions are the evidence for that judgment when one is present. Surviving abandoned-approach code against an `explicit` plan's cleanup criterion is "Ready with fixes" at minimum. When an `inferred` plan has unaddressed requirements, implementation units, or contract gaps, note it in the verdict reasoning but do not block on it alone.
 
 Do not include time estimates.
 
@@ -740,7 +756,7 @@ Before delivering the review, verify:
 2. **No false positives from skimming.** For each finding, verify the surrounding code was actually read. Check that the "bug" isn't handled elsewhere in the same function, that the "unused import" isn't used in a type annotation, that the "missing null check" isn't guarded by the caller.
 3. **Severity is calibrated.** A style nit is never P0. A SQL injection is never P3. Re-check every severity assignment.
 4. **Line numbers are accurate.** Verify each cited line number against the file content. A finding pointing to the wrong line is worse than no finding.
-5. **Protected artifacts are respected.** Discard any findings that recommend deleting or gitignoring files in `rosey/brainstorms/`, `rosey/plans/`, or `rosey/solutions/`.
+5. **Protected artifacts are respected.** Discard any findings that recommend deleting or gitignoring files in `rosey/brainstorms/`, `rosey/plans/`, `rosey/solutions/`, or `rosey/insights/`.
 6. **Findings don't duplicate linter output.** Don't flag things the project's linter/formatter would catch (missing semicolons, wrong indentation). Focus on semantic issues.
 
 ## After Review

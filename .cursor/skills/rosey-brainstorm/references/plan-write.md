@@ -1,10 +1,8 @@
 # Phase 3: Capture the Requirements
 
-Write or update a requirements document only when the conversation produced durable decisions worth preserving — see `references/brainstorm-sections.md` "Decide whether a doc is warranted at all" for the criteria and the bug-fix stress test. Skip document creation when the user only needs brief alignment and the decisions can flow downstream (rosey-plan, commit message, `rosey/solutions/`) without a brainstorm artifact in the middle.
+Write or update a requirements document on every run. The document is the pipeline's contract with `/rosey-plan`, which requires it as origin, and in non-interactive mode it is the only channel back to a caller that cannot see chat. There is no path through this skill that ends without one. If a concrete document cannot be written safely, stop with a blocker instead of returning prose.
 
-In non-interactive mode a document is always written. A caller that cannot see chat has no other way to receive the result, so the skip rule above is interactive-only; if a concrete document cannot be written safely, stop with a blocker instead of returning prose.
-
-When a doc is warranted, compose it using:
+Compose it using:
 
 - `references/brainstorm-sections.md` — section contract (outcomes, hard floor, include-when-material catalog, agency rules, ID conventions).
 - `references/markdown-rendering.md` — how to present the sections in markdown.

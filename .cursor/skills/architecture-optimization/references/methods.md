@@ -1,6 +1,6 @@
 # architecture-optimization phase methods
 
-The full fallback method for each phase — read the relevant section before running a phase from its Brief (constituent skill not installed). Each section distills the constituent skill plus the named external sources into a runnable procedure. When the constituent skill *is* installed, use it; this file then serves only as the cross-phase glue (formulas, orderings, heuristics).
+Cross-phase glue — the formulas, orderings, and heuristics that span phases, distilled from the named external sources. Each phase's own reference carries its framework; read this alongside it when a phase needs the shared arithmetic (Amdahl bounds, budget math, cheapest-first ordering).
 
 ## §1 Pin it and measure it (Working Effectively with Legacy Code — Feathers; Systems Performance — Gregg)
 

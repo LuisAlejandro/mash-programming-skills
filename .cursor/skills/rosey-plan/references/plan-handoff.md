@@ -47,7 +47,7 @@ Do **not** flag: correctness, security, performance, or domain complexity the re
 Before proceeding to post-generation options:
 - Confirm the plan is stronger in specific ways, not merely longer
 - Confirm the planning boundary is intact
-- Confirm origin decisions were preserved when an origin document exists
+- Confirm origin decisions were preserved
 
 If artifact-backed mode was used:
 - Clean up the temporary scratch directory after the plan is safely updated
@@ -78,7 +78,7 @@ After all mutations in this run have settled (initial write, deepening synthesis
 **Hide `Run deeper doc review` when no actionable findings remain.** Show option 2 only when the headless envelope reports `proposed_fixes_count + decisions_count > 0` — i.e., at least one `gated_auto` or `manual` finding at confidence anchor `75` or `100`. Drop the option in any other case, including FYI-only state. FYI observations (anchor `50`) do not enter `rosey-doc-review`'s interactive routing question or walkthrough — that flow is gated to actionable findings — so a `Run deeper doc review` option that only has FYIs to show is a dead-end: rosey-doc-review would re-dispatch the persona team, find the same FYIs, skip the routing question, and fall through to the terminal question with nothing to walk through. The user paid the dispatch cost for no engagement surface. After trimming, renumber visible options contiguously starting at 1. The summary line above the menu still names the FYI count when present (`Doc review applied 3 fixes. 2 FYI observations remain.`) so the user sees what was found, even though there is no menu action attached to it — the FYIs are visible in the headless envelope text the menu rendered alongside.
 
 Based on selection (the bare per-option routing is also stated inline in the SKILL.md so it cannot be missed when this reference is not loaded; the elaborate sub-flows below are the reason this reference still exists):
-- **Start `/rosey-work`** -> Invoke the `rosey-work` skill via the platform's skill-invocation primitive (`Skill` in Claude Code, `Skill` in Codex, the equivalent on Gemini/Pi), passing the plan path as the skill argument. Do not merely tell the user to type `/rosey-work` — fire the invocation now so the plan executes in this session.
+- **Start `/rosey-work`** -> Invoke the `rosey-work` skill via the harness's skill-invocation primitive, passing the plan path as the skill argument. Match by capability — whatever loads and runs a named skill in the current tool list. Do not merely tell the user to type `/rosey-work`; fire the invocation now so the plan executes in this session.
 - **Run deeper doc review** -> Re-invoke the `rosey-doc-review` skill on the plan path **without** `mode:headless` so the interactive routing question and walkthrough fire. The headless pass already applied `safe_auto` fixes and recorded its findings in the session, so the interactive pass picks up where headless stopped — its R29 suppression rule prevents prior-round Skipped/Deferred entries from re-raising. After it returns, re-render this menu with the refreshed counts so the user can pick what to do next.
 - **Create Issue** -> Follow the Issue Creation section below
 - **Done for now** -> Display a brief confirmation that the plan file is saved and end the turn. Do not start follow-up work without an explicit further user prompt.

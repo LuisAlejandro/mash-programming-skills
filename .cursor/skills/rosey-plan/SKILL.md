@@ -6,13 +6,15 @@ argument-hint: "[optional: feature description, requirements doc path, plan path
 
 # Rosey Plan
 
-`rosey-brainstorm` defines **WHAT** to build. `rosey-plan` defines **HOW** to build it. `rosey-work` executes the plan. A prior brainstorm is useful context but never required — `rosey-plan` works from any input: a requirements doc, a bug report, a feature idea, or a rough description. **The current year is 2026**, for dating plans and searching recent documentation.
+`rosey-brainstorm` defines **WHAT** to build. `rosey-plan` defines **HOW** to build it. `rosey-work` executes the plan. **The current year is 2026**, for dating plans and searching recent documentation.
 
-**Outcome:** a result an implementer can act on without re-deciding what was already settled — a few sentences in chat for trivial work, or a durable plan under `rosey/plans/` when one is earned.
+**An upstream requirements document is required.** The pipeline is `rosey-brainstorm` → `rosey-plan` → `rosey-work`, and planning starts from the brainstorm's requirements document. When Phase 0.2 finds no relevant document, this skill stops and routes to `rosey-brainstorm` rather than inventing product scope from the prompt — see the missing-origin stop in `references/intake.md`.
 
-**Done:** that result is delivered **and** its handoff has fired — for a Durable plan, the Phase 5.4 menu presented and the selected action actually executed; in `mode:non-interactive`, the handoff envelope emitted. Writing the file, running the confidence check, and running or explicitly skipping document review are **intermediate milestones, not completion**. Rendering the menu, receiving a selection, or announcing a route is not completion either — execute the selected action.
+**Outcome:** a durable plan under `rosey/plans/` that an implementer can act on without re-deciding what was already settled.
 
-**When directly invoked, always plan.** Never classify a direct invocation as "not a planning task" and abandon the workflow. If the input is unclear, ask clarifying questions or use the planning bootstrap (Phase 0.4) — but stay in the workflow.
+**Done:** that result is delivered **and** its handoff has fired — the Phase 5.4 menu presented and the selected action actually executed; in `mode:non-interactive`, the handoff envelope emitted. Writing the file, running the confidence check, and running or explicitly skipping document review are **intermediate milestones, not completion**. Rendering the menu, receiving a selection, or announcing a route is not completion either — execute the selected action.
+
+**Once an origin document is in hand, always plan.** Never classify such an invocation as "not a planning task" and abandon the workflow. If the origin leaves something unclear, ask clarifying questions — but stay in the workflow. The missing-origin stop is the one sanctioned exit.
 
 **Research, decide, and write the plan — never implement.** No production code, no test runs, no learning from execution-time results. Directional pseudo-code may communicate design; changing code to see what happens belongs in `rosey-work`.
 
@@ -22,7 +24,7 @@ argument-hint: "[optional: feature description, requirements doc path, plan path
 
 This skill follows the Rosey-native plan workflow, with Rosey Sentrux integration:
 
-- Input is a requirements document from `rosey-brainstorm` or a direct planning prompt. There is no separate PRD/product step.
+- Input is a requirements document from `rosey-brainstorm`. There is no separate PRD/product step.
 - Plans use Implementation Units (`U1`, `U2`, ...) rather than day-by-day task groups.
 - Read [`rosey-sentrux`](../rosey-sentrux/SKILL.md) before using Sentrux. Use MCP tools only; never run `sentrux scan` in the terminal.
 - Produce a Sentrux topology artifact beside the plan when Sentrux is available. If unavailable, still write the plan and record `status: "unavailable"` in the topology artifact.
@@ -67,7 +69,7 @@ In non-interactive mode, make conservative assumptions from the prompt, origin d
 
 **If the feature description above is empty, ask the user:** "What would you like to plan? Describe the task, goal, or project you have in mind." Then wait for their response before continuing.
 
-If the input is present but unclear or underspecified, do not abandon — ask one or two clarifying questions, or proceed to Phase 0.4's planning bootstrap to establish enough context. The goal is always to help the user plan, never to exit the workflow.
+If the input is present but unclear or underspecified, ask one or two clarifying questions to identify which requirements document the user means. Phase 0.2 then searches for it, and Phase 0.3b stops the run when none is found.
 
 ## Core Principles
 
@@ -97,25 +99,7 @@ A plan is ready when an implementer can start confidently without needing the pl
 
 ## Output Contract
 
-Resolve this gate at the start of Phase 0.6, before depth and before the scoping synthesis. Ground it with bounded inline reads of the surfaces the request names; dispatch no subagent. Select one:
-
-- **Direct** — the work can be stated, done, and verified in one pass with no decision the user would weigh. State the change in a few sentences and offer the handoff to `rosey-work` or to the user. Nothing is written.
-- **Chat brief** — bounded work with at most one decision the user would weigh and no risk surface. Deliver in chat: what changes and why, the implementation units with their files and test expectations, and one decisions line when a choice must be honored. Close by offering to hand it to `rosey-work`. Nothing is written.
-- **Durable** — everything else. Continue the workflow below.
-
-**The gate resolves only when no Phase 0.1 fast path fired and Phase 0.2 found no upstream requirements document.** A plan file that already exists, or a requirements doc someone invested a brainstorm in, is prima facie Durable work — resume, deepen, and brainstorm-sourced runs are never re-tiered.
-
-**Durable regardless of size:**
-
-- **`mode:non-interactive` always resolves Durable** — chat is not a channel an automated caller can read, and [`rosey-parallel`](../rosey-parallel/SKILL.md)'s `work:` phase runs against a recorded plan path.
-- Wording that asks for a plan, a plan file, or an output format.
-- Continuation of an existing plan's item.
-- Any risk surface — authentication, payments, migrations, external contracts.
-- Requests that look atomic but hide design decisions: *"add caching to this endpoint"* (TTL, invalidation, key shape, backend are all KTDs), *"migrate from package A to B"* (semantic differences create migration KTDs), *"add rate limiting"* (algorithm, scope, configurability). Genuine Direct cases look like *"fix typo in README line 47"* or *"bump dependency X to v2.3.1"*.
-
-**When the tier is uncertain after those reads, take the heavier one.** When a read surfaces a decision the user would weigh, a risk surface, or multi-pass verification, re-resolve upward before emitting anything.
-
-On the chat tiers nothing is written and the rest of the workflow does not run: **no file, no subagent dispatch, no Sentrux baseline, no confidence check, no document review, and no Phase 5.4 menu.** The result closes the run on its own. There is no saved chat brief — if the user wants the result preserved, that is a request for a plan: re-resolve to Durable and write one, so everything in `rosey/plans/` remains an implementation-ready plan.
+Every run that reaches Phase 1 writes a durable plan under `rosey/plans/`. There is no chat-only output tier: a run either has an origin requirements document and produces a plan, or it stops at the missing-origin gate in Phase 0.2. Work too small to deserve a plan is too small to have earned a brainstorm, and belongs in `rosey-work` or direct implementation instead.
 
 ## Workflow
 
@@ -127,14 +111,14 @@ Phases run in order unless an owner routes out or short-circuits.
 
 | Phase | Read first | What only those files carry |
 |---|---|---|
-| 0 — memory gate, resume, classify, source, scope | `references/intake.md` | the Hindsight gate and what "unavailable" means; markdown output and token parsing; the resume and deepen fast paths; the software / non-software split; upstream requirements discovery and the dossier input; the planning bootstrap and its exit condition; blocking-question classification; depth tiers; the solo scoping synthesis. The Output Contract gate above resolves inside it, at 0.6 |
+| 0 — memory gate, resume, classify, source, scope | `references/intake.md` | the Hindsight gate and what "unavailable" means; markdown output and token parsing; the resume and deepen fast paths; the software / non-software split; upstream requirements discovery, the missing-origin stop, and the dossier input; blocking-question classification; depth tiers |
 | non-software route (from 0.1b) | `references/universal-planning.md` | the domain-agnostic workflow that replaces Phases 0.2–5.1; the non-interactive hard-stop |
 | 1 — gather context | `references/research.md` | local research and what Lightweight skips; execution-direction signals; the external-research decision and its three stages; consolidation; depth reclassification on external contract surfaces; flow analysis |
 | 2–4 — resolve questions, structure, write | `references/structure.md` | planning-question classification; title and file naming; the Sentrux topology baseline; Implementation Units and stable U-IDs; high-level technical design; depth guidance; planning rules |
 | 4.2 — compose | `references/plan-sections.md`, then `references/markdown-rendering.md` | what the plan contains (hard floor, include-when-material catalog, ID rules); how markdown presents it |
-| 5.1–5.3.2 — review, write, confidence gate | `references/final-review.md` | the pre-write checklist; the brainstorm-sourced scoping synthesis; write-path mechanics and the handoff envelope; confidence classification and the deepening gate |
+| 5.1–5.3.2 — review, write, confidence gate | `references/final-review.md` | the pre-write checklist; the scoping synthesis; write-path mechanics and the handoff envelope; confidence classification and the deepening gate |
 | 5.3.3–5.3.7 — deepening (when the gate fires) | `references/deepening-workflow.md` | confidence scoring checklists; section-to-agent dispatch; execution modes; interactive finding review; plan synthesis |
 | 5.3.8–5.4 — document review and handoff | `references/plan-handoff.md` | mandatory document review and its headless default; the ponytail sanity-check; final checks; menu visibility, rendering, and per-selection routing; issue creation |
-| whenever a scoping synthesis fires (0.7, 5.1.5) | `references/synthesis-summary.md` | the affirmability and keep tests; summary shape budgets; anti-patterns; the literal templates; non-interactive routing |
+| the scoping synthesis (5.1.5) | `references/synthesis-summary.md` | the affirmability and keep tests; summary shape budgets; anti-patterns; the literal templates; non-interactive routing |
 
 **STOP at 5.3.8.** Document review is mandatory for a Durable plan and its default is `mode:headless`. Read `references/plan-handoff.md` before 5.3.8 and 5.4 — without it the menu renders and the run stops without firing the routed action. If the selection arrives after a user turn, reload that reference before acting.

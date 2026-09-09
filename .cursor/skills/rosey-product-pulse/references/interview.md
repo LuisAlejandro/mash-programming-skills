@@ -212,7 +212,7 @@ After the config is written and shown to the user, make a scheduling offer befor
 
 **Handling the answer:**
 
-- **Yes (daily or weekly)** -> "I'll hand this to the `schedule` skill. Confirm the time/day and it'll set up the recurring job." Do not schedule inline - hand off to the `schedule` skill explicitly, which is the single source of truth for recurring tasks. On Claude Code, this uses the Routines feature.
+- **Yes (daily or weekly)** -> "I'll hand this to the `schedule` skill. Confirm the time/day and it'll set up the recurring job." Do not schedule inline - hand off to the `schedule` skill explicitly, which is the single source of truth for recurring tasks.
 - **Not now** -> capture `schedule: manual` in the config. No nag.
 - **Later** -> capture `schedule: ask-again-after-3-runs` in the config. The Phase 3 rule in `SKILL.md` re-surfaces the offer after 3 manual runs.
 

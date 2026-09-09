@@ -2,7 +2,7 @@
 #
 # goal-loop-driver.sh — run goal-loop as a real loop, no OMC required.
 #
-# Each iteration invokes the Cursor agent non-interactively with the
+# Each iteration invokes the agent CLI non-interactively with the
 # goal-loop-iteration skill. State lives on disk (GOAL.md / GOAL-WORKLOG.md), so
 # every iteration starts fresh and resumes from the last recorded next action.
 # The loop stops when the worklog records a terminal stop decision.
@@ -15,13 +15,14 @@
 #   --max-iterations=N     Hard cap on iterations (default: 50)
 #   --no-progress-limit=N  Consecutive no-progress cap (default: 3)
 #   --failure-limit=N      Consecutive failure cap (default: 3)
-#   --agent=AGENT          Agent binary to invoke (default: cursor-agent)
+#   --agent=AGENT          Agent binary to invoke (default: opencode; alt: pi)
 #   --workspace=PATH       Workspace root (default: current directory)
 #   --model=MODEL          Optional model override passed to the agent
 #   --dry-run              Print the agent command without running it
 #
-# The agent always runs unattended (--yolo --trust): it executes in a shell the
-# user cannot see or answer, so any approval prompt would hang the run.
+# The agent always runs unattended (opencode: --auto; pi: --approve): it
+# executes in a shell the user cannot see or answer, so any approval prompt
+# would hang the run.
 #
 # State always lives under <workspace>/rosey/loops/goal/.
 #
@@ -38,6 +39,7 @@ AGENT="opencode"
 WORKSPACE="$(pwd)"
 MODEL=""
 DEFAULT_OPENCODE_MODEL="opencode/deepseek-v4-flash"
+DEFAULT_PI_MODEL="deepseek-v4-flash"
 DRY_RUN=0
 
 # ---- parse leading options ------------------------------------------------
@@ -91,9 +93,21 @@ terminal_state() {
 }
 
 # ---- build the agent invocation -------------------------------------------
-# Runs fully unattended (cursor-agent: --yolo/--trust; opencode: --auto).
+# Runs fully unattended (opencode: --auto; pi: --approve).
 build_cmd() {
   local continue_flag="$1"
+
+  if [[ "$AGENT" == "pi" ]]; then
+    local skill_md
+    skill_md="$(cd "$(dirname "$0")/../.." && pwd)/goal-loop-iteration/SKILL.md"
+    local model="${MODEL:-$DEFAULT_PI_MODEL}"
+    local prompt="Run the goal-loop-iteration skill by reading and following ${skill_md} completely. Working directory is the repository."
+    [[ "$continue_flag" == "1" ]] && prompt+=" --continue"
+    prompt+=" --max-iterations=$MAX_ITERATIONS --no-progress-limit=$NO_PROGRESS_LIMIT --failure-limit=$FAILURE_LIMIT"
+    prompt+=" Goal: $GOAL"
+    printf 'cd %q && pi -p --approve --mode json --model %q %q\n' "$WORKSPACE" "$model" "$prompt"
+    return 0
+  fi
 
   if [[ "$AGENT" == "opencode" ]]; then
     local skill_md
@@ -107,16 +121,8 @@ build_cmd() {
     return 0
   fi
 
-  local -a cmd=("$AGENT" -p --workspace "$WORKSPACE")
-  [[ -n "$MODEL" ]] && cmd+=(--model "$MODEL")
-  cmd+=(--yolo --trust)
-  cmd+=(-- "goal-loop-iteration")
-  [[ "$continue_flag" == "1" ]] && cmd+=("--continue")
-  cmd+=("--max-iterations=$MAX_ITERATIONS")
-  cmd+=("--no-progress-limit=$NO_PROGRESS_LIMIT")
-  cmd+=("--failure-limit=$FAILURE_LIMIT")
-  cmd+=("--" "$GOAL")
-  printf '%q ' "${cmd[@]}"
+  echo "goal-loop-driver: unsupported agent '$AGENT' (supported: opencode, pi)" >&2
+  return 2
 }
 
 # ---- automatic integration (rosey-parallel style) --------------------------

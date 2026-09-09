@@ -42,7 +42,7 @@ Worked example for routing option B (top-level best-judgment):
 Auto-resolve plan — 8 findings:
 
 Applying (4):
-  [P0] Requirements Trace — Renumber R4 to match unit reference
+  [P0] Requirements — Renumber R4 to match unit reference
   [P1] Unit 3 Files — Add read-fallback for renamed report file
   [P2] Key Technical Decisions — Use framework's Deprecated field rather than hand-rolling
   [P3] Overview — Correct wrong count (says 6, list has 5)

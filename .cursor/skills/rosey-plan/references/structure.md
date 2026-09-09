@@ -41,7 +41,7 @@ For **Standard** or **Deep** plans, briefly consider who is affected by this cha
 
 #### 3.2b Sentrux Topology Baseline
 
-Before defining Implementation Units, load [`rosey-sentrux`](../rosey-sentrux/SKILL.md) and run the planning baseline:
+Before defining Implementation Units, load [`rosey-sentrux`](../../rosey-sentrux/SKILL.md) and run the planning baseline:
 
 1. Read the Sentrux MCP tool descriptors before calling tools.
 2. Call MCP `scan` with the absolute workspace root.
@@ -144,7 +144,7 @@ Examples:
 
 Distinct from 3.6 (which is about *unknowns* at plan time): 3.7 is about *known but tangential* work that the agent notices while planning but that falls outside the user's confirmed scope. When research surfaces an adjacent refactor, a "while we're here" cleanup, or a scope-adjacent nice-to-have ("we could also add rate limiting"), route it to the existing `### Deferred to Follow-Up Work` subsection in Scope Boundaries (Phase 4.2 Core Plan Template), not into active Implementation Units.
 
-This reinforces the synthesis discipline established at Phase 0.7 / Phase 5.1.5 — the user's confirmed scope is what the active plan executes; everything else is deferred. Does NOT impose architectural bias on extend-vs-invent decisions within confirmed scope — that judgment stays with the agent (and is surfaced via the Phase 5.1.5 synthesis when material). The user's explicit ask overrides this default — if the user explicitly requested a refactor, it's in-scope, not deferred.
+This reinforces the synthesis discipline established at Phase 5.1.5 — the user's confirmed scope is what the active plan executes; everything else is deferred. Does NOT impose architectural bias on extend-vs-invent decisions within confirmed scope — that judgment stays with the agent (and is surfaced via the Phase 5.1.5 synthesis when material). The user's explicit ask overrides this default — if the user explicitly requested a refactor, it's in-scope, not deferred.
 
 ### Phase 4: Write the Plan
 

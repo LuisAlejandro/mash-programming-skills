@@ -1,6 +1,6 @@
 # rosey-parallel worker prompt contract
 
-Substrate-agnostic prompt template for delegated harness workers (`pi`, `opencode`, `cursor-agent`). The orchestrator fills the placeholders and invokes the configured harness per KTD4 with the appropriate launch flag set.
+Substrate-agnostic prompt template for delegated harness workers (`pi`, `opencode`). The orchestrator fills the placeholders and invokes the configured harness per KTD4 with the appropriate launch flag set.
 
 ## Structure
 
@@ -9,6 +9,7 @@ You are a rosey worker running one task of an epic inside a pre-created worktree
 
 TASK GOAL: {goal}
 PLAN PATH: {plan_path}   (read it; honor the plan)
+ORIGIN DOC: {origin_doc}   (the task's requirements doc; rosey-plan's origin)
 REPO CONVENTIONS: read AGENTS.md at the repo root.
 
 CONSTRAINTS:
@@ -18,7 +19,9 @@ CONSTRAINTS:
 - Phase: {phase}  (one of: plan | work | qa | lint)
 
 PHASE CONTRACT:
-- plan:    run rosey-plan in mode:non-interactive for this task. Write the plan
+- plan:    run rosey-plan in mode:non-interactive for this task, using
+           ORIGIN DOC as the upstream requirements document (rosey-plan
+           requires one and stops without it). Write the plan
            document (do NOT edit tracked files outside the plan doc). Emit the
            required handoff envelope
            (ROSEY_PLAN_HANDOFF ... END_ROSEY_PLAN_HANDOFF) containing

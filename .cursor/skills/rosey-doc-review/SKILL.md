@@ -47,7 +47,7 @@ If `mode:headless` is not present, the skill runs in its default interactive mod
 
 **If a document path is provided:** Read it, then proceed.
 
-**If no document is specified (interactive mode):** Ask which document to review, or find the most recent in `rosey/brainstorms/` or `rosey/plans/` using a file-search/glob tool (e.g., Glob in Claude Code).
+**If no document is specified (interactive mode):** Ask which document to review, or find the most recent in `rosey/brainstorms/` or `rosey/plans/` using the harness's file-search/glob tool.
 
 **If no document is specified (headless mode):** Output "Review failed: headless mode requires a document path. Re-invoke with: Skill(\"rosey-doc-review\", \"mode:headless <path>\")" without dispatching agents.
 
@@ -58,7 +58,7 @@ Classify the document by reading its **content shape**, not its file path. Path 
 Use these signals to decide:
 
 **`requirements` signals (what-to-build documents):**
-- Frontmatter fields like `actors:`, `flows:`, `acceptance_examples:`, or `status:` carrying brainstorm-shaped values
+- Frontmatter fields like `actors:`, `flows:`, or `acceptance_examples:` carrying brainstorm-shaped values
 - Section headings such as `Acceptance Examples`, `Actors`, `Key Flows`, `User Flows`, `Outstanding Questions`, `Resolve Before Planning`
 - Numbered identifiers in the form `R1`, `R2`, `A1`, `F1`, `AE1` — requirement, actor, flow, and acceptance-example IDs
 - Prose framing focused on user/business problem, behavior, scope boundaries, success criteria
@@ -66,11 +66,13 @@ Use these signals to decide:
 
 **`plan` signals (how-to-build documents):**
 - Frontmatter fields like `type: feat|fix|refactor`, `origin: rosey/brainstorms/...`
-- Section headings such as `Implementation Units`, `Output Structure`, `Key Technical Decisions`, `Risks & Dependencies`, `System-Wide Impact`
+- Section headings such as `Goal Capsule`, `Implementation Units`, `Verification Contract`, `Definition of Done`, `Output Structure`, `Key Technical Decisions`, `Risks & Dependencies`, `System-Wide Impact`
 - Numbered identifiers in the form `U1`, `U2` — implementation unit IDs
 - Per-unit fields named `Goal`, `Files`, `Approach`, `Test scenarios`, `Verification`
 - Repo-relative file paths to create/modify/test
 - Prose framing focused on technical decisions, sequencing, and implementer-facing detail
+
+**Three plan sections read as brainstorm-shaped but are not.** `Goal Capsule` states an objective, `Verification Contract` names commands and gates, and `Definition of Done` reads like success criteria — all three are hard-floor sections of a current `rosey-plan` document. Their presence is a `plan` signal, never a `requirements` one. A requirements doc states success criteria in prose; it does not name repo commands or per-unit completion gates.
 
 **Tie-breaker rule.** When the content signals are mixed or sparse, fall back to path: `rosey/brainstorms/` → `requirements`, `rosey/plans/` → `plan`. When neither path location applies, treat the dominant content shape as authoritative; if shape is genuinely ambiguous, default to `requirements` (the more conservative classification — it activates fewer plan-specific feasibility checks).
 
@@ -153,7 +155,7 @@ Add activated conditional personas:
 
 ### Dispatch
 
-Dispatch agents using **bounded parallelism** with the platform's subagent primitive (e.g., `Agent` in Claude Code, `spawn_agent` in Codex, `subagent` in Pi via the `pi-subagents` extension). Omit the `mode` parameter so the user's configured permission settings apply. Respect the current harness's active-subagent limit: queue selected reviewers, dispatch only as many as the harness accepts, and fill freed slots as reviewers complete. Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure: leave the reviewer queued and retry after a slot frees. Record a reviewer as failed only after a successful dispatch times out/fails, or when dispatch fails for a non-capacity reason.
+Dispatch agents using **bounded parallelism** with the platform's subagent primitive (`subagent` in Pi via the `pi-subagents` extension, `default.task` in OpenCode, `runSubagent` in VS Code, the Task-equivalent in Cursor — match by capability, not by another harness's tool name). Omit the `mode` parameter so the user's configured permission settings apply. Respect the current harness's active-subagent limit: queue selected reviewers, dispatch only as many as the harness accepts, and fill freed slots as reviewers complete. Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure: leave the reviewer queued and retry after a slot frees. Record a reviewer as failed only after a successful dispatch times out/fails, or when dispatch fails for a non-capacity reason.
 
 Each agent receives the prompt built from the subagent template included below with these variables filled:
 
