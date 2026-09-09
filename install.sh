@@ -1109,7 +1109,10 @@ append_gitignore_if_missing "rosey/solutions/"
 append_gitignore_if_missing "rosey/insights/"
 append_gitignore_if_missing "rosey/design-system/"
 append_gitignore_if_missing "rosey/qa/"
+append_gitignore_if_missing "rosey/parallel/"
 append_gitignore_if_missing "rosey/deepening/"
+append_gitignore_if_missing "rosey/loops/"
+append_gitignore_if_missing "rosey/ideation/"
 append_gitignore_if_missing "rosey/agentic-env.json"
 append_gitignore_if_missing "rosey/maintainer-manifest.json"
 append_gitignore_if_missing "rosey/hindsight-pin"
@@ -1848,6 +1851,35 @@ install_pi_mcp_adapter() {
     return 1
 }
 
+# --- pi-ask-user (interactive decision gating) ---
+# Adds the ask_user tool and bundled ask-user skill for explicit operator
+# decisions during ambiguous or high-stakes agent runs.
+pi_ask_user_available() {
+    host_path
+    command -v pi >/dev/null 2>&1 && pi list 2>/dev/null | grep -qi 'pi-ask-user'
+}
+
+install_pi_ask_user() {
+    if ! command -v pi >/dev/null 2>&1; then
+        echo "   ⚠️  pi CLI not found; skipping pi-ask-user install."
+        echo "      Install Pi, then: pi install npm:pi-ask-user"
+        return 1
+    fi
+
+    if pi_ask_user_available; then
+        echo "-> pi-ask-user already installed; skipping"
+        return 0
+    fi
+
+    echo "-> Installing pi-ask-user once on this machine (interactive decision gating)..."
+    if pi install npm:pi-ask-user; then
+        echo "   pi-ask-user installed."
+        return 0
+    fi
+    echo "   ⚠️  pi-ask-user install failed. Retry: pi install npm:pi-ask-user"
+    return 1
+}
+
 # --- git-flow (rosey-pr / rosey-work / rosey-debug / rosey-release) ---
 # Homebrew git-flow-avh is disabled; git-flow (nvie) is deprecated. git-flow-next
 # provides `git flow` and satisfies `git flow version`.
@@ -2185,6 +2217,7 @@ configure_repo_signing_key || true
 install_sentrux || true
 install_pi_subagents || true
 install_pi_mcp_adapter || true
+install_pi_ask_user || true
 
 check_hindsight_embed || true
 
@@ -2216,7 +2249,7 @@ echo "     - .cursor/mcp.json and .vscode/mcp.json (GITHUB_TOKEN, OBSIDIAN_API_K
 echo "     - rosey-design-candidates skill .env (CURSOR_API_KEY)"
 echo "     - ~/.hindsight/embed once (HINDSIGHT_*); CLI install skipped if hindsight-embed already responds"
 echo "   Machine-once CLIs skipped if already on PATH: git, make, curl, rsync, jq, rg, gh, uv, bun, gitchangelog, bumpversion, git-flow, sentrux, hindsight-embed."
-echo "   Pi: pi-subagents installed once when the pi CLI is present (enables .pi/agents/)."
+echo "   Pi: pi-subagents, pi-mcp-adapter, and pi-ask-user installed once when the pi CLI is present."
 echo "   VS Code: allow automatic tasks once (Tasks: Manage Automatic Tasks) for Hindsight folderOpen warm-start."
 echo "   OpenCode: SessionStart hook + opencode-agent-hooks plugin in opencode.json for Hindsight warm-start."
 echo "   Pi: session_start extension (.pi/extensions/rosey-hindsight-daemon.ts) for Hindsight warm-start."

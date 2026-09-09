@@ -1,6 +1,6 @@
 # Handoff
 
-This content is loaded when Phase 4 begins — after the requirements document is written.
+This content is loaded when Phase 4 begins — after the requirements document is written, or after a Lightweight run's chat paragraph is delivered with no file earned. Options that need an artifact hide themselves below; the handoff itself is presented on both paths.
 
 ---
 
@@ -10,7 +10,7 @@ If `INTERACTION_MODE=non-interactive`, skip this menu. Return a compact completi
 
 The Phase 4 menu's visible option count varies by state: no requirements doc hides the review option, unresolved `Resolve Before Planning` hides `Plan implementation` and `Build it now`, a failing direct-to-work gate hides `Build it now`. Count the visible options for the current state and choose the rendering mode accordingly:
 
-- **4 or fewer visible:** use the platform's blocking question tool (`AskUserQuestion` in Claude Code — call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded; `request_user_input` in Codex; `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension)). This is the default.
+- **4 or fewer visible:** use the platform's blocking question tool (`AskUserQuestion` in Claude Code — call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded; `AskQuestion` in Cursor; `vscode_askQuestions` in VS Code; `question` in OpenCode; `request_user_input` in Codex; `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension)). This is the default.
 - **5 or more visible:** render as a numbered list in chat. This is the narrow option-overflow fallback; trimming would hide legitimate choices (plan, review, build, refine, pause are all distinct destinations). Include a hint that free-form input is accepted ("Pick a number or describe what you want.") so the numbered list retains the blocking tool's open-endedness.
 
 Never silently skip the question.
@@ -50,8 +50,8 @@ Present only the options that apply. Renumber so visible options stay contiguous
 1. **Plan implementation with `rosey-plan` (Recommended)** - Move to `rosey-plan` for structured implementation planning. Shown only when `Resolve Before Planning` is empty.
 2. **Agent review of requirements doc with `rosey-doc-review`** - Dispatch reviewer agents to check the doc for coherence, feasibility, scope, and other persona-specific issues; auto-apply safe fixes; route remaining findings interactively. Shown only when a requirements document exists.
 3. **Build it now with `rosey-work` (skip planning)** - Skip planning and move to `rosey-work`; suited to lightweight, well-defined changes. Shown only when `Resolve Before Planning` is empty **and** scope is lightweight, success criteria are clear, scope boundaries are clear, and no meaningful technical or research questions remain (the "direct-to-work gate").
-4. **More clarifying questions to sharpen the doc** - Keep refining scope, edge cases, constraints, and preferences through further dialogue. Always shown.
-5. **Done for now** - Pause; the requirements doc is saved and can be resumed later. Always shown.
+4. **More clarifying questions to sharpen the scope** - Keep refining scope, edge cases, constraints, and preferences through further dialogue. Always shown — the label names the scope rather than the doc, so it stays true on a run that correctly wrote no file.
+5. **Done for now** - Pause; any requirements doc written this run is saved and can be resumed later. Always shown.
 
 **Post-review nudge (subsequent rounds only):** If the user has already run `rosey-doc-review` this session and residual P0/P1 findings remain unaddressed, add a one-line prose nudge adjacent to the menu (e.g., "Document review flagged 2 P1 findings you may want to address — pick \"Agent review of requirements doc\" to run another pass."). Reference the option by label, not number: the menu renumbers when `Resolve Before Planning` hides `Plan implementation` and `Build it now`, so a hardcoded option number can point users at the wrong action. Do not add a separate menu option; reuse the existing agent-review option.
 
@@ -61,7 +61,7 @@ Selections may be the literal option label (when the user types the label or a c
 
 **If user selects "Plan implementation with `rosey-plan` (Recommended)":**
 
-Immediately load the `rosey-plan` skill in the current session. Pass the requirements document path when one exists; otherwise pass a concise summary of the finalized brainstorm decisions. Do not print the closing summary first.
+Immediately load the `rosey-plan` skill in the current session. Pass the requirements document path when one exists; otherwise pass a concise summary of the finalized brainstorm decisions. When the Phase 1.1 grounding scout produced a dossier and the file still exists, also pass its absolute path — it gives planning verified quotes with `file:line` pointers to start from instead of re-scanning the repo. Do not print the closing summary first.
 
 **If user selects "Agent review of requirements doc with `rosey-doc-review`":**
 
@@ -71,7 +71,7 @@ Load the `rosey-doc-review` skill, passing the requirements document path as the
 
 Immediately load the `rosey-work` skill in the current session using the finalized brainstorm output as context. If a compact requirements document exists, pass its path. Do not print the closing summary first.
 
-**If user selects "More clarifying questions to sharpen the doc":** Return to Phase 1.3 (Collaborative Dialogue) and continue asking the user clarifying questions one at a time to further refine scope, edge cases, constraints, and preferences. Continue until the user is satisfied, then return to Phase 4. Do not show the closing summary yet.
+**If user selects "More clarifying questions to sharpen the scope":** Return to Phase 1.3 (Collaborative Dialogue) and continue asking the user clarifying questions one at a time to further refine scope, edge cases, constraints, and preferences. Continue until the user is satisfied, then return to Phase 4. Do not show the closing summary yet.
 
 **If user selects "Done for now":** Display the closing summary (see 4.3) and end the turn.
 
@@ -79,7 +79,7 @@ Immediately load the `rosey-work` skill in the current session using the finaliz
 
 Use the closing summary only when this run of the workflow is ending or handing off, not when returning to the Phase 4 options.
 
-In both templates below, substitute `<absolute path to requirements doc>` with the actual `.md` file path written this run.
+In both templates below, substitute `<absolute path to requirements doc>` with the actual `.md` file path written this run. When no file was earned — a Lightweight run that ended in chat — omit that line entirely rather than substituting a placeholder; the decisions listed below it are the deliverable.
 
 When complete and ready for planning, display:
 

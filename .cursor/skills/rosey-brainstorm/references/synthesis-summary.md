@@ -48,13 +48,19 @@ Each section answers a different question:
 - **What did we cut?** → deferred items a reader would expect to see acknowledged
 - **Where might you redirect?** → residual forks: post-dialogue consequences, silent inferences, late-cycle bets
 
-Then the confirmation: *"Confirm and I'll write the requirements doc next, drawing on our dialogue and this synthesis. Or tell me what to change."* The phrasing sets the expectation that confirm → doc-write, so the user knows what's about to happen and can interrupt without ambiguity.
+Then the confirmation, which names **what actually happens next** so the user knows what is coming and can interrupt without ambiguity. When a doc is expected — the common case — that is the artifact write: *"Confirm and I'll write the requirements doc next, drawing on our dialogue and this synthesis. Or tell me what to change."*
+
+When a doc is already ruled out — the user declined one, or `brainstorm-sections.md`'s "Decide whether a doc is warranted at all" criteria plainly hold — name where the decisions actually go instead, using whichever destination *this run* established (`rosey-plan`, the user's commit message, `rosey/solutions/`): *"Confirm and we're done here — the scope above carries straight into [the destination the dialogue established]. Or tell me what to change."* When the dialogue named none, drop the clause rather than picking one: *"Confirm and we're done here — no doc, as you asked. Or tell me what to change."*
+
+Do not hardcode a destination. This phase writes no commit message and hands off at Phase 4, so asserting a downstream action the run will not take is the same overreach as promising a doc that Phase 3 may decide against.
 
 ### Path A vs Path B: the gate that fires the confirmation question
 
 Phase 2.5 has two presentation modes, gated by **two signals**: (1) did any blocking question fire before Phase 2.5? AND (2) what tier did Phase 0.3 classify the scope as? Blocking questions include Phase 0.3 scope disambiguation, Phase 1.3 collaborative dialogue probes, and Phase 2 approach selection (when a menu fires). Internal classification, Phase 1.1 scan, and Phase 1.2 pressure test are not blocking questions — they don't count.
 
-- **Path A — no blocking questions fired AND tier is Lightweight**: announce-mode. Emit "What we're building" prose only (no other sections, no confirmation question), then proceed to Phase 3 doc-write in the same turn. Do NOT end the turn waiting for acknowledgment. The user can revise after the doc lands if the shape is wrong — Lightweight Path A docs are short, post-hoc revision is cheap.
+**Phase 0.3's coherent-work gate and the blindspot offer count as blocking questions, by design.** Both ask the user something before Phase 1, so either one firing routes even a Lightweight run to Path B. That is intended, not incidental: if the skill had to ask which of several areas to own, or had to map unfamiliar territory first, a one-sentence announcement is too thin a checkpoint for what followed. Do not special-case them back out of the signal.
+
+- **Path A — no blocking questions fired AND tier is Lightweight**: announce-mode. Emit "What we're building" prose only — no other sections, no confirmation question. That paragraph is the result. Proceed to Phase 3 doc-write in the same turn **only when `phase-0.md`'s Lightweight rule earned a file** (a downstream consumer needs the decisions in IDed form, the user asked for a doc, or the run is non-interactive); otherwise the paragraph stands alone and the run continues to Phase 4. Do NOT end the turn waiting for acknowledgment either way. The user can revise after the paragraph or the doc lands if the shape is wrong — Lightweight output is short, post-hoc revision is cheap.
 - **Path B — at least one blocking question fired, OR tier is Standard / Deep-feature / Deep-product**: full tier-aware scoping synthesis with confirmation gate. Two scenarios fire Path B: (a) the user invested answer-time during dialogue, or (b) the user pre-loaded substantive scope content (Phase 0.2 fast-path with a richly-specified opening prompt). Either way, the substance earns a real checkpoint. The confirmation question is unconditional even when zero call-outs survive the keep test.
 
 **Why the tier guard exists.** Phase 0.2's fast path is designed for two very different cases — a tight one-line prompt that needs no dialogue ("fix the typo on line 47"), and a richly pre-loaded brainstorm context that ALSO needs no dialogue because the user pre-stated everything (e.g., handing off accumulated decisions from a prior session for a brainstorm doc backfill). Without a tier guard, both route to Path A, and the richly-loaded case gets a 1-sentence checkpoint for what may be 20+ items worth of scope. Tier-classifying Phase 0.3 distinguishes these cases — pre-loaded substance makes the tier Standard or Deep, which then routes to Path B and produces the full scoping synthesis the substance deserves. Do not simplify the gate back to a single "no questions fired" signal — that was a real defect that produced one-sentence syntheses on Deep-tier pre-loads.
@@ -164,14 +170,14 @@ Confirm and I'll write the requirements doc next, drawing on our dialogue and th
 ### Path A template (no questions were asked — typically Phase 0.2 short-circuit)
 
 ```
-Proposing: [1–3 line shape — what the doc will say in plain words].
+Proposing: [1–3 line shape — what we are building, in plain words].
 
-No open decisions — writing the requirements doc now. Interrupt if the shape is wrong.
+No open decisions — [when a file was earned: writing the requirements doc now | otherwise: that is the result; these decisions go to <where the dialogue established>]. Interrupt if the shape is wrong.
 ```
 
-Proceed to Phase 3 doc-write in the same turn — do NOT end the turn waiting for an acknowledgment. The "interrupt if wrong" affordance means the user can revise after the doc lands, not before. Lightweight Path A docs are short, so post-hoc revision is cheap.
+Proceed in the same turn — do NOT end the turn waiting for an acknowledgment. The "interrupt if wrong" affordance means the user can revise after the result lands, not before. Lightweight output is short, so post-hoc revision is cheap.
 
-Ask the user open-ended on Path B (no `AskUserQuestion` menu). The justification is Interaction Rule 5(a) in SKILL.md — an option menu would unintentionally influence the user's feedback toward the parts the menu lists.
+Ask the user open-ended on Path B (no blocking-question menu). The justification is Interaction Rule 5(a) in `references/interaction-rules.md` — an option menu would unintentionally influence the user's feedback toward the parts the menu lists.
 
 ### Worked example: compression from internal draft to scoping synthesis (Standard tier)
 
@@ -237,7 +243,7 @@ Track which scoping synthesis items the user touched per round. The soft-cut blo
 
 **Identity across rounds is by decision dimension, not surface wording or section.** A revision may cause stage 2 to re-derive — the same underlying decision can come back rephrased, merged with another bullet, or moved to a different section (e.g., what was a Trade-off in round one becomes a Call-out in round two after the user pushed back). "Same item" means the same underlying decision regardless of which section currently holds it. When a re-cut collapses multiple prior bullets into one, the new combined bullet inherits the "touched" status of any of its constituents — soft-cut fires if any underlying decision was already revised once before.
 
-When the soft-cut fires, use the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi) with two options:
+When the soft-cut fires, use the platform's blocking question tool (`AskUserQuestion` in Claude Code, `AskQuestion` in Cursor, `vscode_askQuestions` in VS Code, `question` in OpenCode, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi) with two options:
 
 - `Proceed and write the requirements doc`
 - `Hold off — keep discussing before the doc`

@@ -20,8 +20,11 @@ CONSTRAINTS:
 PHASE CONTRACT:
 - plan:    run rosey-plan in mode:non-interactive for this task. Write the plan
            document (do NOT edit tracked files outside the plan doc). Emit the
-           plan path (and its per-unit **Files:** footprint) in the handoff
-           envelope so the orchestrator can record it and QA/lint can honor it.
+           required handoff envelope
+           (ROSEY_PLAN_HANDOFF ... END_ROSEY_PLAN_HANDOFF) containing
+           PLAN PATH (repo-relative), FILES (the per-unit footprint), and
+           BLOCKERS (none if none), so the orchestrator can record the plan
+           path and QA/lint can honor it.
 - work:    run rosey-work mode:non-interactive against the recorded plan path.
            Emit the required handoff envelope
            (ROSEY_WORK_HANDOFF ... END_ROSEY_WORK_HANDOFF) containing

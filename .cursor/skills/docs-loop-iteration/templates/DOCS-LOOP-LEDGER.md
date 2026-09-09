@@ -1,42 +1,31 @@
 # DOCS-LOOP LEDGER
 
-> Frozen finite worklist and resume state. Append repository rows once, then update status and evidence in
-> place. Process every row; do not extrapolate from clean repositories.
+> Single-repository iterative audit ledger. Updated once per pass by docs-loop-iteration.
 
 ## Run
 
 - state format: 1
-- scope: {{SCOPE}}
-- canonical scope fingerprint: {{SCOPE_FINGERPRINT}}
-- mode: {{MODE}}
+- scope: {{WORKSPACE_ROOT}}
+- mode: APPLY
 - state directory: {{STATE_DIR}}
 - started: {{STARTED_AT}}
-- repositories: {{REPO_COUNT}}
+- passes: 0
+- clean_passes: 0
+- failures: 0
 - result: IN-PROGRESS
 
-## Repositories
+## Pass log
 
-| # | Canonical repository path | Remote | Default branch | Base commit | Branch | Worktree | Status | Deliverable / reason |
-|---:|---|---|---|---|---|---|---|---|
+- pass 0: outcome STARTED
 
-<!-- Add exactly one row per frozen repository. Do not add example or placeholder repository rows. -->
+## Stop states
 
-## Status contract
+- `SUCCESS`: `clean_passes` reached the clean-passes limit — docs fully updated and audited.
+- `BUDGET`: `passes` reached max iterations.
+- `ERROR`: unrecoverable failure or `failures` reached the failure limit.
+- `BLOCKED`: genuine human-only decision or external dependency.
 
-- `PENDING`: frozen but not selected.
-- `IN-PROGRESS`: selected and currently being processed.
-- `DONE`: the authorized mode's deliverable completed with no unresolved candidate.
-- `DEFERRED`: auditing completed, but one or more candidates require evidence or human intent.
-- `SKIPPED`: duplicate, non-repository, instruction-excluded, or archived/read-only.
-- `BLOCKED`: safety, authentication, permission, default-branch, scan, verification, push, PR, or CI failure.
+## Integration markers
 
-Only `PENDING` may be selected. Resume `IN-PROGRESS` from its recorded worktree or mark it `BLOCKED` when
-safe recovery is impossible. All other statuses are terminal.
-
-## Result contract
-
-- `SUCCESS`: all in-scope rows are `DONE` or benignly `SKIPPED`; none are deferred or blocked.
-- `BLOCKED`: no row is `DONE` and at least one row is `BLOCKED`.
-- `PARTIAL`: otherwise, any row or finding is `DEFERRED` or `BLOCKED`.
-
-Any `BLOCKED` row prevents `SUCCESS`.
+- integration branch: (set by the pass once per segment)
+- integration worktree: (set by the pass once per segment)

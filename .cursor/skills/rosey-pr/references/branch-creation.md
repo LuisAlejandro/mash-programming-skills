@@ -32,9 +32,12 @@ git log origin/<base>..HEAD --oneline
 
 ### 3. Derive feature slug
 
-- From `plan:<path>`: basename without extension; strip leading date/id tokens (e.g. `2026-05-29-001-feat-`); kebab-case; max ~50 characters.
+- From `plan:<path>`: basename without extension, strip the leading date and sequence/type tokens (`YYYY-MM-DD-NNN-<type>-`) and any trailing `-plan` suffix, kebab-case, max ~50 characters.
+  Example: `rosey/plans/2026-05-29-001-feat-seo-phase-2-content-plan.md` → `seo-phase-2-content`.
 - Otherwise: kebab-case summary of the change.
 - Do not use `test`, `chore`, or `release` as the slug prefix.
+
+This rule is duplicated verbatim in `SKILL.md` and `rosey-work`'s branch setup. All three must agree — `rosey-pr`'s plan ↔ branch guard stops before commit when they diverge.
 
 ### 4. Create the feature branch
 

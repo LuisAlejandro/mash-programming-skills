@@ -9,7 +9,7 @@ Use a checklist-first, risk-weighted scoring pass.
 For each section, compute:
 - **Trigger count** - number of checklist problems that apply
 - **Risk bonus** - add 1 if the topic is high-risk and this section is materially relevant to that risk
-- **Critical-section bonus** - add 1 for `Key Technical Decisions`, `Implementation Units`, `System-Wide Impact`, `Risks & Dependencies`, or `Open Questions` in `Standard` or `Deep` plans
+- **Critical-section bonus** - add 1 for `Goal Capsule`, `Key Technical Decisions`, `Implementation Units`, `Verification Contract`, `Definition of Done`, `System-Wide Impact`, `Risks & Dependencies`, or `Open Questions` in `Standard` or `Deep` plans
 
 Treat a section as a candidate if:
 - it hits **2+ total points**, or
@@ -22,6 +22,16 @@ If the plan already has a `deepened:` date:
 - Revisit an already-deepened section only when it still scores clearly higher than alternatives
 
 **Section Checklists:**
+
+**Goal Capsule**
+- The Objective restates the approach rather than the outcome — it is a Means wearing the Objective's label
+- The Objective is only checkable from inside the changed component (its own runtime, its own isolation), so no one outside can tell whether it was met
+- Stop conditions are missing on a plan that carries a risk surface
+
+**Verification Contract / Definition of Done** (one checklist — these fail together)
+- Generic "run tests" language where the repo has concrete commands
+- No measurable threshold on an optimization-shaped goal (build time, latency, coverage, bundle size)
+- Per-unit done criteria are absent or not derivable from the units themselves
 
 **Requirements**
 - Requirements are vague or disconnected from implementation units

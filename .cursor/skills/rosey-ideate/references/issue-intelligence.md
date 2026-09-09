@@ -29,7 +29,7 @@ Read the scan's ambiguity assessment.
 
 Fire **one** blocking scoping question (per the asking rules in `references/grounding.md`) **only** on irreducible ambiguity: two or more coherent, materially-different scopes that no single deliberately-varied sample could fairly represent. Skip it entirely when the scan is unambiguous.
 
-Its options are the scan's distribution-derived slices plus an always-present **"analyze a representative sample of everything,"** so the user can decline to narrow. When the slices plus that option would exceed the platform's blocking-tool option cap (Codex `request_user_input` takes 2-3 explicit options; `AskUserQuestion` takes 4), show the highest-mass slices that fit and fold the rest into the representative-sample option, or fall back to a numbered chat list. **Never drop the representative-sample option.**
+Its options are the scan's distribution-derived slices plus an always-present **"analyze a representative sample of everything,"** so the user can decline to narrow. When the slices plus that option would exceed the platform's blocking-tool option cap (Codex `request_user_input` takes 2-3 explicit options; `AskUserQuestion` takes 4; check the active harness's own cap for `AskQuestion`, `vscode_askQuestions`, and `question`), show the highest-mass slices that fit and fold the rest into the representative-sample option, or fall back to a numbered chat list. **Never drop the representative-sample option.**
 
 This is a grounding / subject-scoping question — the same kind as the Phase 0.2 subject gate ("what should the agent work on"), not a Phase 0.4 solution-constraint question. It counts toward the ≤3-question grain, and "Surprise me" stays available.
 

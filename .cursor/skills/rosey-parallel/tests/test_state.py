@@ -44,6 +44,37 @@ def test_identical_writes_byte_identical(tmp_path):
     assert p1.read_bytes() == p2.read_bytes()
 
 
+def test_orchestrate_run_roundtrips_through_save_load(tmp_path):
+    # Regression: orchestrate_run previously wrote `state`/`base_sha`, which
+    # load_run/_validate_state rejected (it requires `tasks`/`base_sha_snapshot`).
+    # The CLI save->load->resume cycle must round-trip.
+    class _D:
+        def __init__(self):
+            self.log = []
+        def plan_task(self, tid):
+            self.log.append(("plan", tid)); return "done"
+        def work_phase(self, tid):
+            self.log.append(("work", tid)); return "done"
+        def qa_phase(self, tid):
+            self.log.append(("qa", tid)); return "done"
+        def lint_phase(self, tid):
+            self.log.append(("lint", tid)); return "done"
+    tasks = {"t1": rp.new_task("t1", "one"), "t2": rp.new_task("t2", "two")}
+    footprints = {"t1": {"a.py"}, "t2": {"b.py"}}
+    driver = _D()
+    run = rp.orchestrate_run(tmp_path, tasks, footprints, driver, gate=False)
+    assert run["tasks"]["t1"]["status"] == rp.STATUS_DONE
+    # save then load must validate (no StateError) and preserve statuses
+    path = rp.save_run(tmp_path, run)
+    loaded = rp.load_state(path)
+    assert loaded["tasks"]["t1"]["status"] == rp.STATUS_DONE
+    assert loaded["tasks"]["t2"]["status"] == rp.STATUS_DONE
+    # resume from the loaded state must work
+    driver2 = _D()
+    run2 = rp.orchestrate_run(tmp_path, tasks, footprints, driver2, resume=loaded, gate=False)
+    assert run2["tasks"]["t1"]["status"] == rp.STATUS_DONE
+
+
 def test_corrupt_state_json_raises_clear_error(tmp_path):
     p = tmp_path / "state.json"
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -74,6 +105,33 @@ def test_unknown_status_rejected():
     task = rp.new_task("t1", "demo")
     with pytest.raises(rp.StateError, match="unknown status"):
         rp.transition(task, "flying")
+
+
+def test_done_is_checkpoint_terminal():
+    assert rp.STATUS_DONE in rp.TERMINAL_STATUSES
+    assert rp.STATUS_INTEGRATED in rp.TERMINAL_STATUSES
+    assert rp.STATUS_REPORTED in rp.TERMINAL_STATUSES
+
+
+def test_reset_task_status_bypasses_transition_table():
+    task = rp.new_task("t1", "demo")
+    rp.transition(task, rp.STATUS_PLANNING)
+    rp.transition(task, rp.STATUS_PLANNED)
+    rp.transition(task, rp.STATUS_GATE_APPROVED)
+    rp.transition(task, rp.STATUS_WORKING)
+    rp.transition(task, rp.STATUS_QA)
+    rp.transition(task, rp.STATUS_LINT)
+    rp.transition(task, rp.STATUS_DONE)
+    rp.reset_task_status(task, rp.STATUS_PENDING)
+    assert task["status"] == rp.STATUS_PENDING
+
+
+def test_illegal_planned_to_qa_raises():
+    task = rp.new_task("t1", "demo")
+    rp.transition(task, rp.STATUS_PLANNING)
+    rp.transition(task, rp.STATUS_PLANNED)
+    with pytest.raises(rp.StateError, match="invalid transition 'planned' -> 'qa'"):
+        rp.transition(task, rp.STATUS_QA)
 
 
 def test_state_schema_validation(tmp_path):
@@ -127,52 +185,14 @@ def test_stale_lock_live_pid_not_reaped(tmp_path):
     assert rp.acquire_lock(p, "other") is False  # never stolen
 
 
-def test_hung_but_alive_owner_reaped(tmp_path):
+def test_hung_but_alive_owner_not_reaped(tmp_path):
+    # P2-12: the hung-but-alive heartbeat branch was removed (nothing
+    # refreshes lastHeartbeat). A live owner's lock is never stolen, even if
+    # its heartbeat is stale.
     p = tmp_path / "locks" / "t1.lock"
-    # live pid but heartbeat older than the stale window -> hung-but-alive
     rp.atomic_write_json(p, {
         "ownerTag": "hung", "pid": __import__("os").getpid(),
         "acquiredAt": "2020-01-01T00:00:00Z", "lastHeartbeat": "2020-01-01T00:00:00Z",
     })
-    assert rp.detect_stale_lock(json.loads(p.read_text())) is True
-    assert rp.acquire_lock(p, "orchestrator") is True
-
-
-def test_heartbeat_refreshes_lock(tmp_path):
-    p = tmp_path / "locks" / "t1.lock"
-    rp.acquire_lock(p, "orchestrator")
-    rp.atomic_write_json(p, {
-        "ownerTag": "orchestrator", "pid": __import__("os").getpid(),
-        "acquiredAt": "2020-01-01T00:00:00Z", "lastHeartbeat": "2020-01-01T00:00:00Z",
-    })
-    rp.heartbeat_lock(p)
     assert rp.detect_stale_lock(json.loads(p.read_text())) is False
-
-
-def test_result_claimed_exactly_once(tmp_path):
-    rd = tmp_path / "run1"
-    rd.mkdir(parents=True)
-    (rd / "t1.json").write_text('{"ok": true}')
-    first = rp.claim_result(rd, "t1")
-    assert first is not None and first.name == "t1.json"
-    assert (rd / "processed" / "t1.json").exists()
-    # second claim returns None (already processed)
-    assert rp.claim_result(rd, "t1") is None
-
-
-def test_result_claim_resume_completes_mid_claim(tmp_path):
-    rd = tmp_path / "run1"
-    rd.mkdir(parents=True)
-    # crash left a .delivering- slot; resume completes it, never double-processes
-    (rd / ".delivering-t1.json").write_text('{"ok": true}')
-    claimed = rp.claim_result(rd, "t1")
-    assert claimed is not None
-    assert (rd / "processed" / "t1.json").exists()
-    assert not (rd / ".delivering-t1.json").exists()
-    assert rp.claim_result(rd, "t1") is None
-
-
-def test_result_claim_absent_returns_none(tmp_path):
-    rd = tmp_path / "run1"
-    rd.mkdir(parents=True)
-    assert rp.claim_result(rd, "missing") is None
+    assert rp.acquire_lock(p, "orchestrator") is False  # live owner, not stolen

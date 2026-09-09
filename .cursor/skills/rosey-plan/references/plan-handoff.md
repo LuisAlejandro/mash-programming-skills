@@ -73,7 +73,7 @@ After all mutations in this run have settled (initial write, deepening synthesis
 3. **Create Issue** - Create a tracked issue from this plan in your configured issue tracker (GitHub or Linear)
 4. **Done for now** - Pause; the plan file is saved and can be resumed later
 
-**Menu rendering:** Count visible options after applying the hide rules below. When **4 or fewer** options remain, use the platform's blocking question tool (`AskUserQuestion` in Claude Code — call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded; `request_user_input` in Codex; `ask_user` in Gemini/Pi). When the blocking tool is unavailable or errors, fall back to numbered-list-in-chat rendering. Never silently skip the question.
+**Menu rendering:** Count visible options after applying the hide rules below. When **4 or fewer** options remain, use the platform's blocking question tool (see Interaction Method in SKILL.md). When the blocking tool is unavailable or errors, fall back to numbered-list-in-chat rendering. Never silently skip the question.
 
 **Hide `Run deeper doc review` when no actionable findings remain.** Show option 2 only when the headless envelope reports `proposed_fixes_count + decisions_count > 0` — i.e., at least one `gated_auto` or `manual` finding at confidence anchor `75` or `100`. Drop the option in any other case, including FYI-only state. FYI observations (anchor `50`) do not enter `rosey-doc-review`'s interactive routing question or walkthrough — that flow is gated to actionable findings — so a `Run deeper doc review` option that only has FYIs to show is a dead-end: rosey-doc-review would re-dispatch the persona team, find the same FYIs, skip the routing question, and fall through to the terminal question with nothing to walk through. The user paid the dispatch cost for no engagement surface. After trimming, renumber visible options contiguously starting at 1. The summary line above the menu still names the FYI count when present (`Doc review applied 3 fixes. 2 FYI observations remain.`) so the user sees what was found, even though there is no menu action attached to it — the FYIs are visible in the headless envelope text the menu rendered alongside.
 
@@ -102,7 +102,7 @@ When the user selects "Create Issue", detect their project tracker:
    linear issue create --title "<title>" --description "$(cat <plan_path>)"
    ```
 
-4. If no tracker is configured, ask the user which tracker they use with the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension). Fall back to asking in chat only when no blocking tool exists or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip. Options: `GitHub`, `Linear`, `Skip`. Then:
+4. If no tracker is configured, ask the user which tracker they use with the platform's blocking question tool (see Interaction Method in SKILL.md). Options: `GitHub`, `Linear`, `Skip`. Then:
    - Proceed with the chosen tracker's command above
    - Offer to persist the choice by adding `project_tracker: <value>` to `AGENTS.md`, where `<value>` is the lowercase tracker key (`github` or `linear`) — not the display label — so future runs match the detector in step 1 and skip this prompt
    - If `Skip`, return to the options without creating an issue

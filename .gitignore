@@ -24,7 +24,8 @@ rosey/design-system/
 rosey/qa/
 rosey/parallel/
 rosey/deepening/
-rosey/parallel/
+rosey/loops/
+rosey/ideation/
 rosey/agentic-env.json
 AGENTS.md
 DESIGN.md

@@ -5,7 +5,7 @@ description: Commit, push, and open or update a GitHub PR with an adaptive, valu
 
 # Rosey PR
 
-**Asking the user:** When this skill says "ask the user", use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension). Fall back to presenting the question in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
+**Asking the user:** When this skill says "ask the user", use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `AskQuestion` in Cursor, `vscode_askQuestions` in VS Code, `question` in OpenCode, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension). Fall back to presenting the question in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
 ## Communication while using this skill
 
@@ -109,8 +109,12 @@ Branch routing:
 **Branch naming** (integration PRs only):
 
 - Format: `feature/<slug>` via `git flow feature start <slug>` (see `references/branch-creation.md`).
-- Slug: kebab-case from `plan:<path>` basename (strip date/id prefix) or change summary; max ~50 characters.
+- Slug from a plan path: basename without extension, strip the leading date and sequence/type tokens (`YYYY-MM-DD-NNN-<type>-`) and any trailing `-plan` suffix, kebab-case, max ~50 characters.
+  Example: `rosey/plans/2026-05-29-001-feat-seo-phase-2-content-plan.md` → `seo-phase-2-content`.
+- Otherwise: kebab-case summary of the change.
 - Do not use `test/`, `chore/`, or `release/` prefixes for integration PRs.
+
+This rule is duplicated verbatim in `references/branch-creation.md` and `rosey-work`'s branch setup. All three must agree — the plan ↔ branch guard above stops before commit when they diverge.
 
 Use GitHub MCP `search_pull_requests` to detect an existing open PR for the current branch. Step 5 uses it to route between new-PR and existing-PR application.
 

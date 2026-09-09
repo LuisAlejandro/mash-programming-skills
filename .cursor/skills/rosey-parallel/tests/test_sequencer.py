@@ -66,6 +66,24 @@ def test_dep_cycle_fails_loudly():
     assert "a" in str(exc.value)
 
 
+def test_cycle_detection_shared_helper():
+    # P2-11: validate_inputs and schedule share one canonical cycle helper
+    # (_find_cycles); both still detect a cycle after the collapse.
+    tasks = [
+        {"id": "a", "goal": "A", "deps": ["b"]},
+        {"id": "b", "goal": "B", "deps": ["a"]},
+    ]
+    with pytest.raises(rp.ValidationError) as exc:
+        rp.validate_inputs(tasks, {})
+    assert "cycle" in str(exc.value).lower()
+    # schedule() also routes through the same helper.
+    sched_tasks = {"a": rp.new_task("a", "A", deps=["b"]),
+                   "b": rp.new_task("b", "B", deps=["a"])}
+    with pytest.raises(rp.ValidationError) as exc2:
+        rp.schedule(sched_tasks, {"a": {"1"}, "b": {"2"}})
+    assert "cycle" in str(exc2.value).lower()
+
+
 def test_cross_component_dep_merges_components():
     tasks = {"a": rp.new_task("a", "A"), "b": rp.new_task("b", "B", deps=["d"]),
              "c": rp.new_task("c", "C"), "d": rp.new_task("d", "D")}

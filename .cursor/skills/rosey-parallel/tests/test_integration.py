@@ -54,6 +54,24 @@ def test_two_disjoint_tracks_merge(tmp_path):
     assert report["merged_tracks"] == ["rp/t1", "rp/t2"]
 
 
+def test_integrate_report_is_json_serializable(tmp_path):
+    # The integrate report must round-trip through json.dumps — a leaked
+    # PosixPath leftover worktree crashed save_run with
+    # "Object of type PosixPath is not JSON serializable".
+    repo = _init_repo(tmp_path)
+    wt = repo / "wt"
+    rp.create_worktree(repo, wt, "rp/ser", "HEAD")
+    (wt / "s.txt").write_text("s\n")
+    subprocess.run(["git", "-C", str(wt), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(wt), "commit", "-qm", "s", "--no-gpg-sign"], check=True)
+    report = rp.integrate(repo, [{"branch": "rp/ser"}],
+                          base_branch="master", gates=lambda tree: (True, []))
+    import json
+    dumped = json.dumps(report)
+    assert isinstance(report["leftover_worktrees"][0], str)
+    assert "rosey-parallel-integration" in report["leftover_worktrees"][0]
+
+
 def test_conflict_predictable_and_aborts_cleanly(tmp_path):
     repo = _init_repo(tmp_path)
     wt_a, wt_b = repo / "wta", repo / "wtb"
@@ -97,3 +115,150 @@ def test_halted_track_preserved_in_report(tmp_path):
     )
     assert any(e["task"] == "t1" for e in report["blocked_tracks"])
     assert report["leftover_worktrees"] == ["/tmp/wt"]
+
+
+def test_halted_track_committed_work_still_merges(tmp_path):
+    repo = _init_repo(tmp_path)
+    wt = repo / "wt"
+    rp.create_worktree(repo, wt, "rp/halted", "HEAD")
+    (wt / "kept.txt").write_text("kept\n")
+    subprocess.run(["git", "-C", str(wt), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(wt), "commit", "-qm", "done-task", "--no-gpg-sign"], check=True)
+    # Halted track: no further commits. Integrate still merges the branch.
+    report = rp.integrate(
+        repo, [{"branch": "rp/halted"}],
+        base_branch="master", gates=lambda tree: (True, []),
+    )
+    assert report["status"] == "success"
+    tip = _branch_point(repo)
+    tree = subprocess.run(
+        ["git", "-C", str(repo), "ls-tree", "--name-only", "-r", tip],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert "kept.txt" in tree
+
+
+def test_fix_up_round_caps_at_two(tmp_path):
+    repo = _init_repo(tmp_path)
+    wt = repo / "wt"
+    rp.create_worktree(repo, wt, "rp/fix", "HEAD")
+    (wt / "x.txt").write_text("x\n")
+    subprocess.run(["git", "-C", str(wt), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(wt), "commit", "-qm", "x", "--no-gpg-sign"], check=True)
+    state = {"t1": rp.new_task("t1", "one")}
+    state["t1"]["status"] = rp.STATUS_DONE
+    state["t1"]["worktree_path"] = str(wt)
+    tracks = [{"branch": "rp/fix", "track_id": 0, "tasks": ["t1"]}]
+    run = {
+        "run_id": "cap",
+        "base_branch": "master",
+        "base_sha_snapshot": _branch_point(repo),
+        "fix_up_round": 0,
+        "tasks": state,
+    }
+
+    class RejectVerify:
+        def verify_phase(self, verifier, tip):
+            return "fail"
+
+    rp.finish_run(state, tracks, RejectVerify(), run, repo)
+    assert run["fix_up_round"] > rp.MAX_FIX_UP_ROUNDS
+    assert run["verification"]["passed"] is False
+
+
+def test_fix_up_loop_does_not_remerge_merged_branches(tmp_path):
+    # P2-6: the fix-up loop must refresh mergeable inside the loop and avoid
+    # re-merging branches already merged in a prior round. A verify failure
+    # followed by a pass must not re-integrate the same branch.
+    repo = _init_repo(tmp_path)
+    wt = repo / "wt"
+    rp.create_worktree(repo, wt, "rp/once", "HEAD")
+    (wt / "x.txt").write_text("x\n")
+    subprocess.run(["git", "-C", str(wt), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(wt), "commit", "-qm", "x", "--no-gpg-sign"], check=True)
+    state = {"t1": rp.new_task("t1", "one")}
+    state["t1"]["status"] = rp.STATUS_DONE
+    state["t1"]["worktree_path"] = str(wt)
+    tracks = [{"branch": "rp/once", "track_id": 0, "tasks": ["t1"]}]
+    run = {
+        "run_id": "once",
+        "base_branch": "master",
+        "base_sha_snapshot": _branch_point(repo),
+        "fix_up_round": 0,
+        "tasks": state,
+    }
+
+    calls = {"n": 0}
+
+    class FlakyVerify:
+        def __init__(self):
+            self.n = 0
+        def verify_phase(self, verifier, tip):
+            self.n += 1
+            return "fail" if self.n == 1 else "pass"
+
+    orig = rp.integrate
+    def spy_integrate(*a, **k):
+        calls["n"] += 1
+        return orig(*a, **k)
+    rp.integrate = spy_integrate
+    try:
+        rp.finish_run(state, tracks, FlakyVerify(), run, repo)
+    finally:
+        rp.integrate = orig
+    # First round merged the branch; the verify-fail round must NOT re-merge it.
+    assert calls["n"] == 1
+    assert run["verification"]["passed"] is True
+
+
+def test_finish_run_gate_failure_blocks_base_ref_move(tmp_path):
+    # P1-3: finish_run must pass a gates callable to integrate(); a failing
+    # gate blocks the base-ref move (R17/R26) instead of moving it blindly.
+    repo = _init_repo(tmp_path)
+    wt = repo / "wt"
+    rp.create_worktree(repo, wt, "rp/gated", "HEAD")
+    (wt / "g.txt").write_text("g\n")
+    subprocess.run(["git", "-C", str(wt), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(wt), "commit", "-qm", "g", "--no-gpg-sign"], check=True)
+    state = {"t1": rp.new_task("t1", "one")}
+    state["t1"]["status"] = rp.STATUS_DONE
+    state["t1"]["worktree_path"] = str(wt)
+    tracks = [{"branch": "rp/gated", "track_id": 0, "tasks": ["t1"]}]
+    run = {
+        "run_id": "gated",
+        "base_branch": "master",
+        "base_sha_snapshot": _branch_point(repo),
+        "fix_up_round": 0,
+        "tasks": state,
+    }
+    base_before = _branch_point(repo)
+
+    class PassVerify:
+        def verify_phase(self, verifier, tip):
+            return "pass"
+
+    # The default gate runs the skill's test suite in the integration worktree.
+    # The integration worktree has no .cursor/skills/rosey-parallel/tests, so
+    # the default gate returns (True, []) and the base ref moves. To exercise
+    # the gate-failure path, monkeypatch the default gate to fail.
+    rp.finish_run(state, tracks, PassVerify(), run, repo)
+    assert run["integration"]["status"] == "success"
+    assert _branch_point(repo) != base_before
+
+    # Now force a gate failure: base ref must NOT move.
+    base_before2 = _branch_point(repo)
+    run2 = {
+        "run_id": "gated2",
+        "base_branch": "master",
+        "base_sha_snapshot": base_before2,
+        "fix_up_round": 0,
+        "tasks": state,
+    }
+    orig = rp._default_integration_gate
+    rp._default_integration_gate = lambda tree: (False, ["tests failed"])
+    try:
+        rp.finish_run(state, tracks, PassVerify(), run2, repo)
+    finally:
+        rp._default_integration_gate = orig
+    assert run2["integration"]["status"] == "fixup"
+    assert _branch_point(repo) == base_before2

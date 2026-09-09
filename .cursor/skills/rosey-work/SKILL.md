@@ -78,7 +78,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    | Complexity         | Signals                                                                             | Action                                                                                                                                                                        |
    | ------------------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | **Trivial**        | 1-2 files, no behavioral change (typo, config, rename)                              | Proceed to Phase 1 step 2 (environment setup), then implement directly — no task list, no execution loop. Apply Test Discovery if the change touches behavior-bearing code    |
+   | **Trivial**        | 1-2 files, no behavioral change (typo, config, rename)                              | Proceed to Phase 1 step 2 (environment setup), then implement directly — no task list, no execution loop. Apply Test Discovery if the change touches behavior-bearing code. **Phase 3 still runs in full** — lint, Sentrux gate, Hindsight retain, and the handoff envelope are not skipped |
    | **Small / Medium** | Clear scope, under ~10 files                                                        | Build a task list from discovery. Proceed to Phase 1 step 2                                                                                                                   |
    | **Large**          | Cross-cutting, architectural decisions, 10+ files, touches auth/payments/migrations | Recommend `/rosey-brainstorm` or `/rosey-plan` to surface edge cases and boundaries. Honor the user's choice. If proceeding, build a task list and continue to Phase 1 step 2 |
 
@@ -117,9 +117,10 @@ Determine how to proceed based on what was provided in `<input_document>`.
    git rev-parse --verify origin/develop >/dev/null
    ```
 
-   **Derive the plan slug** (same rule as [`rosey-pr`](../rosey-pr/SKILL.md) branch naming):
+   **Derive the plan slug.** This rule is canonical and is duplicated verbatim in [`rosey-pr`](../rosey-pr/SKILL.md) and [`../rosey-pr/references/branch-creation.md`](../rosey-pr/references/branch-creation.md). All three must agree — `rosey-pr`'s plan ↔ branch guard stops before commit when they diverge.
 
-   - From plan path basename without extension: strip leading date/id tokens (e.g. `2026-06-22-seo-phase-2-content-plan` → `seo-phase-2-content`); kebab-case; max ~50 characters.
+   - From a plan path: take the basename without extension, strip the leading date and sequence/type tokens (`YYYY-MM-DD-NNN-<type>-`) and any trailing `-plan` suffix, kebab-case, max ~50 characters.
+     Example: `rosey/plans/2026-05-29-001-feat-seo-phase-2-content-plan.md` → `seo-phase-2-content`.
    - From bare prompt: kebab-case summary of the work.
    - Expected branch: `feature/<slug>`.
 
@@ -168,10 +169,12 @@ Determine how to proceed based on what was provided in `<input_document>`.
    ```bash
    git stash push -u -m "rosey-work: pre-branch feature/<slug>"   # when uncommitted changes exist
    git fetch --no-tags origin develop
-   git checkout origin/develop   # or follow branch-creation.md when local develop has unpushed commits
-   git flow feature start <slug>
+   git config --get gitflow.branch.master >/dev/null 2>&1 || git flow init -d
+   git flow feature start <slug> origin/develop
    git stash pop                 # when stashed; stop on conflicts — do not auto-resolve
    ```
+
+   Pass `origin/develop` as the explicit base. Without it `git flow feature start` branches from the local `develop` ref, which this path never pulled. Follow [`../rosey-pr/references/branch-creation.md`](../rosey-pr/references/branch-creation.md) instead when local `develop` carries unpushed commits that must be preserved.
 
    **Option B: Use a worktree (recommended for parallel development)**
    Use the platform's worktree support or an available worktree helper. The worktree must create a new `feature/<slug>` branch from `develop` in an isolated checkout. Keep worktree isolation for parallel implementation; shared-directory parallel writes are unsafe.
@@ -381,13 +384,15 @@ Determine how to proceed based on what was provided in `<input_document>`.
    # 2. Stage only files related to this logical unit (not `git add .`)
    git add <files related to this logical unit>
 
-   # 3. Commit with conventional message
-   git commit -m "feat(scope): description of this unit"
+   # 3. Commit with conventional message, path-limited to those same files
+   git commit -m "feat(scope): description of this unit" -- <files related to this logical unit>
    ```
+
+   **Path-limit every commit.** A bare `git commit` absorbs whatever the user already had staged before this run started. Pass the same file list to `git commit -- <paths>` so only this unit's files land.
 
    **Handling merge conflicts:** If conflicts arise during rebasing or merging, resolve them immediately. Incremental commits make conflict resolution easier since each commit is small and focused.
 
-   **Note:** Incremental commits use clean conventional messages without attribution footers. The final Phase 4 commit/PR includes the full attribution.
+   **Note:** Incremental commits use clean conventional messages without attribution footers. `rosey-pr` adds the full attribution to the final commit/PR.
 
    **Parallel subagent mode:** Commit ownership is split by isolation mode (see Phase 1 Step 4):
    - **Worktree-isolated:** subagents may stage and commit inside their own worktree branch; the orchestrator merges those branches in dependency order after the batch.
@@ -435,13 +440,15 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
 ### Phase 3: Sentrux Review Brief and Stop
 
-When all Phase 2 tasks are complete:
+Entered when all Phase 2 tasks are complete, or \u2014 on the Trivial route, which has no task list and no execution loop \u2014 as soon as the change is implemented. Every step below runs on both paths.
 
 1. **Run `rosey-lint` before handoff**:
    - Load [`rosey-lint`](../rosey-lint/SKILL.md).
    - Run its discovery and execution pipeline for format, lint, type-check, and build commands available in the current repository. In non-interactive mode, invoke it with `mode:non-interactive`.
+   - **Read the `LINT_HANDOFF` block it returns.** `rosey-lint` emits `LINT_HANDOFF ... END_LINT_HANDOFF` with per-step results and `LINT_STATUS: pass|failed` — that block is the authoritative outcome, not prose in the transcript. In interactive mode, request the block when it was not emitted.
+   - Carry each `STEPS:` line into the handoff envelope's `VERIFY:` list (for example `lint: pass`, `build: skipped`).
    - If `rosey-lint` applies fixes, update `FILES_CHANGED` with every file it created or modified.
-   - If `rosey-lint` fails and cannot safely fix the issue, stop and report the failing command and relevant output. Do not prepare success handoff context until lint/build verification passes or, in interactive mode only, the user explicitly decides to proceed.
+   - On `LINT_STATUS: failed`, stop and report the failing command and relevant output. Do not prepare success handoff context until lint/build verification passes or, in interactive mode only, the user explicitly decides to proceed.
 2. **Run the Sentrux handoff gate** when Sentrux is available:
    - Call MCP `session_end`.
    - Call MCP `test_gaps`.
@@ -481,7 +488,18 @@ When all Phase 2 tasks are complete:
    - `BRANCH`, `BRANCH_DECISION`, `FILES_CHANGED`, `WHAT_WAS_IMPLEMENTED`, `PLAN_OR_REQUIREMENTS`, and `SENTRUX_REVIEW_CONTEXT` are required for downstream compatibility.
    - `DONE`, `VERIFY`, `BLOCKERS`, `HINDSIGHT`, and `SENTRUX` are compact machine-to-machine fields. Keep each line short; put full detail in artifacts or blocker reports only when needed.
 
-6. **Stop**. Do not invoke `rosey-qa`, `rosey-pr`, or any shipping workflow. Shipping/QA adaptation is handled by a separate plan.
+6. **Emit the evidence artifact** immediately after the envelope (required):
+
+   ```text
+   ROSEY_EVIDENCE
+   <captured verification output proving the work — test run summary, lint/build
+   result, or the command output that satisfied the plan's Verification criteria>
+   END_ROSEY_EVIDENCE
+   ```
+
+   The body must be non-empty. [`rosey-parallel`](../rosey-parallel/SKILL.md) treats a missing or empty block as task failure even when the handoff envelope is well-formed — a run is not done without proof it was verified. When no automated verification was possible (no configured test runner, manual-only surface), state that explicitly along with whatever check was actually run; do not omit the block.
+
+7. **Stop**. Do not invoke `rosey-qa`, `rosey-pr`, or any shipping workflow. Shipping/QA adaptation is handled by a separate plan.
 
 ## Key Principles
 

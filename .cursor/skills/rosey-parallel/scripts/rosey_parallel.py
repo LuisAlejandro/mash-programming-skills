@@ -33,6 +33,8 @@ STATUS_QA = "qa"
 STATUS_LINT = "lint"
 STATUS_DONE = "done"
 STATUS_FIX_UP = "fix_up"
+STATUS_INTEGRATED = "integrated"
+STATUS_REPORTED = "reported"
 STATUS_BLOCKED = "blocked"
 STATUS_FAILED = "failed"
 STATUS_TIMEOUT = "timeout"
@@ -50,6 +52,8 @@ STATUSES = frozenset(
         STATUS_LINT,
         STATUS_DONE,
         STATUS_FIX_UP,
+        STATUS_INTEGRATED,
+        STATUS_REPORTED,
         STATUS_BLOCKED,
         STATUS_FAILED,
         STATUS_TIMEOUT,
@@ -60,15 +64,17 @@ STATUSES = frozenset(
 
 # Valid successors. Keep in lockstep with the state machine diagram.
 TRANSITIONS = {
-    STATUS_PENDING: {STATUS_PLANNING},
-    STATUS_PLANNING: {STATUS_PLANNED, STATUS_BLOCKED, STATUS_TIMEOUT},
-    STATUS_PLANNED: {STATUS_GATE_APPROVED, STATUS_BLOCKED_BY},
-    STATUS_GATE_APPROVED: {STATUS_WORKING, STATUS_BLOCKED_BY},
+    STATUS_PENDING: {STATUS_PLANNING, STATUS_SKIPPED},
+    STATUS_PLANNING: {STATUS_PLANNED, STATUS_BLOCKED, STATUS_TIMEOUT, STATUS_FAILED, STATUS_SKIPPED},
+    STATUS_PLANNED: {STATUS_GATE_APPROVED, STATUS_BLOCKED_BY, STATUS_SKIPPED},
+    STATUS_GATE_APPROVED: {STATUS_WORKING, STATUS_BLOCKED_BY, STATUS_SKIPPED, STATUS_FAILED, STATUS_TIMEOUT},
     STATUS_WORKING: {STATUS_QA, STATUS_BLOCKED, STATUS_TIMEOUT, STATUS_FAILED},
     STATUS_QA: {STATUS_LINT, STATUS_TIMEOUT, STATUS_FAILED},
     STATUS_LINT: {STATUS_DONE, STATUS_TIMEOUT, STATUS_FAILED},
-    STATUS_DONE: {STATUS_FIX_UP},
+    STATUS_DONE: {STATUS_FIX_UP, STATUS_INTEGRATED},
     STATUS_FIX_UP: {STATUS_WORKING},
+    STATUS_INTEGRATED: {STATUS_REPORTED, STATUS_FIX_UP},
+    STATUS_REPORTED: set(),
     STATUS_BLOCKED: set(),
     STATUS_FAILED: set(),
     STATUS_TIMEOUT: set(),
@@ -76,8 +82,20 @@ TRANSITIONS = {
     STATUS_SKIPPED: set(),
 }
 
+# Checkpoint trigger set (R11). Includes successful completion so a kill
+# after lint does not lose a done task on resume. Terminal here means
+# "checkpoint now", not "no further transitions" — done may still integrate.
 TERMINAL_STATUSES = frozenset(
-    {STATUS_BLOCKED, STATUS_FAILED, STATUS_TIMEOUT, STATUS_BLOCKED_BY, STATUS_SKIPPED}
+    {
+        STATUS_BLOCKED,
+        STATUS_FAILED,
+        STATUS_TIMEOUT,
+        STATUS_BLOCKED_BY,
+        STATUS_SKIPPED,
+        STATUS_DONE,
+        STATUS_INTEGRATED,
+        STATUS_REPORTED,
+    }
 )
 
 
@@ -95,7 +113,10 @@ def new_run_id() -> str:
 
 
 def runs_root(repo_root: str | os.PathLike) -> Path:
-    return Path(repo_root) / "rosey" / "parallel"
+    # Run execution state lives under runs/, separate from the versioned
+    # epic inputs under epics/ (see rosey-epic-decompose). runs/ is
+    # gitignored; epics/ is tracked.
+    return Path(repo_root) / "rosey" / "parallel" / "runs"
 
 
 def run_dir(repo_root: str | os.PathLike, run_id: str) -> Path:
@@ -163,6 +184,15 @@ def transition(task: dict, new_status: str) -> None:
     task["status"] = new_status
 
 
+def reset_task_status(task: dict, new_status: str) -> None:
+    """Fingerprint-driven rewind. Not a transition; bypasses TRANSITIONS."""
+    if new_status not in STATUSES:
+        raise StateError(
+            f"unknown status {new_status!r} for task {task['id']!r}"
+        )
+    task["status"] = new_status
+
+
 def atomic_write_json(path: str | os.PathLike, data: dict) -> None:
     """Write JSON atomically: temp file in the same dir, then os.replace."""
     target = Path(path)
@@ -219,6 +249,230 @@ def load_run(repo_root: str | os.PathLike, run_id: str) -> dict:
     return load_state(state_path(repo_root, run_id))
 
 
+def append_run_log(repo_root: str | os.PathLike, run_id: str, message: str) -> Path:
+    """Append one timestamped orchestrator line to logs/run.log (R20)."""
+    path = run_dir(repo_root, run_id) / "logs" / "run.log"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as fh:
+        fh.write(f"{utc_now_iso()} {message}\n")
+    return path
+
+
+def kill_orphaned_process_groups(run: dict, repo_root: str | os.PathLike | None = None) -> list[int]:
+    """Kill leftover harness process groups recorded on tasks (R12).
+
+    Reads pgids from the run record AND from the spawn-time ``pgids/`` files
+    written by HarnessPhaseDriver._invoke (P1-4), so a crash mid-work that
+    never checkpointed the pgid into run state can still be reaped on resume.
+    """
+    import signal as _signal
+
+    killed: list[int] = []
+    tasks = run.get("tasks") or {}
+    if isinstance(tasks, dict):
+        records = tasks.values()
+    else:
+        records = tasks
+    pgids: set[int] = set()
+    for task in records:
+        pgid = task.get("pgid") if isinstance(task, dict) else None
+        if pgid:
+            pgids.add(int(pgid))
+    # Spawn-time pgid files under the run dir (P1-4).
+    run_id = run.get("run_id")
+    root = repo_root or run.get("repo_root")
+    if run_id and root:
+        pgid_dir = run_dir(root, run_id) / "pgids"
+        if pgid_dir.exists():
+            for f in pgid_dir.glob("*.pgid"):
+                try:
+                    pgids.add(int(f.read_text().strip()))
+                except (OSError, ValueError):
+                    pass
+    for pgid in sorted(pgids):
+        try:
+            os.killpg(int(pgid), _signal.SIGKILL)
+            killed.append(int(pgid))
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            try:
+                os.kill(int(pgid), _signal.SIGKILL)
+                killed.append(int(pgid))
+            except (ProcessLookupError, PermissionError, OSError):
+                pass
+        except OSError:
+            pass
+    return killed
+
+
+def existing_track_branches(repo_root: str | os.PathLike, tracks: list) -> list:
+    """Tracks whose git branch exists (halted tracks with commits still merge)."""
+    import subprocess as _sp
+
+    found = []
+    for trk in tracks:
+        branch = trk.get("branch") if isinstance(trk, dict) else None
+        if not branch:
+            continue
+        res = _sp.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--verify", "--quiet", branch],
+            capture_output=True, text=True,
+        )
+        if res.returncode == 0:
+            found.append(trk)
+    return found
+
+
+def commit_uncommitted_fixes(worktree: str | os.PathLike, message: str) -> str | None:
+    """Commit dirty qa/lint fixes on the track branch (R27). Returns new HEAD or None."""
+    import subprocess as _sp
+
+    wt = Path(worktree)
+    if not wt.exists():
+        return None
+    porcelain = _sp.run(
+        ["git", "-C", str(wt), "status", "--porcelain"],
+        capture_output=True, text=True,
+    )
+    if porcelain.returncode != 0 or not porcelain.stdout.strip():
+        tip = _sp.run(
+            ["git", "-C", str(wt), "rev-parse", "HEAD"],
+            capture_output=True, text=True,
+        )
+        return tip.stdout.strip() or None
+    _sp.run(["git", "-C", str(wt), "add", "-A"], capture_output=True, text=True)
+    _sp.run(
+        ["git", "-C", str(wt), "commit", "-qm", message, "--no-gpg-sign"],
+        capture_output=True, text=True,
+    )
+    tip = _sp.run(
+        ["git", "-C", str(wt), "rev-parse", "HEAD"],
+        capture_output=True, text=True,
+    )
+    return tip.stdout.strip() or None
+
+
+def relocate_qa_artifacts(worktree: str | os.PathLike, dest: str | os.PathLike) -> None:
+    """Move worktree rosey/qa output into the run-state directory (R28)."""
+    import shutil
+
+    src = Path(worktree) / "rosey" / "qa"
+    if not src.exists():
+        return
+    target = Path(dest)
+    target.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src), str(target / "qa"))
+
+
+def _drop_worktree(repo_root: str | os.PathLike, wt_path: str | os.PathLike) -> None:
+    """Remove a task worktree after integration; keep the branch for the report."""
+    import subprocess as _sp
+
+    _sp.run(
+        ["git", "-C", str(repo_root), "worktree", "unlock", str(wt_path)],
+        capture_output=True, text=True,
+    )
+    _sp.run(
+        ["git", "-C", str(repo_root), "worktree", "remove", "--force", str(wt_path)],
+        capture_output=True, text=True,
+    )
+
+
+MAX_FIX_UP_ROUNDS = 2
+
+
+def _default_integration_gate(integration_worktree):
+    """Default gate: run the skill's test suite in the integration worktree.
+
+    Returns (ok, failures). A failing gate blocks the base-ref move (R17/R26).
+    """
+    import subprocess as _sp
+
+    venv_python = Path(integration_worktree) / ".cursor" / "skills" / "rosey-parallel" / ".venv" / "bin" / "python"
+    tests_dir = Path(integration_worktree) / ".cursor" / "skills" / "rosey-parallel" / "tests"
+    if not venv_python.exists() or not tests_dir.exists():
+        return True, []  # no skill test suite in this tree -> nothing to gate
+    res = _sp.run(
+        [str(venv_python), "-m", "pytest", str(tests_dir), "-q"],
+        capture_output=True, text=True,
+    )
+    if res.returncode == 0:
+        return True, []
+    return False, [res.stdout.strip() or res.stderr.strip() or "tests failed"]
+
+
+def finish_run(state, tracks, driver, run, repo_root=None) -> None:
+    """Integrate (incl. halted-track commits), verify, report, bounded fix-up (U7)."""
+    leftover = [
+        t.get("worktree_path") for t in state.values() if t.get("worktree_path")
+    ]
+    human_blockers = [
+        {"task": tid, "blockers": t.get("blockers", [])}
+        for tid, t in state.items()
+        if t.get("status") in (STATUS_BLOCKED, STATUS_FAILED, STATUS_TIMEOUT)
+    ]
+    integ = None
+    verified_ok = True
+    if repo_root and _is_git_repo(repo_root):
+        run.setdefault("fix_up_round", 0)
+        merged_branches: set[str] = set()
+        while run["fix_up_round"] <= MAX_FIX_UP_ROUNDS:
+            # Refresh mergeable inside the loop so a re-run task's new commits
+            # (or a halted track's committed work) are picked up, and skip
+            # branches already merged in a prior round (P2-6).
+            mergeable = [
+                trk for trk in existing_track_branches(repo_root, tracks)
+                if trk.get("branch") not in merged_branches
+            ]
+            if mergeable:
+                integ = integrate(
+                    repo_root, mergeable,
+                    base_branch=run.get("base_branch") or "develop",
+                    gates=_default_integration_gate,
+                )
+                run["integration"] = integ
+                merged_branches.update(integ.get("merged_tracks") or [])
+                if integ.get("status") != "success":
+                    verified_ok = False
+                    run["fix_up_round"] += 1
+                    if run["fix_up_round"] > MAX_FIX_UP_ROUNDS:
+                        break
+                    continue
+            tip = (integ or {}).get("integrated_tip")
+            if tip and callable(getattr(driver, "verify_phase", None)):
+                ver = run_parallel_verification(driver, tip)
+                run["verification"] = ver
+                verified_ok = bool(ver.get("passed"))
+                if not verified_ok:
+                    run["fix_up_round"] += 1
+                    if run["fix_up_round"] > MAX_FIX_UP_ROUNDS:
+                        break
+                    continue
+            break
+        if (integ or {}).get("status") == "success" and verified_ok:
+            for t in state.values():
+                wt = t.get("worktree_path")
+                if wt:
+                    _drop_worktree(repo_root, wt)
+            leftover = []
+            for t in state.values():
+                if t.get("status") == STATUS_DONE:
+                    try:
+                        transition(t, STATUS_INTEGRATED)
+                        transition(t, STATUS_REPORTED)
+                    except StateError:
+                        pass
+    run["report"] = final_report(
+        tracks, state,
+        base_sha=run.get("base_sha_snapshot"),
+        integration_tip=(integ or {}).get("integrated_tip"),
+        leftover_worktrees=leftover,
+        fix_ups=[{"round": run.get("fix_up_round") or 0}],
+        human_blockers=human_blockers,
+    )
+
+
 # ---------------------------------------------------------------------------
 # State integrity (hardening U1: R1, R2) — stale-lock liveness + exactly-once claim
 # ---------------------------------------------------------------------------
@@ -253,16 +507,16 @@ def _iso_age(ts: str | None, now: datetime) -> float:
 def detect_stale_lock(lock: dict, stale_window_s: float = DEFAULT_STALE_WINDOW_S) -> bool:
     """True when a lock should be reaped (R1).
 
-    Reap when the owner pid is dead AND past the stale window, OR when the
-    owner has not heartbeated past the stale window (hung-but-alive recovery).
-    A live, progressing owner's lock is never stolen.
+    Reap when the owner pid is dead AND past the stale window. A live,
+    progressing owner's lock is never stolen. (The hung-but-alive heartbeat
+    branch was removed: nothing refreshes lastHeartbeat, so it was dead code —
+    P2-12.)
     """
     now = datetime.now(timezone.utc)
     pid = lock.get("pid")
     if pid is not None and not is_pid_alive(pid):
         return _iso_age(lock.get("acquiredAt"), now) > stale_window_s
-    # hung-but-alive: heartbeat older than the stale window
-    return _iso_age(lock.get("lastHeartbeat"), now) > stale_window_s
+    return False
 
 
 def acquire_lock(
@@ -304,44 +558,6 @@ def acquire_lock(
 def release_lock(path: str | os.PathLike) -> None:
     """Release a lock file (idempotent)."""
     Path(path).unlink(missing_ok=True)
-
-
-def heartbeat_lock(path: str | os.PathLike) -> None:
-    """Refresh a lock's lastHeartbeat (hung-but-alive recovery signal)."""
-    target = Path(path)
-    try:
-        lock = json.loads(target.read_text())
-    except (OSError, json.JSONDecodeError):
-        return
-    lock["lastHeartbeat"] = utc_now_iso()
-    atomic_write_json(target, lock)
-
-
-def claim_result(run_dir: str | os.PathLike, task_id: str) -> Path | None:
-    """Claim a task's result exactly once (R2).
-
-    Atomic rename of ``<task>.json`` to ``.delivering-<task>.json``, then a
-    ``processed/`` ledger commit. A resume completes a mid-claim (a leftover
-    ``.delivering-`` slot) instead of re-processing. Returns the processed
-    path, or None when the result was already claimed / absent.
-    """
-    rd = Path(run_dir)
-    src = rd / f"{task_id}.json"
-    delivering = rd / f".delivering-{task_id}.json"
-    processed_dir = rd / "processed"
-    processed_dir.mkdir(parents=True, exist_ok=True)
-    final = processed_dir / f"{task_id}.json"
-    # Resume: complete a mid-claim left by a crash.
-    if delivering.exists():
-        os.rename(delivering, final)
-        return final
-    if final.exists():
-        return None  # already processed
-    if not src.exists():
-        return None
-    os.rename(src, delivering)
-    os.rename(delivering, final)
-    return final
 
 
 # ---------------------------------------------------------------------------
@@ -415,9 +631,9 @@ def apply_skip_cascade(state: dict, failed_ids: set[str]) -> None:
     for tid in dependents:
         t = state[tid]
         if t["status"] == STATUS_GATE_APPROVED:
-            t["status"] = STATUS_BLOCKED_BY
+            transition(t, STATUS_BLOCKED_BY)
         if t["status"] == STATUS_BLOCKED_BY:
-            t["status"] = STATUS_SKIPPED
+            transition(t, STATUS_SKIPPED)
 
 
 # ---------------------------------------------------------------------------
@@ -486,21 +702,22 @@ def validate_inputs(tasks: list[dict], options: dict) -> list[dict]:
             "goal": t["goal"],
             "deps": list(t.get("deps") or []),
             "harness": t.get("harness"),
+            # Carry plan text/path through so the CLI can derive footprints
+            # from plan content (P1-2).
+            "plan_text": t.get("plan_text"),
+            "plan_path": t.get("plan_path"),
         }
         for t in tasks
     ]
     return normalized
 
 
-def _validate_no_cycles(
-    tasks: list[dict], ids: set[str], violations: list[str]
-) -> None:
-    """Detect dependency cycles (R2 / R8). Appends a violation per cycle found."""
-    edges: dict[str, list[str]] = {}
-    for t in tasks:
-        edges[t["id"]] = list(t.get("deps") or [])
-    if any(t.get("id") not in edges for t in tasks):
-        return  # structural validation will have failed already
+def _find_cycles(edges: dict[str, list[str]], ids: set[str]) -> list[list[str]]:
+    """Canonical WHITE/GRAY/BLACK DFS cycle detection (R2 / R8).
+
+    Returns any dependency cycles as task-id chains. Shared by validate_inputs
+    and schedule so cycle detection lives in one place (P2-11).
+    """
     WHITE, GRAY, BLACK = 0, 1, 2
     color = {tid: WHITE for tid in ids}
     path: list[str] = []
@@ -523,6 +740,19 @@ def _validate_no_cycles(
     for tid in sorted(ids):
         if color[tid] == WHITE:
             visit(tid)
+    return cycles
+
+
+def _validate_no_cycles(
+    tasks: list[dict], ids: set[str], violations: list[str]
+) -> None:
+    """Detect dependency cycles (R2 / R8). Appends a violation per cycle found."""
+    edges: dict[str, list[str]] = {}
+    for t in tasks:
+        edges[t["id"]] = list(t.get("deps") or [])
+    if any(t.get("id") not in edges for t in tasks):
+        return  # structural validation will have failed already
+    cycles = _find_cycles(edges, ids)
 
     for cyc in cycles:
         violations.append(
@@ -691,27 +921,7 @@ def _dependency_cycles(tasks: dict) -> list[list[str]]:
     """Return any dependency cycles (as task-id chains)."""
     ids = set(tasks)
     edges = {tid: [d for d in tasks[tid]["deps"] if d in ids] for tid in tasks}
-    WHITE, GRAY, BLACK = 0, 1, 2
-    color = {tid: WHITE for tid in ids}
-    path: list[str] = []
-    cycles: list[list[str]] = []
-
-    def visit(node: str) -> None:
-        color[node] = GRAY
-        path.append(node)
-        for nxt in edges[node]:
-            if color[nxt] == GRAY:
-                start = path.index(nxt)
-                cycles.append(path[start:] + [nxt])
-            elif color[nxt] == WHITE:
-                visit(nxt)
-        path.pop()
-        color[node] = BLACK
-
-    for tid in sorted(ids):
-        if color[tid] == WHITE:
-            visit(tid)
-    return cycles
+    return _find_cycles(edges, ids)
 
 
 def _topo_order(group: list[str], tasks: dict) -> list[str]:
@@ -778,36 +988,13 @@ def create_worktree(
 def lock_worktree(repo_root: str | os.PathLike, wt_path: str | os.PathLike) -> None:
     import subprocess as _sp
 
-    _sp.run(
+    res = _sp.run(
         ["git", "-C", str(repo_root), "worktree", "lock", str(wt_path)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-
-def remove_worktree(
-    repo_root: str | os.PathLike,
-    wt_path: str | os.PathLike,
-    branch: str,
-) -> None:
-    """Two-step removal: worktree then branch (branches outlive worktrees)."""
-    import subprocess as _sp
-
-    unlock = _sp.run(
-        ["git", "-C", str(repo_root), "worktree", "unlock", str(wt_path)],
         capture_output=True, text=True,
     )
-    if unlock.returncode != 0 and "not locked" not in unlock.stderr:
-        pass  # treat already-unlocked as fine
-    _sp.run(
-        ["git", "-C", str(repo_root), "worktree", "remove", str(wt_path)],
-        check=True, capture_output=True, text=True,
-    )
-    _sp.run(
-        ["git", "-C", str(repo_root), "branch", "-d", branch],
-        check=True, capture_output=True, text=True,
-    )
+    # Idempotent: an already-locked worktree is fine (resume reuses it).
+    if res.returncode != 0 and "already locked" not in res.stderr:
+        raise subprocess.CalledProcessError(res.returncode, res.args)
 
 
 def reset_hard(wt_path: str | os.PathLike, branch: str) -> None:
@@ -836,24 +1023,82 @@ def copy_runtime_files(repo_root: str | os.PathLike, wt_path: str | os.PathLike)
                 shutil.copytree(s, dst / name, dirs_exist_ok=True)
 
 
+def snapshot_base_sha(repo_root: str | os.PathLike, provided: str | None = None) -> str:
+    """Real HEAD SHA, not the sentinel ``0000`` (R13)."""
+    if provided and provided != "0000":
+        return provided
+    import subprocess as _sp
+
+    res = _sp.run(
+        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+        capture_output=True, text=True,
+    )
+    if res.returncode == 0 and res.stdout.strip():
+        return res.stdout.strip()
+    return provided or "0000"
+
+
+def track_branch_name(run_id: str, track_id: int) -> str:
+    return f"rosey-parallel/{run_id}/track-{track_id}"
+
+
+def _is_git_repo(repo_root: str | os.PathLike) -> bool:
+    return (Path(repo_root) / ".git").exists()
+
+
+def ensure_task_worktree(
+    repo_root: str | os.PathLike,
+    wt_path: str | os.PathLike,
+    branch: str,
+    base: str,
+) -> str:
+    """Create or reuse a worktree on ``branch``. Resume-safe if the branch exists."""
+    import subprocess as _sp
+
+    dest = Path(wt_path)
+    if dest.exists():
+        lock_worktree(repo_root, dest)
+        copy_runtime_files(repo_root, dest)
+        return branch
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    exists = _sp.run(
+        ["git", "-C", str(repo_root), "rev-parse", "--verify", "--quiet", branch],
+        capture_output=True, text=True,
+    )
+    if exists.returncode == 0:
+        _sp.run(
+            ["git", "-C", str(repo_root), "worktree", "add", str(dest), branch],
+            check=True, capture_output=True, text=True,
+        )
+    else:
+        create_worktree(repo_root, dest, branch, base)
+    lock_worktree(repo_root, dest)
+    copy_runtime_files(repo_root, dest)
+    return branch
+
+
 # ---------------------------------------------------------------------------
 # Harness drivers (plan U6: R26, R14, R17)
 # ---------------------------------------------------------------------------
 
 HARNESS_PRIORITY = ["pi", "opencode", "cursor-agent"]
 
-# Terminal structured events that mark success for each harness.
-_TERMINAL_EVENTS = {
-    "pi": ("agent_end",),
-    "opencode": ("text",),
-    "cursor-agent": ("result",),
+# Default model per harness when a run does not override via options.model.
+# pi: deepseek-v4-flash (matches ~/.pi/agent/settings.json default).
+# opencode: opencode/deepseek-v4-flash (opencode's hosted deepseek).
+# cursor-agent: cursor-grok-4.6-high = plain "Cursor Grok 4.6" (non-fast).
+_DEFAULT_MODELS = {
+    "pi": "deepseek-v4-flash",
+    "opencode": "opencode/deepseek-v4-flash",
+    "cursor-agent": "cursor-grok-4.6-high",
 }
 
 
 class HarnessDriver:
     """Per-harness launch / interpret / probe contract (R26)."""
 
-    def __init__(self, name: str, binary: str | None = None) -> None:
+    def __init__(self, name: str, binary: str | None = None,
+                 model: str | None = None) -> None:
         self.name = name
         if name not in HARNESS_PRIORITY:
             raise ValueError(f"unknown harness {name!r}")
@@ -863,10 +1108,12 @@ class HarnessDriver:
             "cursor-agent": "agent",
         }[name]
         self.binary = binary or default_binary
+        self.model = model or _DEFAULT_MODELS[name]
 
     @classmethod
-    def from_name(cls, name: str, binary: str | None = None) -> "HarnessDriver":
-        return cls(name, binary=binary)
+    def from_name(cls, name: str, binary: str | None = None,
+                  model: str | None = None) -> "HarnessDriver":
+        return cls(name, binary=binary, model=model)
 
     def probe(self) -> bool:
         """Availability: binary present on PATH (R26)."""
@@ -874,14 +1121,19 @@ class HarnessDriver:
 
         return shutil.which(self.binary) is not None
 
-    @staticmethod
-    def launch_cmd(name) -> list[str]:
-        """Per-harness invocation shape (KTD4)."""
-        return {
-            "pi": ["pi", "-p", "--approve", "--mode", "json", "--no-session"],
+    def launch_cmd(self) -> list[str]:
+        """Per-harness invocation shape (KTD4), with the default model flag."""
+        base = {
+            "pi": ["pi", "-p", "--approve", "--mode", "json"],
             "opencode": ["opencode", "run", "--format", "json"],
             "cursor-agent": ["agent", "-p", "--force", "--trust", "--output-format", "json"],
-        }[name]
+        }[self.name]
+        model_flag = {
+            "pi": ["--model", self.model],
+            "opencode": ["--model", self.model],
+            "cursor-agent": ["--model", self.model],
+        }[self.name]
+        return base + model_flag
 
     def interpret(self, exit_code: int, output: str) -> str:
         """Map (exit, captured output) to done | blocker | failure (R14).
@@ -894,15 +1146,31 @@ class HarnessDriver:
         parsed = self._parse_events(output)
         if not parsed:
             return "failure"
-        last = parsed[-1]
         if self.name == "pi":
-            if last.get("event") != "agent_end":
+            # pi emits a trailing `agent_settled` event after `agent_end`, so
+            # the terminal event is not `agent_end`. Require `agent_end` to
+            # appear anywhere rather than be the last event, or every pi
+            # worker is misread as failed and its plan is discarded. pi marks
+            # the event with `type`, not `event`.
+            if not any(e.get("type") == "agent_end" for e in parsed):
                 return "failure"
         elif self.name == "cursor-agent":
-            if last.get("type") != "result":
+            # Same defensive pattern: accept the terminal `result` event
+            # appearing anywhere, not just as the last event, so a trailing
+            # non-terminal event cannot misread a successful worker as failed.
+            if not any(e.get("type") == "result" for e in parsed):
                 return "failure"
         else:  # opencode
-            if last.get("type") != "text" or not last.get("text"):
+            # opencode emits step_start / text / step_finish, so the last
+            # event is step_finish, not text. The text content is nested under
+            # `part.text` (not top-level `text`). Accept a non-empty text
+            # event appearing anywhere (the exit-0-on-auto-reject guard still
+            # holds: an auto-reject produces no text event at all).
+            def _has_text(e: dict) -> bool:
+                if e.get("type") != "text":
+                    return False
+                return bool(e.get("text") or (e.get("part") or {}).get("text"))
+            if not any(_has_text(e) for e in parsed):
                 return "failure"
         return "done"
 
@@ -1036,11 +1304,6 @@ def retry_guidance(output: str) -> dict:
     return {"errorType": "unknown", "fixHint": "generic retry"}
 
 
-def compute_touched_files(env_files: list[str], diff_files: list[str]) -> set[str]:
-    """Union of handoff FILES_CHANGED and git diff (union, never intersection)."""
-    return set(env_files) | set(diff_files)
-
-
 def find_drift_collisions(touched: set[str], other_live_footprints: list[set]) -> list[str]:
     """Return the files a completed task touched that are also declared by other live tracks."""
     live = set().union(*other_live_footprints) if other_live_footprints else set()
@@ -1057,6 +1320,18 @@ def worker_overrides(track_branch: str) -> dict:
     }
 
 
+def load_worker_prompt() -> str:
+    """Load the fillable worker-prompt template from references/worker-prompt.md."""
+    path = Path(__file__).resolve().parent.parent / "references" / "worker-prompt.md"
+    text = path.read_text()
+    start = text.find("```")
+    if start == -1:
+        return text
+    start = text.find("\n", start) + 1
+    end = text.find("```", start)
+    return text[start:end].strip()
+
+
 # ---------------------------------------------------------------------------
 # Orchestrator flow (plan U8: R1, R3, R4, R6, R10-12, R16-18, R20, R23)
 # ---------------------------------------------------------------------------
@@ -1064,6 +1339,7 @@ def worker_overrides(track_branch: str) -> dict:
 def orchestrate_run(
     repo_root, tasks, footprints, driver,
     base_branch="develop", base_sha=None, resume=None, max_parallel=4,
+    gate=True,
 ):
     """Drive an epic's tasks through plan -> work -> qa -> lint.
 
@@ -1078,18 +1354,43 @@ def orchestrate_run(
     state: dict[str, dict] = {}
     for tid, t in tasks.items():
         nt = dict(t)
-        if resume and tid in resume["state"]:
-            nt["status"] = resume["state"][tid]["status"]
-            nt["blockers"] = list(resume["state"][tid].get("blockers", []))
+        if resume and tid in resume["tasks"]:
+            nt["status"] = resume["tasks"][tid]["status"]
+            nt["blockers"] = list(resume["tasks"][tid].get("blockers", []))
+            # Carry over spawn-time fields from the resume record so a reused
+            # (unchanged, completed) task keeps its worktree/branch/end_sha/
+            # touched_files and finish_run can still drop its worktree (P2-13).
+            for field in ("worktree_path", "branch", "end_sha", "touched_files",
+                          "track", "start_sha", "plan_path"):
+                if resume["tasks"][tid].get(field) is not None:
+                    nt[field] = resume["tasks"][tid][field]
+        else:
+            # Fresh task: default to pending. The CLI path builds tasks from
+            # validate_inputs, which omits status, so without this a fresh run
+            # crashes on the first status read.
+            nt.setdefault("status", STATUS_PENDING)
+            nt.setdefault("blockers", [])
         state[tid] = nt
-    # Build the run-level record.
+    # Build the run-level record. Uses the same schema as new_run/save_run/
+    # load_run (tasks + base_sha_snapshot) so the CLI save->load->resume cycle
+    # round-trips; previously this wrote `state`/`base_sha`, which load_run
+    # rejected on resume.
+    harness_name = getattr(getattr(driver, "harness", None), "name", None)
     run = {
+        "version": 1,
         "run_id": run_id,
-        "state": state,
+        "created_at": (resume.get("created_at") if resume else utc_now_iso()),
+        "tasks": state,
         "tracks": [],
         "warnings": [],
         "base_branch": base_branch,
-        "base_sha": base_sha or resume.get("base_sha") if resume else (base_sha or "0000"),
+        "harness": harness_name,
+        "gate": gate,
+        "fix_up_round": (resume.get("fix_up_round") if resume else 0),
+        "base_sha_snapshot": snapshot_base_sha(
+            repo_root,
+            base_sha or (resume.get("base_sha_snapshot") if resume else None),
+        ),
     }
     # Fingerprint-keyed resume (hardening U3: R5). Compute fingerprints with
     # dependency folding; reuse unchanged completed tasks, re-run changed/added.
@@ -1100,7 +1401,9 @@ def orchestrate_run(
         old_fp = resume.get("fingerprints", {})
         diff = diff_fingerprints(old_fp, fingerprints)
         for tid, cat in diff.items():
-            if cat == "unchanged" and state[tid]["status"] == STATUS_DONE:
+            if cat == "unchanged" and state[tid]["status"] in (
+                STATUS_DONE, STATUS_INTEGRATED, STATUS_REPORTED,
+            ):
                 continue  # reuse completed work
             if cat in ("changed", "added"):
                 # re-run: reset to pending so planning/work re-fire. A changed
@@ -1108,9 +1411,20 @@ def orchestrate_run(
                 # where it would otherwise strand and never re-fire). An `added`
                 # task is fresh — only rewind if a snapshot left it terminal.
                 if cat == "changed":
-                    state[tid]["status"] = STATUS_PENDING
-                elif state[tid]["status"] in (STATUS_DONE, STATUS_BLOCKED_BY, STATUS_SKIPPED):
-                    state[tid]["status"] = STATUS_PENDING
+                    reset_task_status(state[tid], STATUS_PENDING)
+                elif state[tid]["status"] in (STATUS_DONE, STATUS_BLOCKED_BY, STATUS_SKIPPED, STATUS_INTEGRATED, STATUS_REPORTED):
+                    reset_task_status(state[tid], STATUS_PENDING)
+        kill_orphaned_process_groups(resume, repo_root)
+        for tid, t in state.items():
+            if t["status"] in (STATUS_WORKING, STATUS_QA, STATUS_LINT):
+                reset_task_status(t, STATUS_GATE_APPROVED)
+            # A planner failure (blocker starts with "planner:") is transient:
+            # reset it to PENDING on resume so it can be re-planned instead of
+            # staying terminal forever (P2-15).
+            elif t["status"] in (STATUS_FAILED, STATUS_BLOCKED) and any(
+                str(b).startswith("planner:") for b in t.get("blockers", [])
+            ):
+                reset_task_status(t, STATUS_PENDING)
     # Guard removed-task deps (hardening R6): if a task's dep no longer exists
     # in the live task set (removed between runs) it can never resolve — mark
     # it skipped so it doesn't hang in gate_approved forever.
@@ -1119,24 +1433,44 @@ def orchestrate_run(
         missing = [d for d in t["deps"] if d not in live_ids]
         # Cascade only live task instances; never touch already-terminal work
         # or completed (DONE) work.
-        if (
-            missing
-            and t["status"] not in TERMINAL_STATUSES
-            and t["status"] != STATUS_DONE
-        ):
-            t["status"] = STATUS_SKIPPED
+        if missing and t["status"] not in TERMINAL_STATUSES:
+            transition(t, STATUS_SKIPPED)
             t.setdefault("blockers", []).append(
                 "dependency removed between runs: " + ",".join(missing)
             )
 
     run["fingerprints"] = fingerprints
+    # Scaffold before planning (R19). Resume that already planned skips it.
+    if callable(getattr(driver, "scaffold_phase", None)):
+        already = resume.get("scaffold") if resume else None
+        planned_already = resume and any(
+            t.get("status") not in (STATUS_PENDING, STATUS_PLANNING)
+            for t in (resume.get("tasks") or {}).values()
+        )
+        if already and already.get("outcome") == "done":
+            run["scaffold"] = already
+        elif planned_already:
+            run["scaffold"] = already or {"phase": "scaffold", "outcome": "done"}
+        else:
+            rec = run_scaffold(driver, state)
+            run["scaffold"] = rec
+            if rec.get("outcome") != "done":
+                run["warnings"].append("scaffold: " + str(rec.get("outcome")))
+                return run
     # Sequencing is deterministic; tracks computed from footprints+deps.
     sched = schedule(state, footprints)
     run["tracks"] = sched["tracks"]
+    for trk in run["tracks"]:
+        trk["branch"] = track_branch_name(run_id, trk["track_id"])
     run["warnings"].extend(sched["warnings"])
 
-    _run_execution(state, sched["tracks"], driver, run, max_parallel=max_parallel)
+    _run_execution(
+        state, sched["tracks"], driver, run,
+        repo_root=repo_root, max_parallel=max_parallel, gate=gate,
+    )
     run["waves"] = run.pop("_waves", [])
+    if not gate:
+        finish_run(state, run["tracks"], driver, run, repo_root)
     return run
 
 
@@ -1156,7 +1490,7 @@ def _compute_fingerprints(state: dict) -> dict:
     return fps
 
 
-def _run_execution(state, tracks, driver, run, max_parallel=4):
+def _run_execution(state, tracks, driver, run, repo_root=None, max_parallel=4, gate=True):
     """Execute tasks via dependency-frontier admission (hardening U2: R3, R4).
 
     A task is admitted the moment every dependency is terminal-`done` and a
@@ -1164,13 +1498,57 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
     (one task per track per pass). Oversubscribed tasks park in a FIFO denied
     queue and are offered a freed slot oldest-first. Waves are informational,
     never barriers.
+
+    gate=True (default): after planning, STOP and leave tasks in PLANNED so
+    the human can review the plans before work. The run is saved and the CLI
+    prompts the user to resume with --approve. gate=False: auto-approve and
+    run work (used by tests and by an explicit --approve resume).
     """
-    # Planning happens once per task (R4/R6), regardless of track.
-    for tid in state:
-        t = state[tid]
-        if t["status"] == STATUS_PENDING:
-            t["status"] = STATUS_PLANNING
-            outcome = driver.plan_task(tid)
+    # Planning happens once per task (R4/R6), regardless of track. It is
+    # fanned out across a thread pool so independent tasks plan concurrently
+    # (the SKILL.md "plan in parallel" contract); the real harness driver
+    # blocks on subprocess.run, so threads give real parallelism. The fake
+    # test driver is thread-safe (scripted outcomes, no shared mutable state
+    # beyond its log).
+    import concurrent.futures as _cf
+    import threading as _th
+
+    # Sentinel returned by _prepare_isolation when a track lock is held by
+    # another owner (P2-9): the task is parked for a later pass, not run.
+    _LOCK_BUSY = object()
+
+    def _note(msg: str) -> None:
+        print(msg, flush=True)
+        if repo_root is not None:
+            append_run_log(repo_root, run["run_id"], msg)
+
+    _ckpt_lock = _th.Lock()
+
+    def _checkpoint() -> None:
+        if repo_root is None:
+            return
+        with _ckpt_lock:
+            save_run(repo_root, run)
+
+    def _plan_one(tid: str) -> tuple[str, str]:
+        outcome = driver.plan_task(tid)
+        return tid, outcome
+
+    # PENDING and interrupted PLANNING are planned. Tasks already PLANNED (from
+    # a prior run's gate stop) are skipped, so a resume does NOT overwrite
+    # existing plans — the human's reviewed plans are honored.
+    pending = [
+        tid for tid, t in state.items()
+        if t["status"] in (STATUS_PENDING, STATUS_PLANNING)
+    ]
+    for tid in pending:
+        if state[tid]["status"] == STATUS_PENDING:
+            transition(state[tid], STATUS_PLANNING)
+    if pending:
+        _note(f"[plan] {len(pending)} task(s) planning: {', '.join(pending)}")
+    with _cf.ThreadPoolExecutor(max_workers=max_parallel) as _pool:
+        for tid, outcome in _pool.map(_plan_one, pending):
+            t = state[tid]
             if outcome in ("done",):  # planner success
                 # Capture the plan the planner produced so work/qa/lint honor it.
                 # Driver may expose optional plan_path(tid); fall back to the
@@ -1184,14 +1562,30 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
                     set_pp = getattr(driver, "set_plan_path", None)
                     if callable(set_pp):
                         set_pp(tid, plan_path)
-                t["status"] = STATUS_PLANNED
+                transition(t, STATUS_PLANNED)
+                _note(f"[plan] {tid} planned ({plan_path or 'no plan path'})")
             else:
-                t["status"] = STATUS_BLOCKED if outcome == "blocker" else STATUS_FAILED
+                transition(t, STATUS_BLOCKED if outcome == "blocker" else STATUS_FAILED)
                 t["blockers"].append("planner: " + str(outcome))
-    # Batched gate (single, R10): in this test driver the gate is automatic.
+                _note(f"[plan] {tid} {t['status']}: {outcome}")
+                _checkpoint()
+
+    # Batched human gate (single, R10): stop after planning so the operator
+    # reviews all plans before any work runs. Tasks stay PLANNED; the CLI
+    # saves state and prompts for --approve. Only when gate=False (explicit
+    # approval) do we promote to GATE_APPROVED and execute.
+    if gate:
+        planned = [tid for tid, t in state.items() if t["status"] == STATUS_PLANNED]
+        if planned:
+            _note(
+                f"[gate] {len(planned)} plan(s) ready for review: {', '.join(planned)}"
+            )
+            _note("[gate] resume with --approve to run work")
+        _checkpoint()
+        return
     for tid in state:
         if state[tid]["status"] == STATUS_PLANNED:
-            state[tid]["status"] = STATUS_GATE_APPROVED
+            transition(state[tid], STATUS_GATE_APPROVED)
 
     # Track membership: task -> track_id (footprint-overlap tracks).
     track_of: dict[str, int] = {}
@@ -1200,6 +1594,10 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
             track_of[tid] = trk["track_id"]
 
     done: set[str] = {tid for tid, t in state.items() if t["status"] == STATUS_DONE}
+    # Tasks already re-run as FIX_UP. Guards the drift ping-pong: once a task
+    # has been reconciled (re-run after a drift pivot), a later sibling's
+    # completion must not re-pivot it forever (P1-1).
+    reconciled: set[str] = set()
     denied: list[str] = []  # FIFO of admissible-but-denied (no slot this pass)
     waves: list[list[str]] = []  # informational wave groupings (never barriers)
     run["_waves"] = waves
@@ -1208,10 +1606,14 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
         return all(d in done for d in state[tid]["deps"])
 
     while True:
-        # Admissible = gate-approved and all deps terminal-done.
+        # Admissible = gate-approved (or drift-pivoted FIX_UP) and all deps
+        # terminal-done. A FIX_UP task is re-admitted via the legal
+        # FIX_UP -> WORKING edge so a drift-pivoted task re-runs instead of
+        # stranding forever (P1-1).
         admissible = [
             tid for tid in state
-            if state[tid]["status"] == STATUS_GATE_APPROVED and deps_done(tid)
+            if state[tid]["status"] in (STATUS_GATE_APPROVED, STATUS_FIX_UP)
+            and deps_done(tid)
         ]
         # FIFO: oldest denied first, then fresh admissible.
         queue = denied + [tid for tid in admissible if tid not in denied]
@@ -1239,61 +1641,202 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
                 if t["status"] in (STATUS_FAILED, STATUS_TIMEOUT, STATUS_BLOCKED)
             }
             apply_skip_cascade(state, failed_ids)
+            _checkpoint()
             break  # nothing runnable; remaining tasks are dep-blocked
         waves.append(list(admitted))
-        # Evidence gate (hardening U4: R7) + retry guidance (R8). The driver
-        # may expose raw worker output via an optional `evidence(tid)` method;
-        # when present, `done` requires an evidence artifact and a `failure`
-        # carries a corrective fix hint. FakeDrivers without evidence() skip
-        # the gate, keeping the orchestrator loop contract intact.
+        _note(f"[wave {len(waves)}] admit: {', '.join(admitted)}")
+
         def _worker_output(tid: str) -> str | None:
             fn = getattr(driver, "evidence", None)
             return fn(tid) if callable(fn) else None
 
-        for tid in admitted:
+        def _prepare_isolation(tid: str) -> Path | None:
             t = state[tid]
-            # Full per-task loop: work -> qa -> lint -> done (hardening:
-            # QA and lint previously never executed — only work_phase was
-            # dispatched and tasks jumped straight to done). Each phase runs
-            # inline while the task holds its track slot; a failure at any
-            # phase halts the task (and via the frontier, cascades its
-            # dependents) the same way a work failure did.
-            t["status"] = STATUS_WORKING
+            trk_id = track_of[tid]
+            branch = track_branch_name(run["run_id"], trk_id)
+            t["track"] = trk_id
+            t["branch"] = branch
+            lock_path = None
+            if repo_root is not None:
+                lock_path = run_dir(repo_root, run["run_id"]) / "locks" / f"track-{trk_id}.lock"
+                lock_path.parent.mkdir(parents=True, exist_ok=True)
+                # Only set _track_lock when the lock is actually held, so
+                # _release_isolation never releases another owner's lock (P2-9).
+                if not acquire_lock(lock_path, f"task-{tid}"):
+                    # Track busy: park the task for a later pass instead of
+                    # running it concurrently on a held track.
+                    t["_track_lock"] = None
+                    return _LOCK_BUSY
+            t["_track_lock"] = str(lock_path) if lock_path else None
+            if repo_root is not None and _is_git_repo(repo_root):
+                wt = run_dir(repo_root, run["run_id"]) / "worktrees" / f"track-{trk_id}"
+                base = run.get("base_sha_snapshot") or "HEAD"
+                reused = wt.exists()
+                try:
+                    ensure_task_worktree(repo_root, wt, branch, base)
+                    # Reusing a worktree on a re-run task: reset it to the
+                    # branch tip so leftover partial edits from an interrupted
+                    # run don't leak into the fresh work (P1-5).
+                    if reused:
+                        reset_hard(wt, branch)
+                except Exception as exc:
+                    transition(t, STATUS_FAILED)
+                    t.setdefault("blockers", []).append(f"worktree: {exc}")
+                    _note(f"[work] {tid} FAILED: worktree {exc}")
+                    _checkpoint()
+                    if lock_path:
+                        release_lock(lock_path)
+                    return None
+                t["worktree_path"] = str(wt)
+                t["start_sha"] = base
+                set_cwd = getattr(driver, "set_task_cwd", None)
+                if callable(set_cwd):
+                    set_cwd(tid, wt)
+            set_ctx = getattr(driver, "set_task_context", None)
+            if callable(set_ctx):
+                prev_sha = run.get("base_sha_snapshot") or ""
+                for other in tracks:
+                    if other["track_id"] != trk_id:
+                        continue
+                    for mid in other["tasks"]:
+                        if mid == tid:
+                            break
+                        prev_sha = state[mid].get("end_sha") or prev_sha
+                set_ctx(
+                    tid,
+                    goal=t.get("goal") or "",
+                    branch=branch,
+                    plan_path=t.get("plan_path"),
+                    qa_diff_base=prev_sha,
+                )
+            return lock_path
+
+        def _release_isolation(tid: str) -> None:
+            lock_s = state[tid].pop("_track_lock", None)
+            if lock_s:
+                release_lock(lock_s)
+
+        def _capture_pgid(tid: str) -> None:
+            fn = getattr(driver, "task_pgid", None)
+            if callable(fn):
+                pgid = fn(tid)
+                if pgid:
+                    state[tid]["pgid"] = pgid
+
+        def _after_phase(tid: str, phase: str) -> None:
+            t = state[tid]
+            _capture_pgid(tid)
+            wt = t.get("worktree_path")
+            if wt and repo_root is not None:
+                if phase in ("qa", "lint"):
+                    sha = commit_uncommitted_fixes(wt, f"rosey-parallel {tid} {phase} fixes")
+                    if sha:
+                        t["end_sha"] = sha
+                if phase == "qa":
+                    relocate_qa_artifacts(
+                        wt, run_dir(repo_root, run["run_id"]) / "qa" / tid,
+                    )
+
+        def _run_admitted(tid: str) -> None:
+            # Guard against a raising driver: a thread exception must fail only
+            # that task (transition to FAILED + checkpoint), not abort the run
+            # without a checkpoint (P2-14).
+            try:
+                _run_admitted_inner(tid)
+            except Exception as exc:  # noqa: BLE001 - fail the task, keep the run
+                t = state[tid]
+                if t["status"] not in TERMINAL_STATUSES:
+                    try:
+                        reset_task_status(t, STATUS_FAILED)
+                    except StateError:
+                        t["status"] = STATUS_FAILED
+                t.setdefault("blockers", []).append(f"work: driver raised: {exc}")
+                _note(f"[work] {tid} FAILED: driver raised {exc}")
+                _checkpoint()
+
+        def _run_admitted_inner(tid: str) -> None:
+            t = state[tid]
+            if t["status"] == STATUS_FAILED:
+                return
+            transition(t, STATUS_WORKING)
+            _note(f"[work] {tid} working…")
             outcome = driver.work_phase(tid)
+            _capture_pgid(tid)
             raw = _worker_output(tid)
             if outcome == "done":
                 if raw is not None and not has_evidence(raw):
-                    # worker claims done but produced no evidence artifact
-                    t["status"] = STATUS_FAILED
+                    transition(t, STATUS_FAILED)
                     t["blockers"].append(
                         "work: done without evidence artifact"
                     )
+                    _note(f"[work] {tid} FAILED: done without evidence artifact")
                 else:
-                    # work passed its evidence gate -> QA
-                    t["status"] = STATUS_QA
+                    if raw:
+                        ho = extract_handoff(raw)
+                        t["touched_files"] = ho.get("files_changed") or []
+                        if ho.get("blockers"):
+                            t["blockers"].extend(ho["blockers"])
+                            transition(t, STATUS_BLOCKED)
+                            _note(f"[work] {tid} BLOCKED: handoff blockers")
+                            _checkpoint()
+                            return
+                        other_fps = [
+                            set(ot.get("touched_files") or ot.get("footprint") or [])
+                            for oid, ot in state.items()
+                            if oid != tid
+                        ]
+                        collisions = find_drift_collisions(
+                            set(t["touched_files"]), other_fps
+                        )
+                        if collisions:
+                            run.setdefault("warnings", []).append(
+                                "drift " + tid + ": " + ",".join(collisions)
+                            )
+                            for oid, ot in state.items():
+                                if oid == tid:
+                                    continue
+                                files = set(
+                                    ot.get("touched_files") or ot.get("footprint") or []
+                                )
+                                if ot["status"] == STATUS_DONE and files & set(collisions) and oid not in reconciled:
+                                    transition(ot, STATUS_FIX_UP)
+                                    # Prune from the frontier so dependents don't
+                                    # integrate against flagged work; the FIX_UP
+                                    # task is re-admitted and re-runs (P1-1).
+                                    done.discard(oid)
+                                    reconciled.add(oid)
+                    transition(t, STATUS_QA)
+                    _note(f"[work] {tid} done → qa")
                     outcome = driver.qa_phase(tid)
+                    _after_phase(tid, "qa")
                     if outcome != "done":
-                        t["status"] = STATUS_FAILED
+                        transition(t, STATUS_FAILED)
                         t["blockers"].append(
                             f"qa: {outcome} (expected terminal 'Review complete')"
                         )
+                        _note(f"[qa] {tid} FAILED: {outcome}")
                     else:
-                        # QA passed -> lint
-                        t["status"] = STATUS_LINT
+                        transition(t, STATUS_LINT)
+                        _note(f"[qa] {tid} pass → lint")
                         outcome = driver.lint_phase(tid)
+                        _after_phase(tid, "lint")
                         if outcome != "done":
-                            t["status"] = STATUS_FAILED
+                            transition(t, STATUS_FAILED)
                             t["blockers"].append(f"lint: {outcome} (expected LINT_STATUS: pass)")
+                            _note(f"[lint] {tid} FAILED: {outcome}")
                         else:
-                            t["status"] = STATUS_DONE
+                            transition(t, STATUS_DONE)
                             done.add(tid)
+                            _note(f"[lint] {tid} pass → done")
             elif outcome == "blocker":
-                t["status"] = STATUS_BLOCKED
+                transition(t, STATUS_BLOCKED)
                 t["blockers"].append("work: blocked")
+                _note(f"[work] {tid} BLOCKED")
             elif outcome == "timeout":
-                t["status"] = STATUS_TIMEOUT
+                transition(t, STATUS_TIMEOUT)
+                _note(f"[work] {tid} TIMEOUT")
             else:
-                t["status"] = STATUS_FAILED
+                transition(t, STATUS_FAILED)
                 if raw:
                     g = retry_guidance(raw)
                     t["blockers"].append(
@@ -1301,6 +1844,37 @@ def _run_execution(state, tracks, driver, run, max_parallel=4):
                     )
                 else:
                     t["blockers"].append("work: failed")
+                _note(f"[work] {tid} FAILED")
+            if t["status"] in TERMINAL_STATUSES:
+                _checkpoint()
+
+        runnable: list[str] = []
+        ran_any = False
+        for tid in admitted:
+            lock_path = _prepare_isolation(tid)
+            if lock_path is _LOCK_BUSY:
+                # Track lock held by another owner: park for a later pass.
+                denied.append(tid)
+                continue
+            if state[tid]["status"] == STATUS_FAILED:
+                continue
+            runnable.append(tid)
+        if runnable:
+            with _cf.ThreadPoolExecutor(max_workers=max_parallel) as _pool:
+                list(_pool.map(_run_admitted, runnable))
+            ran_any = True
+        for tid in admitted:
+            _release_isolation(tid)
+        if not ran_any:
+            # Nothing ran this pass (all admissible tasks were parked on a held
+            # track lock). Break to avoid an infinite re-admit/re-park loop
+            # (P2-9); the parked tasks stay GATE_APPROVED for a later resume.
+            break
+
+    # Final per-task status summary (option A).
+    for tid, t in state.items():
+        _note(f"[done] {tid}: {t['status']}")
+    _checkpoint()
 
 
 # ---------------------------------------------------------------------------
@@ -1341,7 +1915,10 @@ def run_parallel_verification(driver, integrated_tip: str | None) -> dict:
     with _cf.ThreadPoolExecutor(max_workers=len(verifiers)) as ex:
         for v, outcome in ex.map(_run, verifiers):
             results[v] = outcome
-    rejected = [v for v, r in results.items() if r != "pass"]
+    # A verifier driver "passes" on the harness success signal. interpret()
+    # returns "done" (not "pass"), so map done/pass interchangeably; anything
+    # else (failure/blocker/timeout) is a rejection.
+    rejected = [v for v, r in results.items() if r not in ("pass", "done")]
     return {
         "phase": "parallel_verification",
         "verifiers": results,
@@ -1423,7 +2000,9 @@ def integrate(repo_root, tracks, base_branch="develop", gates=None):
             "status": "success",
             "merged_tracks": merged,
             "integrated_tip": integrated_tip,
-            "leftover_worktrees": [integration_wt],
+            # Stringify the worktree path — a PosixPath leaks into the run
+            # record and crashes save_run's json.dumps.
+            "leftover_worktrees": [str(integration_wt)],
         }
     finally:
         # Remove the integration worktree and its branch if one was created.
@@ -1479,14 +2058,31 @@ class HarnessPhaseDriver:
     harness binary with the worker prompt and interprets the captured output.
     """
 
+    # Default per-phase deadline when the run does not set timeout_budget
+    # (P2-8): a hung worker must not hang the run forever.
+    DEFAULT_PHASE_TIMEOUT_S = 3600.0
+
     def __init__(self, name: str, repo_root: str | os.PathLike,
-                 run_id: str, prompt_builder=None) -> None:
-        self.harness = HarnessDriver.from_name(name)
+                 run_id: str, prompt_builder=None, model: str | None = None,
+                 timeout_budget: float | None = None) -> None:
+        self.harness = HarnessDriver.from_name(name, model=model)
         self.repo_root = Path(repo_root)
         self.run_id = run_id
+        self.timeout_budget = timeout_budget
         self._prompt_builder = prompt_builder or self._default_prompt
         self._outputs: dict[str, str] = {}
         self._plan_paths: dict[str, str] = {}
+        self._task_cwd: dict[str, Path] = {}
+        self._task_ctx: dict[str, dict] = {}
+        self._log_dir = run_dir(self.repo_root, run_id) / "logs"
+        self._log_dir.mkdir(parents=True, exist_ok=True)
+
+    def set_task_cwd(self, task_id: str, path: str | os.PathLike) -> None:
+        """Run this task's harness in a worktree instead of the main repo."""
+        self._task_cwd[task_id] = Path(path)
+
+    def set_task_context(self, task_id: str, **ctx) -> None:
+        self._task_ctx[task_id] = ctx
 
     def set_plan_path(self, task_id: str, path: str) -> None:
         """Record the plan file a task's planner produced (honored by work/qa/lint)."""
@@ -1496,8 +2092,9 @@ class HarnessPhaseDriver:
         """Return the plan file a task's planner wrote.
 
         Prefers an explicitly set path (via set_plan_path); otherwise derives
-        it from a `PLAN PATH: <path>` line in the planner's captured output,
-        matching the worker-prompt contract that plan emits its path.
+        it from the `PLAN PATH: <path>` line of the planner's
+        ROSEY_PLAN_HANDOFF envelope, which rosey-plan emits in
+        mode:non-interactive.
         """
         if task_id in self._plan_paths:
             return self._plan_paths[task_id]
@@ -1511,27 +2108,95 @@ class HarnessPhaseDriver:
         return None
 
     def _default_prompt(self, task_id: str, phase: str) -> str:
-        plan = self._plan_paths.get(task_id)
-        lines = [
-            f"You are a rosey worker running task {task_id!r} phase {phase!r} "
-            f"of run {self.run_id!r}. Follow the worker prompt contract.",
-        ]
-        if plan:
-            lines.append(f"PLAN PATH: {plan}")
-        return "\n".join(lines)
+        ctx = self._task_ctx.get(task_id, {})
+        plan = self._plan_paths.get(task_id) or ctx.get("plan_path") or ""
+        overrides = worker_overrides(ctx.get("branch") or "")
+        qa_base = ctx.get("qa_diff_base") or overrides.get("qa_diff_base") or ""
+        try:
+            template = load_worker_prompt()
+        except OSError:
+            template = (
+                "You are a rosey worker running one task of an epic inside a "
+                "pre-created worktree.\n\nTASK GOAL: {goal}\nPLAN PATH: {plan_path}\n"
+                "Phase: {phase}\n"
+            )
+        return template.format(
+            goal=ctx.get("goal", task_id),
+            plan_path=plan,
+            track_branch=ctx.get("branch") or overrides.get("branch") or "",
+            phase=phase,
+            qa_diff_base=qa_base,
+        )
 
     def _invoke(self, task_id: str, phase: str) -> str:
         """Run the harness, return the interpreted outcome string."""
         import subprocess as _sp
 
         prompt = self._prompt_builder(task_id, phase)
-        cmd = self.harness.launch_cmd(self.harness.name) + [prompt]
-        res = _sp.run(
-            cmd, capture_output=True, text=True, cwd=self.repo_root,
+        cmd = self.harness.launch_cmd() + [prompt]
+        cwd = self._task_cwd.get(task_id, self.repo_root)
+        # Apply a non-None default deadline when the run left timeout_budget
+        # unset, so a hung worker cannot hang the run forever (P2-8).
+        timeout = self.timeout_budget if self.timeout_budget is not None else self.DEFAULT_PHASE_TIMEOUT_S
+        try:
+            proc = _sp.Popen(
+                cmd, stdout=_sp.PIPE, stderr=_sp.STDOUT, text=True, cwd=cwd,
+                start_new_session=True,
+            )
+        except (OSError, FileNotFoundError) as exc:
+            # A missing binary or launch failure fails only this task, not the
+            # whole run (P2-7).
+            self._outputs[task_id] = ""
+            append_run_log(
+                self.repo_root, self.run_id,
+                f"[{phase}] {task_id}: launch failed: {exc}",
+            )
+            return "failure"
+        t = self._task_ctx.setdefault(task_id, {})
+        t["pgid"] = proc.pid
+        # Persist the pgid at spawn time so a crash mid-work can be reaped on
+        # resume (P1-4). kill_orphaned_process_groups reads these files; the
+        # in-memory _task_ctx pgid alone is lost on a crash before checkpoint.
+        pgid_dir = run_dir(self.repo_root, self.run_id) / "pgids"
+        pgid_dir.mkdir(parents=True, exist_ok=True)
+        # Sanitize the id into a filename-safe slug: task ids may contain
+        # separators (e.g. verify phases use `__verify__/<verifier>`), which
+        # would otherwise be misread as a nested directory and crash the pgid
+        # write after a successful spawn.
+        slug = task_id.replace("/", "_")
+        (pgid_dir / f"{slug}.pgid").write_text(str(proc.pid))
+        append_run_log(self.repo_root, self.run_id, f"[{phase}] {task_id} spawn pgid={proc.pid}")
+        try:
+            output, _ = proc.communicate(timeout=timeout)
+            returncode = proc.returncode
+        except _sp.TimeoutExpired:
+            import signal as _signal
+            try:
+                os.killpg(proc.pid, _signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            output, _ = proc.communicate()
+            self._outputs[task_id] = output or ""
+            append_run_log(self.repo_root, self.run_id, f"[{phase}] {task_id}: timeout")
+            return "timeout"
+        except (OSError, FileNotFoundError) as exc:
+            # communicate failure (e.g. the process died before reading) fails
+            # only this task (P2-7).
+            self._outputs[task_id] = ""
+            append_run_log(
+                self.repo_root, self.run_id,
+                f"[{phase}] {task_id}: communicate failed: {exc}",
+            )
+            return "failure"
+        self._outputs[task_id] = output or ""
+        outcome = self.harness.interpret(returncode, output or "")
+        append_run_log(
+            self.repo_root, self.run_id, f"[{phase}] {task_id}: {outcome}"
         )
-        output = (res.stdout or "") + (res.stderr or "")
-        self._outputs[task_id] = output
-        return self.harness.interpret(res.returncode, output)
+        return outcome
+
+    def task_pgid(self, task_id: str) -> int | None:
+        return self._task_ctx.get(task_id, {}).get("pgid")
 
     def plan_task(self, task_id: str) -> str:
         return self._invoke(task_id, "plan")
@@ -1563,15 +2228,44 @@ def _load_run_inputs(path: str) -> tuple[list[dict], dict]:
     return validate_inputs(tasks, options), options
 
 
+def _derive_footprints(tasks: list[dict]) -> dict:
+    """Derive per-task footprints from plan text / plan_path (P1-2).
+
+    A task with a ``plan_path`` pointing at a rosey plan file (or inline
+    ``plan_text``) yields its parsed file footprint; a task with no plan yet
+    (pre-planning) yields an empty footprint — a singleton track is the
+    correct default per R5. Without this, every task is a singleton track
+    and R2 track-serialization is never enforced in real runs.
+    """
+    footprints: dict[str, set] = {}
+    for t in tasks:
+        tid = t["id"]
+        plan_text = t.get("plan_text")
+        if not plan_text:
+            pp = t.get("plan_path")
+            if pp:
+                try:
+                    plan_text = Path(pp).read_text()
+                except OSError:
+                    plan_text = None
+        if plan_text:
+            files, _ = parse_footprint(plan_text)
+            footprints[tid] = files
+        else:
+            footprints[tid] = set()
+    return footprints
+
+
 def _cmd_run(argv: list[str]) -> int:
-    """run <inputs.json> [--resume <run-id>] [--max-parallel N]"""
+    """run <inputs.json> [--resume <run-id>] [--max-parallel N] [--approve]"""
     if not argv:
-        print("usage: rosey_parallel.py run <inputs.json> [--resume <run-id>]",
+        print("usage: rosey_parallel.py run <inputs.json> [--resume <run-id>] [--max-parallel N] [--approve]",
               file=sys.stderr)
         return 2
     inputs_path = argv[0]
     resume_id = None
-    max_parallel = 4
+    max_parallel = None
+    approve = False
     i = 1
     while i < len(argv):
         if argv[i] == "--resume" and i + 1 < len(argv):
@@ -1580,26 +2274,51 @@ def _cmd_run(argv: list[str]) -> int:
         elif argv[i] == "--max-parallel" and i + 1 < len(argv):
             max_parallel = int(argv[i + 1])
             i += 2
+        elif argv[i] == "--approve":
+            approve = True
+            i += 1
         else:
             i += 1
+    if approve and not resume_id:
+        print("--approve is only valid with --resume", file=sys.stderr)
+        return 2
     tasks, options = _load_run_inputs(inputs_path)
     repo_root = Path.cwd()
-    footprints = {
-        t["id"]: set(t.get("footprint") or []) for t in tasks
-    }
+    footprints = _derive_footprints(tasks)
     harness = options.get("harness")
     if not harness:
         harness = select_harness(
             None, lambda n: HarnessDriver.from_name(n).probe()
         )
+    if max_parallel is None:
+        max_parallel = int(options.get("max_parallel") or 4)
+    timeout_budget = options.get("timeout_budget")
+    if timeout_budget is not None:
+        timeout_budget = float(timeout_budget)
     run_id = resume_id or new_run_id()
-    driver = HarnessPhaseDriver(harness, repo_root, run_id)
+    driver = HarnessPhaseDriver(
+        harness, repo_root, run_id,
+        model=options.get("model"),
+        timeout_budget=timeout_budget,
+    )
     resume = load_run(repo_root, run_id) if resume_id else None
+    # Seed the driver's plan paths from the resumed state so work/qa/lint
+    # honor plans that already exist (e.g. a human-gate stop where the plans
+    # were reviewed and the tasks left PLANNED). Without this, a resume that
+    # skips re-planning would run work with no PLAN PATH in the prompt.
+    if resume:
+        for tid, t in resume["tasks"].items():
+            pp = t.get("plan_path")
+            if pp:
+                driver.set_plan_path(tid, pp)
+    # gate=False only on an explicit --approve resume; a fresh run or a plain
+    # resume stops after planning for the human gate.
+    gate = not approve
     run = orchestrate_run(
         repo_root, {t["id"]: t for t in tasks}, footprints, driver,
         base_branch=options.get("base_branch", "develop"),
         base_sha=options.get("base_sha"),
-        resume=resume, max_parallel=max_parallel,
+        resume=resume, max_parallel=max_parallel, gate=gate,
     )
     save_run(repo_root, run)
     print(json.dumps(run, indent=2, sort_keys=False))
@@ -1612,20 +2331,39 @@ def _cmd_scaffold(argv: list[str]) -> int:
         print("usage: rosey_parallel.py scaffold <inputs.json>", file=sys.stderr)
         return 2
     tasks, options = _load_run_inputs(argv[0])
-    harness = options.get("harness") or "pi"
-    driver = HarnessPhaseDriver(harness, Path.cwd(), new_run_id())
+    harness = options.get("harness")
+    if not harness:
+        harness = select_harness(
+            None, lambda n: HarnessDriver.from_name(n).probe()
+        )
+    driver = HarnessPhaseDriver(
+        harness, Path.cwd(), new_run_id(), model=options.get("model"),
+    )
     result = run_scaffold(driver, {t["id"]: t for t in tasks})
     print(json.dumps(result, indent=2, sort_keys=False))
     return 0
 
 
 def _cmd_verify(argv: list[str]) -> int:
-    """verify <integrated-tip>"""
+    """verify <integrated-tip> [--harness NAME]"""
     if not argv:
-        print("usage: rosey_parallel.py verify <integrated-tip>", file=sys.stderr)
+        print("usage: rosey_parallel.py verify <integrated-tip> [--harness NAME]", file=sys.stderr)
         return 2
-    driver = HarnessPhaseDriver("pi", Path.cwd(), new_run_id())
-    result = run_parallel_verification(driver, argv[0])
+    tip = argv[0]
+    harness = None
+    i = 1
+    while i < len(argv):
+        if argv[i] == "--harness" and i + 1 < len(argv):
+            harness = argv[i + 1]
+            i += 2
+        else:
+            i += 1
+    if not harness:
+        harness = select_harness(
+            None, lambda n: HarnessDriver.from_name(n).probe()
+        )
+    driver = HarnessPhaseDriver(harness, Path.cwd(), new_run_id())
+    result = run_parallel_verification(driver, tip)
     print(json.dumps(result, indent=2, sort_keys=False))
     return 0
 

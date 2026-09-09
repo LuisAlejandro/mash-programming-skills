@@ -40,7 +40,12 @@ All state transitions, validation, footprint parsing, sequencing, worktree ops, 
 .cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py --self-check
 
 # run an epic (loads run-inputs.json, orchestrates, saves state)
-.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py run run-inputs.json [--resume <run-id>] [--max-parallel N]
+# First invocation plans and STOPS at the human gate (tasks stay PLANNED).
+.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py run run-inputs.json [--max-parallel N]
+
+# After reviewing the plans, resume with --approve to run work/qa/lint.
+# A plain --resume (no --approve) re-stops at the gate and does NOT re-plan.
+.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py run run-inputs.json --resume <run-id> --approve [--max-parallel N]
 
 # scaffold phase only
 .cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py scaffold run-inputs.json
@@ -64,7 +69,7 @@ All state transitions, validation, footprint parsing, sequencing, worktree ops, 
 
 ## Resume
 
-Re-invoke with the same run id (`--resume <run-id>`). The helper loads recorded state, kills orphaned harness processes, re-runs missing planners, resets and relaunches the interrupted task, and skips completed tasks. Run state lives in gitignored `rosey/parallel/<run-id>/`.
+Re-invoke with the same run id (`--resume <run-id>`). The helper loads recorded state, kills orphaned harness processes, re-runs missing planners, resets and relaunches the interrupted task, and skips completed tasks. Run state lives in gitignored `rosey/parallel/runs/<run-id>/`; epic inputs live in tracked `rosey/parallel/epics/<slug>/run-inputs.json`.
 
 ## Worker prompt contract
 
@@ -73,3 +78,22 @@ The substrate-agnostic worker prompt plus phase-runner details are in [`referenc
 ## Harness drivers
 
 Selection is deterministic: explicit override first, else the highest-priority available via probe (pi → opencode → cursor-agent). Per-harness invocation shapes and signal verification are in the helper's driver layer (U6). No harness provides its own run timeout — the orchestrator enforces per-task budgets and kills/reaps process groups.
+
+## Logs
+
+The orchestrator writes exactly one file: `rosey/parallel/runs/<run-id>/logs/run.log` — a timestamped timeline of heartbeat and outcome lines. There are no per-task logs, no `summary.log`, and no `.out` redirect. Deep detail lives in the harness's own session store (see below). `pi` is launched **without** `--no-session` so its `.jsonl` session logs are retained.
+
+## Debugging a failed run
+
+Triage from the orchestrator log, then the harness session, then the plan and phase.
+
+1. Open `rosey/parallel/runs/<run-id>/logs/run.log`. Find the first `[plan]|[work]|[qa]|[lint]` line that is not `done`, and note `task id`, `phase`, and `pgid`.
+2. Load `rosey/parallel/runs/<run-id>/state.json`. Read that task's `plan_path`, `branch`, `worktree_path`, `status`, and `blockers`.
+3. Follow the harness that ran the worker:
+
+   - **pi** — session `.jsonl` under `~/.pi/agent/sessions/` (or `.pi/` in the repo). Match by start time near the `run.log` spawn line. Search the jsonl for `PLAN PATH`, `ROSEY_EVIDENCE`, and the last `agent_end`.
+   - **opencode** — session database (sqlite) under the opencode data dir. Query sessions by timestamp; inspect message/part rows for the task prompt and the final `text` event.
+   - **cursor-agent** — chat-store blobs for the agent CLI. Locate the conversation whose first user message contains the task goal / plan path; read the last assistant message for the handoff envelope.
+
+4. Flow: harness session → `plan_path` in state → failing phase in `run.log`. If work failed the evidence gate, the session will show a missing `ROSEY_EVIDENCE` body even when interpret looked successful. If a timeout, the `pgid` was killed; the session log stops mid-turn.
+

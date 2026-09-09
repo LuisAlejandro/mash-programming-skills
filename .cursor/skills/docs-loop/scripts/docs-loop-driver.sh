@@ -1,39 +1,31 @@
 #!/usr/bin/env bash
 #
-# docs-loop-driver.sh — run docs-loop as a real loop, no OMC required.
-#
-# Each pass invokes the Cursor agent non-interactively with the
-# docs-loop-iteration skill, which processes one repository. State lives on disk
-# (DOCS-LOOP-LEDGER.md), so every pass starts fresh and resumes from the last
-# recorded next repository. The loop stops when the ledger records every
-# repository as terminal (no PENDING or IN-PROGRESS rows remain).
+# docs-loop-driver.sh — iterative documentation audit/fix loop for ONE repository
+# (the workspace it is executed in). Each pass audits the documentation, applies
+# supported fixes in an isolated worktree, and records an outcome in the ledger.
+# The loop stops when the docs are fully updated and audited: two consecutive
+# clean passes (no actionable findings) -> SUCCESS, or a budget/failure cap.
+# On a terminal state the driver auto-integrates the deliverable into the local
+# default branch (commit -> merge -> lint gate -> advance), local-only, no push.
 #
 # Usage:
-#   docs-loop-driver.sh [--max-iterations=N] [--agent=AGENT] \
-#       [--workspace=PATH] [--model=MODEL] [--root=PATH | REPO_PATH ...]
+#   docs-loop-driver.sh [--max-iterations=N] [--clean-passes=N]
+#                       [--failure-limit=N] [--agent=AGENT] [--workspace=PATH]
+#                       [--model=MODEL] [--dry-run]
 #
-# Options:
-#   --max-iterations=N     Hard cap on passes (default: 50)
-#   --agent=AGENT          Agent binary to invoke (default: cursor-agent)
-#   --workspace=PATH       Workspace root (default: current directory)
-#   --model=MODEL          Optional model override passed to the agent
-#   --dry-run              Print the agent command without running it
-#
-# The agent always runs unattended (--yolo --trust): it executes in a shell the
-# user cannot see or answer, so any approval prompt would hang the run.
-#
-# State always lives under <workspace>/rosey/loops/docs/.
-#
-# The remaining text is the repository path list (or empty for the current repo).
+# State lives under <workspace>/rosey/loops/docs/. Re-invoking resumes from the
+# recorded state unless the run is terminal (then it only integrates).
 
 set -euo pipefail
 
-# ---- defaults -------------------------------------------------------------
 STATE_DIR="rosey/loops/docs"
-MAX_ITERATIONS=50
+MAX_ITERATIONS=12
+CLEAN_PASSES=2
+FAILURE_LIMIT=3
 AGENT="opencode"
 WORKSPACE="$(pwd)"
 MODEL=""
+DEFAULT_OPENCODE_MODEL="opencode/deepseek-v4-flash"
 DRY_RUN=0
 
 # ---- parse leading options ------------------------------------------------
@@ -41,6 +33,8 @@ REPO_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --max-iterations=*) MAX_ITERATIONS="${1#*=}" ;;
+    --clean-passes=*) CLEAN_PASSES="${1#*=}" ;;
+    --failure-limit=*) FAILURE_LIMIT="${1#*=}" ;;
     --agent=*) AGENT="${1#*=}" ;;
     --workspace=*) WORKSPACE="${1#*=}" ;;
     --model=*) MODEL="${1#*=}" ;;
@@ -52,49 +46,37 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-# Validate numeric options.
-if ! [[ "$MAX_ITERATIONS" =~ ^[1-9][0-9]*$ ]]; then
-  echo "error: --max-iterations must be a positive integer (got '$MAX_ITERATIONS')" >&2
-  exit 2
-fi
+for v in "$MAX_ITERATIONS" "$CLEAN_PASSES" "$FAILURE_LIMIT"; do
+  if ! [[ "$v" =~ ^[1-9][0-9]*$ ]]; then
+    echo "error: numeric options must be positive integers (got '$v')" >&2
+    exit 2
+  fi
+done
 
-# Resolve state dir relative to the workspace.
 STATE_DIR_ABS="$WORKSPACE/$STATE_DIR"
 LEDGER="$STATE_DIR_ABS/DOCS-LOOP-LEDGER.md"
 
 # ---- terminal-state detection ---------------------------------------------
-# The ledger records one row per repository with a Status. The loop is done when
-# no row is PENDING or IN-PROGRESS. We also read the run result line.
+# Terminal when the ledger's last result line is a stop state (the iteration
+# skill writes IN-PROGRESS otherwise).
 terminal_state() {
   [[ -f "$LEDGER" ]] || return 1
-  # Any row still PENDING or IN-PROGRESS means the loop continues.
-  if grep -Eq '^\|\s*[0-9]+\s*\|.*\|\s*(PENDING|IN-PROGRESS)\s*\|' "$LEDGER"; then
-    return 1
-  fi
-  # No pending rows: report the run result if present.
   local result
   result="$(grep -E '^- result: ' "$LEDGER" | tail -n 1 || true)"
   case "$result" in
-    *SUCCESS*|*BLOCKED*|*PARTIAL*) echo "$result" ;;
-    *) echo "all repositories terminal" ;;
+    *SUCCESS*|*BUDGET*|*BLOCKED*|*ERROR*) echo "$result" ;;
+    *) return 1 ;;
   esac
 }
 
 # ---- build the agent invocation -------------------------------------------
-# Docs-loop runs fully unattended; every agent must execute without approval
-# prompts (cursor-agent: --yolo/--trust; opencode: --auto).
-DEFAULT_OPENCODE_MODEL="opencode/deepseek-v4-flash"
-
 build_cmd() {
   if [[ "$AGENT" == "opencode" ]]; then
     local skill_md
     skill_md="$(cd "$(dirname "$0")/../.." && pwd)/docs-loop-iteration/SKILL.md"
     local model="${MODEL:-$DEFAULT_OPENCODE_MODEL}"
-    local prompt="Run the docs-loop-iteration skill by reading and following ${skill_md} completely. Working directory is the repository to audit."
-    if [[ ${#REPO_ARGS[@]} -gt 0 ]]; then
-      prompt+=" Repositories: ${REPO_ARGS[*]}"
-    fi
-    # opencode has no --workspace flag; run inside the workspace dir.
+    local prompt="Run the docs-loop-iteration skill by reading and following ${skill_md} completely. Working directory is the repository whose documentation is audited."
+    prompt+=" --max-iterations=$MAX_ITERATIONS --clean-passes=$CLEAN_PASSES --failure-limit=$FAILURE_LIMIT"
     printf 'cd %q && opencode run --model %q --auto %q\n' "$WORKSPACE" "$model" "$prompt"
     return 0
   fi
@@ -104,49 +86,28 @@ build_cmd() {
   [[ -n "$MODEL" ]] && cmd+=(--model "$MODEL")
   cmd+=(--yolo --trust)
   cmd+=(-- "docs-loop-iteration")
-  if [[ ${#REPO_ARGS[@]} -gt 0 ]]; then
-    cmd+=("--" "${REPO_ARGS[@]}")
-  fi
+  cmd+=("--max-iterations=$MAX_ITERATIONS" "--clean-passes=$CLEAN_PASSES" "--failure-limit=$FAILURE_LIMIT")
   printf '%q ' "${cmd[@]}"
 }
 
-# ---- run ------------------------------------------------------------------
-echo "docs-loop-driver: workspace=$WORKSPACE state=$STATE_DIR_ABS"
-if [[ ${#REPO_ARGS[@]} -gt 0 ]]; then
-  echo "docs-loop-driver: repos=${REPO_ARGS[*]}"
-else
-  echo "docs-loop-driver: repos=<current repository>"
-fi
-echo "docs-loop-driver: max_iterations=$MAX_ITERATIONS"
-echo
-
 # ---- automatic integration (rosey-parallel style) --------------------------
-# After a terminal state, commit the deliverable in its worktree, merge it into
-# the local default branch, gate with repo lint, and advance the default branch.
-# Local-only: no push, no PR. On conflict or gate failure the deliverable is
-# preserved and the default branch is not moved.
 DEFAULT_BRANCH="$(cd "$WORKSPACE" && (git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#origin/##' || echo develop))"
 
 loop_integrate() {
-  local row branch worktree base
-  row="$(grep -E '^\|\s*[0-9]+\s*\|' "$LEDGER" | head -1)"
-  [[ -z "$row" ]] && { echo "docs-loop-driver: integrate: no repository row; skipped"; return 0; }
-  # Table: | # | path | remote | default branch | base commit | branch | worktree | status | deliverable |
-  branch="$(printf '%s\n' "$row" | awk -F'|' '{gsub(/^ +| +$/, "", $7); print $7}')"
-  worktree="$(printf '%s\n' "$row" | awk -F'|' '{gsub(/^ +| +$/, "", $8); print $8}')"
-
+  local branch worktree
+  branch="$(grep -E '^\s*- integration branch: ' "$LEDGER" | tail -1 | sed 's/.*: //' | tr -d '` ')"
+  worktree="$(grep -E '^\s*- integration worktree: ' "$LEDGER" | tail -1 | sed 's/.*: //' | tr -d '` ')"
   if [[ -z "$branch" || -z "$worktree" || ! -e "$worktree/.git" ]]; then
-    echo "docs-loop-driver: integrate: deliverable worktree/branch not found; skipped"
+    echo "docs-loop-driver: integrate: no committed worktree markers found; skipped"
+    return 0
+  fi
+  if [[ "$(git -C "$WORKSPACE" rev-list --count "origin/$DEFAULT_BRANCH".."$branch" 2>/dev/null || echo 0)" == "0" ]]; then
+    echo "docs-loop-driver: integrate: no commits ahead of default branch; nothing to integrate"
     return 0
   fi
 
-  echo "docs-loop-driver: integrate: committing deliverable in $worktree"
-  (cd "$worktree" && git add -A && git -c user.name=rosey -c user.email=rosey@local \
-    commit -m "docs: apply docs-loop audit fixes" >/dev/null 2>&1) || true
-
   local int_wt="$WORKSPACE/rosey/loops/docs/integration"
   git -C "$WORKSPACE" worktree remove --force "$int_wt" 2>/dev/null || true
-  # Merge against the latest default-branch tip, then advance the local ref.
   git -C "$WORKSPACE" fetch origin "$DEFAULT_BRANCH" >/dev/null 2>&1 || true
   if ! git -C "$WORKSPACE" worktree add --detach "$int_wt" "origin/$DEFAULT_BRANCH" >/dev/null 2>&1; then
     echo "docs-loop-driver: integrate: cannot create integration worktree" >&2
@@ -178,16 +139,18 @@ loop_integrate() {
   git -C "$WORKSPACE" branch -f "$DEFAULT_BRANCH" "$tip"
   git -C "$WORKSPACE" worktree remove --force "$int_wt" 2>/dev/null || true
   echo "docs-loop-driver: integrate: OK — local '$DEFAULT_BRANCH' advanced to $(git -C "$WORKSPACE" rev-parse --short "$DEFAULT_BRANCH")"
-
-  # Deliverable merged: clean up the worktree and its branch.
   git -C "$WORKSPACE" worktree remove --force "$worktree" 2>/dev/null && \
     git -C "$WORKSPACE" branch -D "$branch" 2>/dev/null || true
 }
 
+# ---- run ------------------------------------------------------------------
+echo "docs-loop-driver: workspace=$WORKSPACE state=$STATE_DIR_ABS"
+echo "docs-loop-driver: max_iterations=$MAX_ITERATIONS clean_passes=$CLEAN_PASSES failures=$FAILURE_LIMIT"
+echo
+
 iteration=0
+continue_flag=0
 while true; do
-  # Check for a terminal state in the ledger before running. This catches a
-  # pre-existing terminal state and the result of the previous pass.
   if result="$(terminal_state)"; then
     echo
     echo "docs-loop-driver: terminal state reached: $result"
@@ -203,16 +166,20 @@ while true; do
   fi
 
   echo "=== pass $iteration ($(date -u +%Y-%m-%dT%H:%M:%SZ)) ==="
+  if [[ $continue_flag -eq 1 ]]; then
+    echo "  resuming existing run"
+  else
+    echo "  starting fresh"
+  fi
 
   cmd="$(build_cmd)"
   if [[ $DRY_RUN -eq 1 ]]; then
     echo "  [dry-run] $cmd"
+    continue_flag=1
     continue
   fi
 
-  # Run the agent. Non-zero exit is not fatal here: the ledger is the source of
-  # truth for whether the loop should continue.
   eval "$cmd" || echo "  agent exited with status $? (continuing based on ledger)" >&2
-
+  continue_flag=1
   echo
 done

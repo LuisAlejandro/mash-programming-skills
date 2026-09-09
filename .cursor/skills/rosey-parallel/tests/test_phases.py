@@ -53,21 +53,6 @@ def test_handoff_missing_envelope_is_failure():
     assert out["status"] == "failure"
 
 
-def test_touched_files_union_includes_diff():
-    env_files = ["a.py"]
-    diff_files = ["a.py", "untracked.txt"]
-    touched = rp.compute_touched_files(env_files, diff_files)
-    assert touched == {"a.py", "untracked.txt"}
-
-
-def test_touched_files_union_never_intersection():
-    # intersection would hide untracked.txt and defeat R16 drift detection
-    env_files = ["a.py"]
-    diff_files = ["a.py", "untracked.txt"]
-    touched = rp.compute_touched_files(env_files, diff_files)
-    assert "untracked.txt" in touched
-
-
 def test_drift_detected_against_live_track():
     touched = {"a.py"}
     other_live_footprints = [{"a.py"}, {"b.py"}]

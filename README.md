@@ -24,7 +24,7 @@ ROSEY_AGENTIC_ENV=/Users/luisalejandro/Development/rosey-agentic-env \
 ### What the installer does:
 1. Downloads the latest rules and skills from this repository.
 2. Creates and populates the `.cursor/rules` and `.cursor/skills` folders in your target repository, plus per-IDE skill/agent trees for VS Code/Copilot (`.github/…`), OpenCode (`.opencode/…`), and Pi (`.pi/…`).
-3. Automatically updates your `.gitignore` to keep Rosey-local artifacts out of version control: `.cursor/`, `.opencode/`, `.pi/`, `rosey/brainstorms/`, `rosey/plans/`, `rosey/designs/`, `rosey/solutions/`, `rosey/insights/`, `rosey/design-system/`, `rosey/qa/`, `rosey/deepening/`, `rosey/agentic-env.json`, and `rosey/maintainer-manifest.json`.
+3. Automatically updates your `.gitignore` to keep Rosey-local artifacts out of version control: `.cursor/`, `.opencode/`, `.pi/`, `rosey/brainstorms/`, `rosey/plans/`, `rosey/designs/`, `rosey/solutions/`, `rosey/insights/`, `rosey/design-system/`, `rosey/qa/`, `rosey/parallel/`, `rosey/deepening/`, `rosey/loops/`, `rosey/ideation/`, `rosey/agentic-env.json`, and `rosey/maintainer-manifest.json`.
 4. Creates `rosey/agentic-env.json` so orchestrators can detect the installed version.
 5. Always writes agent guidance (overwrites on each install unless `--no-agents`):
    - Default: minimal `AGENTS.md` with IDE-conditional paths for Cursor (`.cursor/…`), VS Code / Copilot (`.github/…`, `.vscode/…`), OpenCode (`.opencode/…`), and Pi (`.pi/…`).
@@ -34,7 +34,7 @@ ROSEY_AGENTIC_ENV=/Users/luisalejandro/Development/rosey-agentic-env \
 6. Seeds `rosey-design-candidates` skill `.env` from `.env.example` using `CURSOR_API_KEY` in `rosey-agentic-env/.env` (never overwrites an existing skill `.env`).
 7. Seeds MCP configs from `.cursor/mcp.json.example`, substituting `GITHUB_TOKEN` and `OBSIDIAN_API_KEY` from `rosey-agentic-env/.env`: `.cursor/mcp.json` (Cursor), `.vscode/mcp.json` (VS Code), `.opencode/mcp.json` (OpenCode, `mcp.servers` with `type: local|remote`), and `.pi/settings.json` (Pi, `mcp.servers` merged into existing settings). The example is tracked; seeded files stay local (gitignored).
 8. Installs machine-once host CLIs when missing (macOS, Debian/Ubuntu, Windows WSL): git, make, curl, rsync, jq, rg, gh, uv, gitchangelog, bumpversion, git-flow, Sentrux, and Hindsight. Skips any command already on PATH. Linux/WSL uses apt only (not Homebrew). jq, rg, and gh are GitHub release binaries, not distro packages. In each target git repo: `git flow init -d` when git-flow is not initialized (skipped on live-homes), and local `user.signingkey` from global config or the sole GPG secret key. Prints an inventory of tools it does not install (Docker, GPG, …).
-9. Installs the `pi-subagents` extension once when the `pi` CLI is present (`pi install npm:pi-subagents`), enabling the `.pi/agents/` tree. Skipped if `pi` is absent or the extension is already installed.
+9. Installs the Pi extensions once when the `pi` CLI is present: `pi-subagents` (`pi install npm:pi-subagents`), `pi-mcp-adapter` (`pi install npm:pi-mcp-adapter`), and `pi-ask-user` (`pi install npm:pi-ask-user`). Skipped if `pi` is absent or each extension is already installed. `pi-subagents` enables the `.pi/agents/` tree.
 
 ## Updating the environment
 To update the rules and skills in a target repository, simply run the install command again. It will overwrite the `.cursor` files with the latest versions from the remote repository.

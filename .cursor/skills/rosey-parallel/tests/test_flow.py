@@ -60,7 +60,26 @@ def test_parallel_verification_rejection_surfaces():
     assert result["rejected"] == ["test_runner"]
 
 
+def test_parallel_verification_done_counts_as_pass():
+    # interpret() returns "done", not "pass", so a real harness verifier
+    # would be misread as rejected and re-run forever. Both must count as ok.
+    driver = FakeFlowDriver(verify={"code_review": "done", "test_runner": "done", "architecture": "done"})
+    result = rp.run_parallel_verification(driver, "abc123")
+    assert result["passed"] is True
+    assert result["rejected"] == []
+
+
 def test_parallel_verification_consumes_integrated_tip():
     driver = FakeFlowDriver()
     rp.run_parallel_verification(driver, "integrated-tip-sha")
     assert all(e[2] == "integrated-tip-sha" for e in driver.log)
+
+
+def test_relocate_qa_artifacts(tmp_path):
+    wt = tmp_path / "wt"
+    (wt / "rosey" / "qa").mkdir(parents=True)
+    (wt / "rosey" / "qa" / "notes.md").write_text("qa\n")
+    dest = tmp_path / "run" / "qa" / "t1"
+    rp.relocate_qa_artifacts(wt, dest)
+    assert not (wt / "rosey" / "qa").exists()
+    assert (dest / "qa" / "notes.md").read_text() == "qa\n"
