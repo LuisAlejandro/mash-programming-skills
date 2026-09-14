@@ -41,18 +41,20 @@ Strip the mode token before resolving inputs. If no mode token is present, set `
 
 ## Prerequisites
 
+**Working directory:** cwd is this skill's directory (the folder that contains this `SKILL.md`).
+
 ```bash
 # OpenDesign CLI + daemon (start outside the git repo)
 (cd "${TMPDIR:-/tmp}" && opendesign --no-open &)
 curl -s http://127.0.0.1:7456/api/agents >/dev/null
 
 # Skill Python deps (screenshots)
-python3 -m venv .cursor/skills/rosey-design-candidates/.venv
-.cursor/skills/rosey-design-candidates/.venv/bin/pip install -r .cursor/skills/rosey-design-candidates/requirements.txt
-.cursor/skills/rosey-design-candidates/.venv/bin/playwright install chromium
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/playwright install chromium
 ```
 
-Optional: copy `.cursor/skills/rosey-design-candidates/.env.example` to `.env` in that skill folder and set `CURSOR_API_KEY` if OpenDesign runs need it (loaded by `opendesign_client.py`; never commit `.env`).
+Optional: copy `.env.example` to `.env` in this skill directory and set `CURSOR_API_KEY` if OpenDesign runs need it (loaded by `opendesign_client.py`; never commit `.env`).
 
 Repo must already have a published design system, or run **`rosey-design-system`** first so:
 
@@ -97,11 +99,10 @@ Also write the brief to a temp or page file, e.g. `rosey/designs/<page-slug>/can
 
 ```bash
 REPO="$(git rev-parse --show-toplevel)"
-PYTHON="${REPO}/.cursor/skills/rosey-design-candidates/.venv/bin/python"
+PYTHON=".venv/bin/python"
 # fallback: python3 if venv missing and deps installed
 
-cd "${REPO}/.cursor/skills/rosey-design-candidates/scripts"
-"${PYTHON}" generate_candidates.py \
+"${PYTHON}" scripts/generate_candidates.py \
   --repo-root "${REPO}" \
   --page-slug "<page-slug>" \
   --brief-file "${REPO}/rosey/designs/<page-slug>/candidates/brief.txt" \
@@ -135,8 +136,7 @@ END_DESIGN_CANDIDATES_HANDOFF
 After the user chooses `vN`:
 
 ```bash
-cd "${REPO}/.cursor/skills/rosey-design-candidates/scripts"
-"${PYTHON}" select_winner.py \
+"${PYTHON}" scripts/select_winner.py \
   --repo-root "${REPO}" \
   --page-slug "<page-slug>" \
   --variation N
@@ -147,8 +147,7 @@ Copies into `rosey/designs/<page-slug>/source/index.html` (and preview.png when 
 ## Tests
 
 ```bash
-.cursor/skills/rosey-design-candidates/.venv/bin/python -m pytest \
-  .cursor/skills/rosey-design-candidates/tests -q
+.venv/bin/python -m pytest tests -q
 ```
 
 ## Downstream

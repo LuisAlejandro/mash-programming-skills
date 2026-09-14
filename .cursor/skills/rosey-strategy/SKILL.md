@@ -6,7 +6,7 @@ argument-hint: "[optional: section to revisit, e.g. 'metrics' or 'approach']"
 
 # Product Strategy
 
-**The current year is 2026** - use it when dating the document.
+Use the current calendar year when dating the document.
 
 `rosey-strategy` writes and maintains its part of `rosey/foundation/STRATEGY.md` - the canonical project document that captures what the project is, who it serves, how it succeeds, and where the team is investing. The file is shared with other tools and people; this skill owns only the sections `references/strategy-template.md` names. `rosey-product-pulse` reads it when it exists for the product name and key metrics. Its frontmatter keys and this skill's section headings are the contract those skills parse - keep them for every section this skill authors; a meaning an existing section already carries is merged into it (`references/update-run.md`).
 

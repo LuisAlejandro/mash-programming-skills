@@ -47,7 +47,7 @@ When tier is unclear, default to **Standard**.
 - **Rosey plans** — plan `Verification` / test scenarios satisfy goal-driven execution; implementation must trace to those checks, not invent a parallel vague "done."
 - **"Move fast" / "just do it"** during those four skills — still require assumptions + at least one verify line; brief can be shorter, not omitted (unless Trivial tier).
 - **Ask mode / read-only** — no Karpathy brief; no file edits.
-- **Caveman** — Karpathy brief uses normal concise prose; subsequent Rosey status may use caveman lite per `.cursor/rules/caveman.mdc`.
+- **Caveman** — Karpathy brief uses normal concise prose; subsequent Rosey status may use caveman lite per `caveman.mdc`.
 
 ## Proof of compliance
 

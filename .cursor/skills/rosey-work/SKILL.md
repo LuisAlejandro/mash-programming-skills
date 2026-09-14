@@ -1,7 +1,7 @@
 ---
 name: rosey-work
 description: Execute work efficiently while maintaining quality and finishing features
-argument-hint: "[Plan doc path or description of work. Blank to auto use latest plan doc]"
+argument-hint: "[Plan doc path. Blank uses latest software plan in rosey/plans/]"
 ---
 
 # Rosey Work
@@ -12,9 +12,20 @@ Execute implementation work efficiently while maintaining quality.
 
 **Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors and code unchanged. Drop lite only for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or when the user asks for normal or long-form wording.
 
+## Rosey gates
+
+Always-on rules; full procedures live in those guidelines — do not duplicate them here.
+
+1. **Hindsight** before research or implementation — always-on Hindsight guideline; CLI in [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
+2. **Karpathy brief** before the first code edit
+3. **Ponytail ladder** before adding abstractions or dependencies
+4. **Docker-via-Make** for app commands and tooling
+
+See also the always-on Rosey workflow-gates guideline.
+
 ## Introduction
 
-This command executes a plan, specification, or bare prompt. It completes implementation by reading requirements quickly, following existing patterns, and maintaining quality.
+This command executes a plan. It completes implementation by reading the plan's decisions, following existing patterns, and maintaining quality. It does not decide what to build — `rosey-brainstorm` settles WHAT and `rosey-plan` settles HOW.
 
 ## Interaction Mode
 
@@ -35,19 +46,28 @@ This skill follows the Rosey-native work workflow with Rosey Sentrux and handoff
 
 - For app repos, implement on a git-flow `feature/<slug>` branch. **Default:** new plan → new branch from `develop`. Continue on the current branch only when the plan slug matches, the plan explicitly extends that branch, or the user confirms carryover in interactive mode.
 - `rosey-work` does **not** own QA, PR creation, merge, or release. Those belong downstream to `rosey-qa`, `rosey-pr`, auto-merge workflows, and `rosey-release`.
-- Read [`rosey-sentrux`](../rosey-sentrux/SKILL.md) when a plan has a topology artifact or when executing a `rosey-plan` plan.
+- If Sentrux MCP is available, run the work session for every plan. If a topology baseline exists, compare against it. If none exists, still use session start/end when available and record that no baseline comparison occurred. If Sentrux is unavailable, do not block. If `session_end` fails, follow the remediation and override procedure in [`rosey-sentrux`](../rosey-sentrux/SKILL.md).
 - Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) before substantive implementation so cross-session memory can inform the work.
-- Recall relevant Hindsight context before the first implementation task; retain durable discoveries during work and a session summary at handoff.
-- If Hindsight is unavailable or not configured, continue implementation and record `HINDSIGHT: unavailable` in the handoff envelope.
+- Phase 0.0 is the one required Hindsight recall. Fold that result into Phase 1; do not recall again unless plan resolution was deferred (see `references/work-intake.md`). Retain durable discoveries during work and a session summary at handoff.
+- If Hindsight is unavailable or not configured, continue implementation and record `HINDSIGHT: unavailable -- <reason>` in the handoff envelope.
 - Track a deduped `FILES_CHANGED` list of every file created or modified during execution. Use repo-relative paths.
 - Before executing each task, run a path pre-pass against the task's declared file paths and block if a required path is outside the current project context or is missing unexpectedly.
 - Do not execute prose-documentation, optional, report, summary, or retrospective tasks. Deployment manifests, config maps, secrets/config patches, and other platform/GitOps artifacts are implementation work and must not be filtered as documentation.
 - Do not invent test infrastructure. Author or run automated tests only when a configured test runner already exists for the touched repo, or when the user explicitly asks for test setup.
+- When the origin or plan says OpenDesign visual parity is aligned, implement remaining functionality only. Do not rerun `rosey-implement-design`; use the design iterator only when a visual-parity review identifies a discrepancy.
 - After implementation completes, invoke [`rosey-lint`](../rosey-lint/SKILL.md), prepare the Sentrux review brief, and stop with handoff context. Do not invoke `rosey-qa` or `rosey-pr`.
 
 ## Input Document
 
 <input_document> #$ARGUMENTS </input_document>
+
+Accepted input is only:
+
+1. A software plan from `rosey-plan`.
+2. A plan path from a handoff or session context.
+3. Blank input → the latest software plan in `rosey/plans/` (see intake step 0 in `references/work-intake.md`).
+
+A plan path is required. Do not implement from a prose description, a requirements document, or a prompt. After stripping `mode:`, blank input uses the latest software plan.
 
 ## Execution Workflow
 
@@ -55,7 +75,7 @@ This skill follows the Rosey-native work workflow with Rosey Sentrux and handoff
 
 1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
 2. Run `hindsight-embed daemon status` (prepend `~/.local/bin` to PATH; see [`rosey-hindsight`](../rosey-hindsight/SKILL.md))
-3. Run `memory recall` OR emit `Hindsight: unavailable — <reason>` before any file edits
+3. Run `memory recall` OR emit `Hindsight: unavailable (<reason>)` before any file edits. First status line: `Hindsight: recalled (<brief useful context>)` or `Hindsight: unavailable (<reason>)`.
 4. At handoff: `memory retain` session summary OR document why retain was skipped
 
 Do not proceed to Phase 0 triage or Phase 1 until step 3 completes.
@@ -70,7 +90,7 @@ Phases run in order. Phase 0.0 above gates everything.
 
 | Phase | Read first | What only those files carry |
 |---|---|---|
-| 0 — triage; 1 — plan read, branch, tasks, strategy | `references/work-intake.md` | bare-prompt scan and complexity routing; how to size the plan read and which contract sections to carry; the branch hard gate, slug derivation, and plan↔branch alignment; the pre-work WIP inventory and the dirty-file collision rule; task derivation and naming; inline vs serial dispatch and the subagent receipt contract |
+| 0 — triage; 1 — plan read, branch, tasks, strategy | `references/work-intake.md` | plan resolution and the no-plan stop; how to size the plan read and which contract sections to carry; the branch hard gate, slug derivation, and plan↔branch alignment; the pre-work WIP inventory and the dirty-file collision rule; task derivation and naming; inline vs serial dispatch and the subagent receipt contract |
 | 2 — execute | `references/implementation-loop.md` | the task loop and idempotency check; out-of-repo completion signals; evidence strategy and execution-posture guardrails; test discovery, the runner prerequisite, scenario completeness, and the system-wide test check; incremental commits and path-limiting; simplify-as-you-go |
 | 3 — handoff | `references/handoff.md` | the `rosey-lint` gate and `LINT_HANDOFF` parsing; the plan's Verification Contract; the Sentrux gate and review brief; Hindsight retain; the Definition of Done final check; the `ROSEY_WORK_HANDOFF` envelope and the `ROSEY_EVIDENCE` artifact |
 
@@ -81,7 +101,7 @@ Phases run in order. Phase 0.0 above gates everything.
 ### Start Fast, Execute Faster
 
 - Get clarification once at the start, then execute
-- Don't wait for perfect understanding - ask questions and move
+- Clarify once at intake when the plan is ambiguous. After the plan is understood, execute without reopening settled decisions.
 - The goal is to **finish the feature**, not create perfect process
 
 ### The Plan is Your Guide
@@ -92,9 +112,9 @@ Phases run in order. Phase 0.0 above gates everything.
 
 ### Test As You Go
 
-- Run tests after each change, not at the end
+- Run the Phase 1 resolved command after each change (`make test` / `make lint` when those targets exist), not at the end
 - Fix failures immediately
-- Continuous testing prevents big surprises
+- Continuous testing prevents big surprises. Full `rosey-lint` still runs at Phase 3.
 
 ### Quality is Built In
 
@@ -119,4 +139,5 @@ Phases run in order. Phase 0.0 above gates everything.
 - **80% done syndrome** - Finish the feature, don't move on early
 - **Skipping handoff context** - `rosey-qa` needs the plan, changed files, implementation summary, and Sentrux context
 - **Branch carryover** - A meaningful branch name for a prior plan (e.g. `feature/seo-phase-1`) is not permission to implement a new plan on it. Match plan slug or get explicit carryover confirmation before editing
-- **Re-scoping the plan into human-time phases** - The plan's Implementation Units define the scope of execution. Do not estimate human-hours per unit, propose multi-day breakdowns, or ask the user to pick a subset of units for "this session". Agents execute at agent speed, and context-window pressure is addressed by serial subagent dispatch, not by phased sessions. If a plan-file input is genuinely too large for a single execution, say so plainly and suggest the user return to `/rosey-plan` to reduce scope, or hand the epic to `rosey-parallel` — don't invent session phases as a workaround. For bare-prompt input, Phase 0's Large routing already handles oversized work
+- **Implementing without a plan** - A prose description of work is not an input. Resolve a plan from the argument, a blank-input latest software plan, the handoff, or the session, or stop per Phase 0
+- **Re-scoping the plan into human-time phases** - The plan's Implementation Units define the scope of execution. Do not estimate human-hours per unit, propose multi-day breakdowns, or ask the user to pick a subset of units for "this session". Agents execute at agent speed, and context-window pressure is addressed by serial subagent dispatch, not by phased sessions. If a plan is genuinely too large for a single execution, say so plainly and suggest the user return to `/rosey-plan` to reduce scope, or hand the epic to `rosey-parallel` — don't invent session phases as a workaround

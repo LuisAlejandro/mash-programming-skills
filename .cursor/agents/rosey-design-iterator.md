@@ -38,8 +38,10 @@ Default (no non-interactive token): follow existing interactive behavior.
 
 ## Baseline server (start once)
 
+From the `rosey-implement-design` skill directory:
+
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/serve-artifact.js \
+node scripts/serve-artifact.js \
   --html <htmlPath> [--assets-dir <assetsDir>] --port 0 --background \
   --state-file rosey/designs/<page-slug>/review/baseline-server.json \
   --pid-file rosey/designs/<page-slug>/review/baseline-server.pid
@@ -55,7 +57,7 @@ For each cycle until aligned, `maxCycles`, or user input required:
 2. **Validate cycle** (machine gate — do not skip):
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/validate-iteration-cycle.js \
+node scripts/validate-iteration-cycle.js \
   --project-root <projectRoot> --page-slug <pageSlug> --cycle <N>
 ```
 
@@ -64,7 +66,7 @@ node .cursor/skills/rosey-implement-design/scripts/validate-iteration-cycle.js \
 5. Validate sync report:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/validate-agent-report.js \
+node scripts/validate-agent-report.js \
   --type sync --report rosey/designs/<page-slug>/review/cycle-N-sync-report.json
 ```
 
@@ -73,20 +75,20 @@ node .cursor/skills/rosey-implement-design/scripts/validate-agent-report.js \
 ## Final gates (required before `status: aligned`)
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/validate-implementation-state.js \
+node scripts/validate-implementation-state.js \
   --project-root <projectRoot> \
   --page-slug <pageSlug> \
   --require-checklist-complete \
   --require-aligned
 
-node .cursor/skills/rosey-implement-design/scripts/validate-agent-report.js \
+node scripts/validate-agent-report.js \
   --type iterator --report rosey/designs/<page-slug>/review/iterator-report.json
 ```
 
 Stop baseline server:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/stop-baseline-server.js \
+node scripts/stop-baseline-server.js \
   --pid-file rosey/designs/<page-slug>/review/baseline-server.pid \
   --state-file rosey/designs/<page-slug>/review/baseline-server.json
 ```

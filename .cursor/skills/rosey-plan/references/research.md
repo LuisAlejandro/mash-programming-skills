@@ -15,7 +15,7 @@ For Standard and Deep, prepare a concise planning context summary (a paragraph o
 - If `STRATEGY.md` exists, read it and include the relevant pieces (target problem, approach, active tracks) in the summary so downstream research and planning decisions are anchored to product strategy
 - If `CONCEPTS.md` exists at the repo root, read it — its definitions are the canonical names for domain entities, named processes, and status concepts. Plan in those terms rather than synonyms.
 
-Before dispatching local research agents, read [`rosey-hindsight`](../../rosey-hindsight/SKILL.md) and recall memory with the planning context summary. If the Phase 0 gate already ran, fold recall into planning context; do not skip recall unless unavailable was documented. Treat useful recall output as additional planning context, alongside but separate from `rosey/solutions/` institutional learnings. If Hindsight is unavailable or not configured, continue Phase 1 and note memory unavailability only when it materially affects the plan context.
+If the Phase 0 gate already ran, fold that recall into planning context; do not recall again. If Hindsight was unavailable at Phase 0, record it and do not retry because research begins. Treat useful recall output as additional planning context, alongside but separate from `rosey/solutions/` institutional learnings. If Hindsight is unavailable or not configured, continue Phase 1 and note memory unavailability only when it materially affects the plan context.
 
 Run these agents in parallel:
 

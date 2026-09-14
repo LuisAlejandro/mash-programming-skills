@@ -17,7 +17,7 @@ Before finalizing, check:
 - If test-first or characterization-first posture was explicit or strongly implied, the relevant units carry it forward with a lightweight `Execution note`
 - Each feature-bearing unit has test scenarios from every applicable category (happy path, edge cases, error paths, integration) — right-sized to the unit's complexity, not padded or skimped
 - Test scenarios name specific inputs, actions, and expected outcomes without becoming test code
-- Feature-bearing units with blank or missing test scenarios are flagged as incomplete — feature-bearing units must have actual test scenarios, not just an annotation. The `Test expectation: none -- [reason]` annotation is only valid for non-feature-bearing units (pure config, scaffolding, styling)
+- Feature-bearing units with blank or missing test scenarios are flagged as incomplete — feature-bearing units must have actual test scenarios, not just an annotation, **unless** the repo has no configured test runner (`Test expectation: none -- no test runner configured in this repo` plus replacement verification). The `Test expectation: none -- [reason]` annotation is also valid for non-feature-bearing units (pure config, scaffolding, styling)
 - Deferred items are explicit and not hidden as fake certainty
 - **High-Level Technical Design presence audit (load-bearing).** For each architecture trigger in Phase 3.4 that the plan content satisfies (3+ components with directed relationships, 3+ protocol steps, 3+ state machine states, lifecycle, 3+ decision points, 3+ data-flow stages, mode/flag combinations, DSL/API surface design, non-obvious single-component shape), verify a corresponding sketch/diagram is present in the High-Level Technical Design section. Count the firing triggers; count the sketches; the sketch count must be at least the count of distinct trigger categories that fired. Missing the section when a trigger fired, OR including the section but skipping a triggered sketch within it, is incomplete — return to Phase 3.4 and add the missing sketch. Token cost is not a valid reason to fail this check.
 - If a High-Level Technical Design section is included, it uses the right medium for the work, carries the non-prescriptive framing, and does not contain implementation code (no imports, exact signatures, or framework-specific syntax)
@@ -39,7 +39,7 @@ If the plan originated from a requirements document, re-read that document and v
 
 Surface plan-time call-outs to the user before Phase 5.2 commits the plan to disk — the latest cheap moment to catch plan-time scope errors. The brainstorm already validated WHAT to build; this phase surfaces HOW the plan will execute on the forks that matter.
 
-Fires on every run except the Phase 0.1 fast paths (resume normal, deepen-intent). Every plan is brainstorm-sourced — the missing-origin stop at Phase 0.3b guarantees an origin document.
+Fires on every run except the Phase 0.1 fast paths (resume normal, deepen-intent). Resume and deepen fast paths do not re-run the scoping synthesis. Every plan is brainstorm-sourced — the missing-origin stop at Phase 0.3b guarantees an origin document.
 
 **Read `references/synthesis-summary.md` before composing the scoping synthesis** — and the shared reference it points to. Between them they carry the two-stage shape, the affirmability and keep tests, the detail test, budgets, granularity rules, anti-patterns, both literal templates, the auto-proceed guard, soft-cut behavior, self-redirect, the worked compression example, and non-interactive routing. Composing without them reliably produces malformed output.
 
@@ -94,6 +94,7 @@ END_ROSEY_PLAN_HANDOFF
 ```
 
 - **Paths are repo-relative**, matching `FILES_CHANGED` in `rosey-work`'s envelope and this skill's never-absolute-paths rule. A worker runs with its worktree as `cwd` while the orchestrator resolves against the repo root, and the value is interpolated into the *next* phase's prompt — an absolute path would point outside that phase's own worktree.
+- **`FILES` comes from every unit body's `**Files:**` field, not from the large-plan Unit Index.**
 - **`BLOCKERS:` is the only failure channel.** When the run cannot safely produce a plan, leave `PLAN PATH:` empty and state the reason in one line. A caller that receives a blocker stops the task legibly instead of timing out.
 - Emit the envelope in non-interactive mode only. Interactive runs keep the `Plan written to <absolute path>` confirmation above, which is for a human reading chat.
 

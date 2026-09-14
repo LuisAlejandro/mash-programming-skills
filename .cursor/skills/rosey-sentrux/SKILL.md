@@ -51,7 +51,7 @@ Do **not** commit `.sentrux/baseline.json` unless the team adopts `sentrux gate`
 
 ### MCP (workspace)
 
-Sentrux is configured in [`.cursor/mcp.json`](../../mcp.json):
+Sentrux is configured in the workspace MCP config (Cursor `.cursor/mcp.json`, OpenCode `opencode.json`, VS Code `.vscode/mcp.json`):
 
 ```json
 "sentrux": {
@@ -109,6 +109,8 @@ All artifacts live beside the implementation plan in **`rosey/plans/`**, sharing
 
 Derive basename from the implementation plan filename (strip `.md`, append suffix).
 
+Use one key for the actual scan root (typically `"."`). Use a child path only when the tool response explicitly scopes the repository there.
+
 ### topology.json schema
 
 ```json
@@ -116,7 +118,7 @@ Derive basename from the implementation plan filename (strip `.md`, append suffi
   "generatedAt": "2026-05-22T12:00:00Z",
   "tool": "sentrux",
   "repos": {
-    "src/": {
+    ".": {
       "quality_signal": 6772,
       "bottleneck": "equality",
       "root_causes": {
@@ -143,7 +145,7 @@ For `skipped` or `unavailable`, omit numeric fields; include `skip_reason` strin
 {
   "generatedAt": "2026-05-22T18:00:00Z",
   "sessions": {
-    "src/": {
+    ".": {
       "pass": true,
       "signal_before": 6772,
       "signal_after": 6810,
@@ -199,7 +201,7 @@ If unavailable, pass: `Sentrux unavailable — structural review skipped.`
 
 ```json
 "sentruxSessions": {
-  "src/": "started"
+  ".": "started"
 }
 ```
 

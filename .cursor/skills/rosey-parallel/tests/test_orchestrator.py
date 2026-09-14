@@ -760,7 +760,7 @@ def test_approve_without_resume_is_rejected(tmp_path):
 
 def test_worker_prompt_injects_placeholders():
     text = rp.load_worker_prompt()
-    for key in ("{goal}", "{plan_path}", "{track_branch}", "{phase}", "{qa_diff_base}"):
+    for key in ("{goal}", "{plan_path}", "{track_branch}", "{phase}", "{qa_diff_base}", "{branch_setup}"):
         assert key in text
 
 

@@ -52,24 +52,13 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-# Live-homes: sole-user agent homes. They write .cursorrules instead of AGENTS.md,
-# skip docker-via-make / rosey-pr, and get live-home skill + rule overlays.
+# Live-homes: sole-user agent homes that are also live working directories.
+# Nothing may change branches or merge state, so they write .cursorrules instead
+# of AGENTS.md, skip docker-via-make / rosey-pr / rosey-parallel /
+# rosey-epic-decompose, and get live-home skill + rule overlays.
 is_livehome_install() {
     case "$INSTALL_ROOT_BASENAME" in
-        .hermes | .openclaw | rudi-hermes | winston-openclaw)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-}
-
-# Same slash skills as live-homes (master/main, no PRs/stashes), but still a
-# normal product install: AGENTS.md, docker-via-make, rosey-pr stay.
-uses_livehome_skills() {
-    is_livehome_install && return 0
-    case "$INSTALL_ROOT_BASENAME" in
+        .hermes | .openclaw | rudi-hermes | winston-openclaw | \
         rosey-maintainer-tools | tetra-actions-runner)
             return 0
             ;;
@@ -83,7 +72,7 @@ apply_livehome_skill_overlay() {
     local dest="$1"
     local sname="$2"
     local overlay
-    uses_livehome_skills || return 0
+    is_livehome_install || return 0
     overlay="$SOURCE_ROOT/.cursor/skills-livehome/$sname"
     [ -d "$overlay" ] || return 0
     mkdir -p "$dest/references"
@@ -270,7 +259,7 @@ skill_should_install() {
         tailor-cv)
             [ "$INSTALL_ROOT_BASENAME" = "curriculum-vitae" ]
             ;;
-        rosey-pr)
+        rosey-pr | rosey-parallel | rosey-epic-decompose | rosey-epic-frame | rosey-dogfood)
             ! is_livehome_install
             ;;
         *)

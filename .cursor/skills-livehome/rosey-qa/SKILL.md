@@ -1,14 +1,14 @@
 ---
 name: rosey-qa
-description: "Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. Use when reviewing this session's code changes on master/main before they land."
-argument-hint: "[blank to review this session's files, or a plan path]"
+description: "Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. Use when reviewing this session's changes before landing them."
+argument-hint: "[blank to review this session's changes, or base:<ref>]"
 ---
 
 # Code Review (live-home)
 
-Read `references/livehome.md` first. This is a full live-home skill: stay on `master`/`main`, no PRs, no stashes, mixed dirty files expected.
+Read `references/livehome.md` first. This is a full live-home skill: review runs in place on `master`/`main`, no branch checkout, no PRs, no stashes, no worktrees, mixed dirty files expected.
 
-Reviews this session's code changes using dynamically selected reviewer personas. Spawns parallel **read-only** sub-agents that return structured JSON, then merges and deduplicates findings into a single report. Never check out another branch. Never open a PR.
+Reviews code changes using dynamically selected reviewer personas. Spawns parallel sub-agents that return structured JSON, then merges and deduplicates findings into a single report.
 
 ## Communication while using this skill
 
@@ -24,23 +24,20 @@ This skill follows the upstream code-review workflow, with Rosey handoff and Sen
 - When `SENTRUX_REVIEW_CONTEXT` is present, include it in reviewer context and synthesis. Structural regression is a first-class review axis alongside logic, requirements, tests, and maintainability.
 - Treat a failed Sentrux `session_end`, quality-signal drop, new import cycle, or behavior-critical `test_gaps` entry as a P1/P2 finding depending on impact. If the context documents `override sentrux handoff block`, keep the concern visible as residual risk but do not block solely because of the override.
 - When `FILES_CHANGED` is provided, use it as the authoritative file list to cross-check the computed git diff. If the computed diff misses any provided file, include that mismatch in the review scope notes.
-- Run the Hindsight gate (see `.cursor/rules/hindsight-memory.mdc`) before Stage 1 when review may be affected by prior preferences, conventions, or session context.
-- Do **not** use GitHub MCP pull-request tools. There are no PRs. Ignore a PR number or GitHub URL if one is passed; review the current checkout's session files instead.
-- Review only `FILES_CHANGED` from the work handoff (or this session). Unrelated dirty and untracked files are out of scope. Untracked paths **in** `FILES_CHANGED` are in scope — do not ask anyone to `git add` them first.
-- Stay on the current checkout. Never `git checkout`, never stash, never use a worktree to isolate the review.
-- Verdict language is "Ready to land on master" (or main), not "Ready to merge."
+- Run the Hindsight gate (always-on Hindsight guideline; CLI in [`rosey-hindsight`](../rosey-hindsight/SKILL.md)) before Stage 1 when review may be affected by prior preferences, conventions, or session context.
+- Use GitHub MCP tools for GitHub PR metadata and comments. Do not rely on the GitHub CLI.
 
 ## When to Use
 
+- Before creating a PR
 - After completing a task during iterative implementation
-- When feedback is needed on this session's code changes
-- Can be invoked standalone on the current dirty tree
+- When feedback is needed on any code changes
+- Can be invoked standalone
 - Can run as a read-only or autofix review step inside larger workflows
-- Not for reviewing GitHub PRs or other branches
 
 ## Argument Parsing
 
-Parse `$ARGUMENTS` for the following optional tokens. Strip each recognized token before interpreting the remainder. A leftover PR number, GitHub URL, or other-branch name is **ignored** — review the current checkout.
+Parse `$ARGUMENTS` for the following optional tokens. Strip each recognized token before interpreting the remainder as the PR number, GitHub URL, or branch name.
 
 | Token | Example | Effect |
 |-------|---------|--------|
@@ -54,32 +51,28 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 
 **Conflicting mode flags:** If multiple mode tokens appear in arguments, stop and do not dispatch agents. If `mode:headless` is one of the conflicting tokens, emit the headless error envelope: `Review failed (headless mode). Reason: conflicting mode flags — <mode_a> and <mode_b> cannot be combined.` Otherwise emit the generic form: `Review failed. Reason: conflicting mode flags — <mode_a> and <mode_b> cannot be combined.`
 
-## Quick Review Short-Circuit
+## Quick Tier
 
-If `$ARGUMENTS` indicates the user wants a quick, fast, or light code review, do not dispatch the multi-agent flow.
+When `$ARGUMENTS` indicates the user wants a quick, fast, or light code review, run a **reduced roster** instead of the full team. Same pipeline, same schema, same synthesis — fewer reviewers.
 
-**Announce the chosen path** before any other work (Quick review vs Multi-agent review).
+**Announce the chosen path** before any other work (Quick review vs Multi-agent review), naming the roster. Programmatic callers (`mode:autofix`, `mode:report-only`, `mode:headless`) skip the announcement — the orchestrator owns user-facing messaging.
 
-Programmatic callers (when `mode:autofix`, `mode:report-only`, or `mode:headless` is present) skip this announcement -- the orchestrator owns user-facing messaging.
+**Roster:** `rosey-correctness-reviewer` plus **at most one** conditional persona, selected by the same diff judgment the full flow uses (Stage 4) — `security` for an auth or input-handling diff, `data-migration` for migration artifacts, and so on. When no conditional clearly fits, correctness alone is the roster. Two reviewers is the ceiling, not a target.
 
-Sequence:
+Correctness is non-negotiable because it is the only persona whose findings are *defects* rather than improvements; everything else in the catalog is quality signal that a quick pass is explicitly trading away.
 
-1. **Run the harness's built-in code review.** If `$ARGUMENTS` contained a review target (PR number, GitHub URL, or branch name) after stripping recognized tokens, forward that target to the built-in. If no target was provided, run the bare command and let the built-in default to the current branch.
-   - If you are Claude Code, run the `/review` tool, passing the target if present (e.g., `/review 123`, `/review <PR-URL>`, `/review <branch>`); otherwise run bare `/review`.
-   - If you are Gemini, run a quick code review against the resolved target (or the current branch when none was provided).
-   - For all other coding harnesses, run your built-in code review tool, forwarding the target when its syntax accepts one.
+Everything downstream is unchanged: confidence anchors, the synthesis pipeline, `safe_auto` application, and the output template all run normally. A quick review is a smaller team, not a different contract.
 
-   Then stop. Do not dispatch the multi-agent reviewer pipeline.
+**The quick tier never applies when:**
 
-2. **Exemption -- no built-in code review exists.** If the current harness has no built-in code review command or skill, do not short-circuit. Continue into the full multi-agent review described in the rest of this skill (Tier 2).
-
-3. **Programmatic callers bypass this short-circuit.** When `mode:autofix`, `mode:report-only`, or `mode:headless` is present, ignore quick intent and run the full multi-agent review. Skill-to-skill callers that want the lightweight pass should invoke `/review` (or the harness equivalent) directly rather than route through this short-circuit.
+- `mode:autofix`, `mode:report-only`, or `mode:headless` is present — programmatic callers always get the full roster. A quick pass is a human convenience, and an automated caller that wanted one would ask for a narrower review, not a cheaper one.
+- The diff trips the `adversarial` gate (>=50 substantive changed lines, or auth / payments / data mutations / external API integrations). **Say so and run the full roster** — the request is declined explicitly, never silently upgraded. Quick is for small and boring; a risky diff is neither.
 
 ## Mode Detection
 
 | Mode | When | Behavior |
 |------|------|----------|
-| **Interactive** (default) | No mode token present | Review, apply safe_auto fixes automatically, present findings, ask for policy decisions on gated/manual findings, then stop. Do not offer Create PR. |
+| **Interactive** (default) | No mode token present | Review, apply safe_auto fixes automatically, present findings, ask for policy decisions on gated/manual findings, and optionally continue into fix/push/PR next steps |
 | **Autofix** | `mode:autofix` in arguments | No user interaction. Review, apply only policy-allowed `safe_auto` fixes, re-review in bounded rounds, write a run artifact capturing residual downstream work |
 | **Report-only** | `mode:report-only` in arguments | Strictly read-only. Review and report only, then stop with no edits, artifacts, commits, pushes, or PR actions |
 | **Headless** | `mode:headless` in arguments | Programmatic mode for skill-to-skill invocation. Apply `safe_auto` fixes silently (single pass), return all other findings as structured text output, write run artifacts, and return "Review complete" signal. No interactive prompts. |
@@ -111,25 +104,25 @@ END_QA_REVIEW_HANDOFF
 - **Skip all user questions.** Infer intent conservatively if the diff metadata is thin.
 - **Never edit files or externalize work.** Do not write `rosey/qa/<run-id>/`, do not file tickets, and do not commit, push, or create a PR.
 - **Safe for parallel read-only verification.** `mode:report-only` is the only mode that is safe to run concurrently with browser testing on the same checkout.
-- **Do not switch the shared checkout.** Ignore PR/branch targets. Always review the current checkout's session files.
-- **Do not overlap mutating review with browser testing on the same checkout.** If a future orchestrator wants fixes, run the mutating review phase after browser testing. Never open a worktree.
+- **Never switch the checkout.** The live-home working directory is shared with in-progress work. Review runs in place against the current tree; PR and branch targets are rejected at Stage 1.
+- **Do not overlap mutating review with browser testing on the same checkout.** Run the mutating review phase after browser testing, serially — isolating into a second checkout is not available here.
 
 ### Headless mode rules
 
-- **Skip all user questions.** Never use the platform question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension)) or other interactive prompts. Infer intent conservatively if the diff metadata is thin.
-- **Require a determinable diff scope.** Prefer `FILES_CHANGED` from the work handoff, else `git diff HEAD` on those paths. If neither exists, emit `Review failed (headless mode). Reason: no session files. Re-invoke with FILES_CHANGED or base:<ref>.` and stop without dispatching agents.
+- **Skip all user questions.** Never use the platform question tool (`AskUserQuestion` in Claude Code, `AskQuestion` in Cursor, `vscode_askQuestions` in VS Code, `question` in OpenCode, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension)) or other interactive prompts. Infer intent conservatively if the diff metadata is thin.
+- **Require a determinable diff scope.** If headless mode cannot determine a diff scope (no branch, PR, or `base:` ref determinable without user interaction), emit `Review failed (headless mode). Reason: no diff scope detected. Re-invoke with a branch name, PR number, or base:<ref>.` and stop without dispatching agents.
 - **Apply only `safe_auto -> review-fixer` findings in a single pass.** No bounded re-review rounds. Leave `gated_auto`, `manual`, `human`, and `release` work unresolved and return them in the structured output.
 - **Return all non-auto findings as structured text output.** Use the headless output envelope format (see Stage 6 below) preserving severity, autofix_class, owner, requires_verification, confidence, pre_existing, and suggested_fix per finding. Enrich with detail-tier fields (why_it_matters, evidence[]) from the per-agent artifact files on disk (see Detail enrichment in Stage 6).
 - **Write a run artifact** under `rosey/qa/<run-id>/` summarizing findings, applied fixes, and advisory outputs. Include the artifact path in the structured output.
 - **Do not file tickets or externalize work.** The caller receives structured findings and routes downstream work itself.
-- **Do not switch the shared checkout.** Ignore PR/branch targets. Always review the current checkout. Never stash or open a worktree.
+- **Never switch the checkout.** Review the current tree in place. When a caller passes a PR or branch target, emit `Review failed (headless mode). Reason: live-home reviews cannot target a PR or branch. Re-invoke with base:<ref> or with no argument.`
 - **Not safe for concurrent use on a shared checkout.** Unlike `mode:report-only`, headless mutates files (applies `safe_auto` fixes). Callers must not run headless concurrently with other mutating operations on the same checkout.
 - **Never commit, push, or create a PR** from headless mode. The caller owns those decisions.
 - **End with "Review complete" as the terminal signal** so callers can detect completion. If all reviewers fail or time out, emit `Code review degraded (headless mode). Reason: 0 of N reviewers returned results.` followed by "Review complete".
 
 ### Interactive mode rules
 
-- **Pre-load the platform question tool before any question fires.** In Claude Code, `AskUserQuestion` is a deferred tool — its schema is not available at session start. At the start of Interactive-mode work (before Stage 2 intent-ambiguity questions, the After-Review routing question, walk-through per-finding questions, bulk-preview Proceed/Cancel, and tracker-defer failure sub-questions), call `ToolSearch` with query `select:AskUserQuestion` to load the schema. Load it **once, eagerly, at the top of the Interactive flow** — do not wait for the first question site and do not decide it on a per-site basis. On Codex, Gemini, and Pi this preload step does not apply.
+- **Pre-load the platform question tool before any question fires.** In Claude Code, `AskUserQuestion` is a deferred tool — its schema is not available at session start. At the start of Interactive-mode work (before Stage 2 intent-ambiguity questions, the After-Review routing question, walk-through per-finding questions, bulk-preview Proceed/Cancel, and tracker-defer failure sub-questions), call `ToolSearch` with query `select:AskUserQuestion` to load the schema. Load it **once, eagerly, at the top of the Interactive flow** — do not wait for the first question site and do not decide it on a per-site basis. The preload applies to Claude Code only; on Cursor, VS Code, OpenCode, Codex, Gemini, and Pi the question tool is directly available.
 - **The numbered-list fallback only applies when the harness genuinely lacks a blocking question tool** — `ToolSearch` returns no match, the tool call explicitly fails, or the runtime mode does not expose it (e.g., Codex edit modes where `request_user_input` is unavailable). A pending schema load is not a fallback trigger; call `ToolSearch` first per the pre-load rule. Rendering a question as narrative text because the tool feels inconvenient, because the model is in report-formatting mode, or because the instruction was buried in a long skill is a bug. A question that calls for a user decision must either fire the tool or fall back loudly.
 
 ## Compact Finding Presentation
@@ -182,9 +175,10 @@ Routing rules:
 | `rosey-correctness-reviewer` | Logic errors, edge cases, state bugs, error propagation |
 | `rosey-testing-reviewer` | Coverage gaps, weak assertions, brittle tests |
 | `rosey-maintainability-reviewer` | Structural quality, complexity deletion, 1k-line regressions, coupling, type-boundary leaks, dead code, abstraction debt |
+| `rosey-ponytail-reviewer` | Over-engineering only: reinvented standard library, unneeded dependencies, speculative abstractions, dead flexibility, shrinkable logic |
 | `rosey-project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, portability |
 | `rosey-agent-native-reviewer` | Verify new features are agent-accessible |
-| `rosey-learnings-researcher` | Search rosey/solutions/ for past issues related to this PR |
+| `rosey-learnings-researcher` | Search rosey/solutions/ and rosey/insights/ for past issues and durable lessons related to this PR |
 
 **Cross-cutting conditional (selected per diff):**
 
@@ -208,7 +202,9 @@ Schema drift detection is folded into `rosey-data-migration-reviewer` (Step 0) a
 
 ## Review Scope
 
-Every review spawns all 4 always-on personas plus the 2 Rosey always-on agents, then adds whichever cross-cutting conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 6 reviewers. A Rails auth feature might trigger security + reliability + adversarial = 9 reviewers.
+Every review spawns all 5 always-on personas plus the 2 Rosey always-on agents, then adds whichever cross-cutting conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 7 reviewers. A Rails auth feature might trigger security + reliability + adversarial = 10 reviewers.
+
+**Exception: the quick tier** (see above) runs `correctness` plus at most one conditional. It is the only path that spawns fewer than the always-on set.
 
 ## Protected Artifacts
 
@@ -217,6 +213,7 @@ The following paths are Rosey pipeline artifacts and must never be flagged for d
 - `rosey/brainstorms/*` -- requirements documents created by rosey-brainstorm
 - `rosey/plans/*.md` -- plan files created by rosey-plan (decision artifacts; execution progress is derived from git, not stored in plan bodies)
 - `rosey/solutions/*.md` -- solution documents created during the pipeline
+- `rosey/insights/*.md` -- durable repo lessons surfaced by rosey-learnings-researcher
 
 If a reviewer flags any file in these directories for cleanup or removal, discard that finding during synthesis.
 
@@ -227,7 +224,7 @@ If a reviewer flags any file in these directories for cleanup or removal, discar
 Before computing diff scope:
 
 1. Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
-2. Run `hindsight-embed daemon status` + `hindsight-embed memory recall` with plan/session scope (prepend `~/.local/bin` to PATH; see [`rosey-hindsight`](../rosey-hindsight/SKILL.md)) OR emit `Hindsight: unavailable — <reason>`
+2. Run `hindsight-embed daemon status` + `hindsight-embed memory recall` with PR/plan scope (prepend `~/.local/bin` to PATH; see [`rosey-hindsight`](../rosey-hindsight/SKILL.md)) OR emit `Hindsight: unavailable — <reason>`
 3. Include recalled context in reviewer prompts when material
 
 `mode:report-only`: gate still runs; no file edits.
@@ -236,48 +233,61 @@ Before computing diff scope:
 
 Compute the diff range, file list, and diff. Minimize permission prompts by combining into as few commands as possible.
 
+**This is a live-home.** The working directory is live and shared with other in-progress work. Never check out a branch, never switch the checkout, never stash, never open a worktree, and never ask the user to clean the tree before reviewing. A dirty tree is the normal state here, and review runs against it in place.
+
+**PR and branch targets do not apply.** There are no PRs on a live-home and `rosey-pr` is not installed. If the caller passes a PR number, a GitHub URL, or a branch name, stop with: "Live-home reviews run against the current session's changes. Pass `base:<ref>` to review against a specific ref, or no argument to review the session." Do not attempt GitHub PR metadata lookups, PR-state probes, or trivial-PR judgment — none of them have a target here.
+
 **If `base:` argument is provided (fast path):**
 
-The caller already knows the diff base. Skip all base-branch detection, remote resolution, and merge-base computation. Use the provided value directly:
+The caller already knows the diff base. Use the provided value directly:
 
 ```
 BASE_ARG="{base_arg}"
 BASE=$(git merge-base HEAD "$BASE_ARG" 2>/dev/null) || BASE="$BASE_ARG"
 ```
 
-Then produce the same output as the other paths:
+Then produce the scope output:
 
 ```
 echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:" && git diff -U10 $BASE && echo "UNTRACKED:" && git ls-files --others --exclude-standard
 ```
 
-This path works with any ref — a SHA or `origin/master`. Automated callers (for example `rosey-work`) should prefer this. Ignore a leftover PR number or branch name; `base:` always means the current checkout.
+This path works with any ref — a SHA, `origin/main`, a branch name. Automated callers (for example `rosey-work`) should prefer it.
 
-**If a PR number, GitHub URL, or other-branch name is provided:** ignore it. Note `Coverage: ignored PR/branch target; reviewing current checkout.` Then follow the standalone session path below. Never `git checkout`. Never stash. Never probe GitHub MCP for pull requests.
+**If no argument (session review — the default):**
 
-**If no argument, or after ignoring a PR/branch target (standalone session on current checkout):**
-
-A dirty tree is normal. Do not stop. Do not ask the user to stash or commit unrelated files.
-
-1. If the caller passed `FILES_CHANGED` (work handoff), that list is the review scope. Include untracked paths that appear in it.
-2. Else use this session's tracked edits: `git diff HEAD --name-only` intersected with files you know this session touched. If that is empty and the user asked to review "current changes," fall back to `git diff HEAD` but treat files this session did not touch as pre-existing / out of scope (see `references/diff-scope.md`).
-3. Produce:
+Review what this session changed on the current branch. Prefer the caller's `FILES_CHANGED` list when one was handed off; otherwise take the working tree as the scope.
 
 ```
-echo "BASE:HEAD" && echo "FILES:" && git diff --name-only HEAD -- <session files> && echo "DIFF:" && git diff -U10 HEAD -- <session files> && echo "UNTRACKED:" && git ls-files --others --exclude-standard
+echo "BASE:HEAD" && echo "FILES:" && git diff --name-only HEAD && echo "DIFF:" && git diff -U10 HEAD && echo "UNTRACKED:" && git ls-files --others --exclude-standard
 ```
 
-**Untracked file handling:** Untracked paths **in** `FILES_CHANGED` are in scope. Other untracked files in the home are out of scope — mention them once, do not ask anyone to `git add` them, and do not stop the review.
+`git diff HEAD` is the correct scope here, not a fallback. On a live-home the work under review is uncommitted or freshly committed on `master`/`main`; there is no feature branch whose merge-base would define a range. When the session already committed, add those commits explicitly:
 
-**Hindsight recall:** After the diff scope is known, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory for the reviewed modules, session intent, and plan path. Use relevant memory as additional review context, separate from `rosey/solutions/` results surfaced by `rosey-learnings-researcher`. If Hindsight is unavailable or not configured, continue the review without blocking.
+```
+BASE=$(git rev-parse HEAD~<n>)   # <n> = commits this session made, when known
+```
 
+Use the session's own start SHA when the caller supplied one. Never derive a base by resolving `origin/HEAD`, and never stop because a base could not be resolved — `HEAD` is always a valid live-home base.
+
+**Untracked file handling:** Always inspect the `UNTRACKED:` list. On a live-home, untracked files that this session created **are in scope** — they are the session's own new work, not stray artifacts. Include them in the review. Never tell the user to `git add` them first. Untracked files the session did not create are out of scope; name them in the Coverage section and move on.
+
+**Hindsight recall:** After the diff scope is known, read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) and recall memory for the reviewed modules, intent hints, and base marker. Use relevant memory as additional review context, separate from `rosey/solutions/` results surfaced by `rosey-learnings-researcher`. If Hindsight is unavailable or not configured, continue the review without blocking.
 ### Stage 2: Intent discovery
 
-Understand what the change is trying to accomplish. Prefer the work handoff (`WHAT_WAS_IMPLEMENTED`, plan path) and conversation context.
+Understand what the change is trying to accomplish. The source of intent depends on which Stage 1 path was taken:
 
-**Standalone session:** Use `FILES_CHANGED`, the plan, and `git log -5 --oneline` on the current branch if useful. Do not search GitHub for a PR.
+**PR/URL mode:** Use the PR title, body, and linked issues from GitHub MCP metadata. Supplement with commit messages from the PR if the body is sparse.
 
-Combined with conversation context (plan section summary), write a 2-3 line intent summary:
+**Branch mode:** Run `git log --oneline ${BASE}..<branch>` using the resolved merge-base from Stage 1.
+
+**Standalone (current branch):** Run:
+
+```
+echo "BRANCH:" && git rev-parse --abbrev-ref HEAD && echo "COMMITS:" && git log --oneline ${BASE}..HEAD
+```
+
+Combined with conversation context (plan section summary, PR description), write a 2-3 line intent summary:
 
 ```
 Intent: Simplify tax calculation by replacing the multi-tier rate lookup
@@ -288,31 +298,49 @@ Pass this to every reviewer in their spawn prompt. Intent shapes *how hard each 
 
 **When intent is ambiguous:**
 
-- **Interactive mode:** Ask one question using the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension)): "What is the primary goal of these changes?" Do not spawn reviewers until intent is established. **Claude Code only:** if `AskUserQuestion` has not yet been loaded this session (per the Interactive mode rules pre-load), call `ToolSearch` with query `select:AskUserQuestion` first before asking. Fall back to numbered options in chat only when the harness genuinely lacks a blocking tool or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
-- **Autofix/report-only/headless modes:** Infer intent conservatively from the session files, plan, and caller context. Note the uncertainty in Coverage or Verdict reasoning instead of blocking.
+- **Interactive mode:** Ask one question using the platform's blocking question tool (`AskUserQuestion` in Claude Code, `AskQuestion` in Cursor, `vscode_askQuestions` in VS Code, `question` in OpenCode, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension)): "What is the primary goal of these changes?" Do not spawn reviewers until intent is established. **Claude Code only:** if `AskUserQuestion` has not yet been loaded this session (per the Interactive mode rules pre-load), call `ToolSearch` with query `select:AskUserQuestion` first before asking. Fall back to numbered options in chat only when the harness genuinely lacks a blocking tool or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
+- **Autofix/report-only/headless modes:** Infer intent conservatively from the branch name, diff, PR metadata, and caller context. Note the uncertainty in Coverage or Verdict reasoning instead of blocking.
 
 ### Stage 2b: Plan discovery (requirements verification)
 
 Locate the plan document so Stage 6 can verify requirements completeness. Check these sources in priority order — stop at the first hit:
 
 1. **`plan:` argument.** If the caller passed a plan path, use it directly. Read the file to confirm it exists.
-2. **Work handoff or conversation.** If Stage 1 used a plan path or `PLAN_OR_REQUIREMENTS`, scan for `rosey/plans/*.md`. Always verify the selected file exists before using it.
-3. **Auto-discover.** Extract 2-3 keywords from the session intent. Glob `rosey/plans/*` and filter filenames containing those keywords. If exactly one match, use it. If multiple matches or the match looks ambiguous (e.g., generic keywords like `review`, `fix`, `update` that could hit many plans), **skip auto-discovery** — a wrong plan is worse than no plan. If zero matches, skip.
+2. **PR body.** If PR metadata was fetched in Stage 1, scan the body for paths matching `rosey/plans/*.md`. If exactly one match is found and the file exists, use it as `plan_source: explicit`. If multiple plan paths appear, treat as ambiguous — demote to `plan_source: inferred` for the most recent match that exists on disk, or skip if none exist or none clearly relate to the PR title/intent. Always verify the selected file exists before using it — stale or copied plan links in PR descriptions are common.
+3. **Auto-discover.** Extract 2-3 keywords from the branch name (e.g., `feat/onboarding-skill` -> `onboarding`, `skill`). Glob `rosey/plans/*` and filter filenames containing those keywords. If exactly one match, use it. If multiple matches or the match looks ambiguous (e.g., generic keywords like `review`, `fix`, `update` that could hit many plans), **skip auto-discovery** — a wrong plan is worse than no plan. If zero matches, skip.
+
+   This step exists for PRs that arrive without pipeline context — someone else's branch, or a PR opened outside `rosey-pr`. A Rosey-produced PR carries the plan path in its body, and `rosey-work` and `rosey-pr` always pass it explicitly, so steps 1-2 should resolve it. Everything auto-discovery finds is tagged `inferred` and never blocks a verdict on its own.
 
 **Confidence tagging:** Record how the plan was found:
 - `plan:` argument -> `plan_source: explicit` (high confidence)
-- Single unambiguous work-handoff / conversation match -> `plan_source: explicit` (high confidence)
+- Single unambiguous PR body match -> `plan_source: explicit` (high confidence)
+- Multiple/ambiguous PR body matches -> `plan_source: inferred` (lower confidence)
 - Auto-discover with single unambiguous match -> `plan_source: inferred` (lower confidence)
 
-If a plan is found, read its **Requirements** section — `## Requirements` in current plans, `## Requirements Trace` in legacy ones — and the R-IDs (R1, R2, etc.) listed there, plus **Implementation Units** (current numeric subsections such as `### U1.`, `### U2.`, or `### Unit 1:` under `## Implementation Units`; legacy bullet or checkbox unit entries under that section also count). Store the extracted requirements list and `plan_source` for Stage 6. Do not block the review if no plan is found — requirements verification is additive, not required.
+If a plan is found, read its **Requirements** section — `## Requirements` in current plans, `## Requirements Trace` in legacy ones — and the R-IDs (R1, R2, etc.) listed there, plus **Implementation Units** (current numeric subsections such as `### U1.`, `### U2.`, or `### Unit 1:` under `## Implementation Units`; legacy bullet or checkbox unit entries under that section also count).
+
+Also read these three sections when present — they carry the contracts the plan agreed to, and reviewing against a stated bar beats re-deriving one:
+
+- **`## Goal Capsule`** — Objective, Means, and stop conditions. Use it to judge whether an omission is intentional (Stage 6 verdict) and whether the diff drifted past what the plan committed to.
+- **`## Verification Contract`** — the repo's actual commands and quality gates. Where the diff's test and gate coverage falls short of what the plan named, that gap is concrete rather than a reviewer's opinion about adequacy.
+- **`## Definition of Done`** — global and per-unit completion criteria, including the **cleanup criterion** (abandoned-approach code removed, not left in the diff).
+
+Do **not** read a `Unit Index` table as a file footprint if the plan carries one — it is a navigation aid and deliberately non-exhaustive. Unit bodies are authoritative.
+
+Store the extracted requirements list, the three contract sections when found, and `plan_source` for Stage 6. Do not block the review if no plan is found, or if a plan predates these sections — all of this is additive, not required.
 
 ### Stage 3: Select reviewers
 
-Read the diff and file list from Stage 1. The 4 always-on personas and 2 Rosey always-on agents are automatic. For each cross-cutting conditional persona in the persona catalog included below, decide whether the diff warrants it. This is agent judgment, not keyword matching.
+Read the diff and file list from Stage 1. The 5 always-on personas and 2 Rosey always-on agents are automatic. For each cross-cutting conditional persona in the persona catalog included below, decide whether the diff warrants it. This is agent judgment, not keyword matching.
 
 **File-type awareness for conditional selection:** Instruction-prose files (Markdown skill definitions, JSON schemas, config files) are product code but do not benefit from runtime-focused reviewers. The adversarial reviewer's techniques (race conditions, cascade failures, abuse cases) target executable code behavior. For diffs that only change instruction-prose files, skip adversarial unless the prose describes auth, payment, or data-mutation behavior. Count only executable code lines toward line-count thresholds.
 
-**`previous-comments` is never selected on a live-home.** There are no PRs and no GitHub review threads. Skip this persona always.
+**`previous-comments` is PR-only AND comment-gated.** Only select this persona when both conditions hold:
+
+1. Stage 1 gathered PR metadata (PR number or URL was provided as an argument, or GitHub MCP returned metadata for the current branch).
+2. `hasPriorComments` from Stage 1 is true (the PR has at least one review submission or issue comment).
+
+Skip it for standalone branch reviews with no associated PR, and skip it for PRs with no prior feedback yet -- there is nothing for the persona to verify, and a spawned subagent that returns empty findings still costs the full subagent startup overhead.
 
 Cross-cutting personas are additive when the diff warrants them. A TypeScript API diff may warrant `api-contract` and `reliability`; a Hotwire UI change may warrant `reliability` when async or error-handling behavior changes. Structural and maintainability concerns are handled by the always-on `maintainability` persona — do not spawn extra reviewers for convention or philosophy passes.
 
@@ -327,6 +355,7 @@ Review team:
 - correctness (always)
 - testing (always)
 - maintainability (always)
+- ponytail (always)
 - project-standards (always)
 - rosey-agent-native-reviewer (always)
 - rosey-learnings-researcher (always)
@@ -341,7 +370,7 @@ This is progress reporting, not a blocking confirmation.
 
 Before spawning, find relevant standards file paths for the `project-standards` persona:
 
-1. Use the native file-search tool (e.g., Glob in Claude Code) to find all `**/CLAUDE.md` and `**/AGENTS.md` in the repo.
+1. Use the harness's native file-search/glob tool to find all `**/CLAUDE.md` and `**/AGENTS.md` in the repo.
 2. Filter to those whose directory is an ancestor of at least one changed file. A standards file governs all files below it (e.g., `AGENTS.md` at a plugin root applies to everything under that plugin).
 
 Pass the path list in a `<standards-paths>` block. The persona reads only relevant sections, keeping orchestrator context cheap.
@@ -373,7 +402,7 @@ Pass `{run_id}` to every persona sub-agent so they can write their full analysis
 
 Omit the `mode` parameter when dispatching sub-agents so the user's configured permission settings apply. Do not pass `mode: "auto"`.
 
-**Model at dispatch time.** Do not set `model` (or any model-slug argument) on Task / Agent / spawn_agent / subagent calls. Leave inheritance to the harness and each agent's `model: inherit` frontmatter so reviewers run on the same model as the parent session (e.g. Grok 4.5 when that is the session model).
+**Model at dispatch time.** Do not set `model` (or any model-slug argument) on any subagent dispatch. Leave inheritance to the harness and each agent's `model: inherit` frontmatter so reviewers run on the same model as the parent session (e.g. Grok 4.5 when that is the session model).
 
 **Bounded parallel dispatch.** Respect the current harness's active-subagent limit. Queue selected reviewers, dispatch only as many as the harness accepts, and fill freed slots as reviewers complete. Treat active-agent/thread/concurrency-limit spawn errors as backpressure, not reviewer failure: leave the reviewer queued and retry after a slot frees. Record a reviewer as failed only after a successful dispatch times out/fails, or when dispatch fails for a non-capacity reason.
 
@@ -531,14 +560,19 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
    - **`explicit`** (caller-provided or PR body): Flag unaddressed requirements or implementation units as P1 findings with `autofix_class: manual`, `owner: downstream-resolver`. These enter the residual actionable queue.
    - **`inferred`** (auto-discovered): Flag unaddressed requirements or implementation units as P3 findings with `autofix_class: advisory`, `owner: human`. These stay in the report only — no autonomous follow-up. An inferred plan match is a hint, not a contract.
    Omit this section entirely when no plan was found — do not mention the absence of a plan.
+
+   **Contract checks (same section, same `plan_source` routing).** When Stage 2b captured them:
+   - **Definition of Done** — check each criterion against the diff, and check the **cleanup criterion** specifically: abandoned-approach code, dead experimental branches, and scaffolding from directions that did not pan out must not survive in the diff. The implementer self-checks this at handoff; a reviewer reading the diff cold is the one who actually catches it. Route leftovers as `maintainability` findings.
+   - **Verification Contract** — where the diff does not exercise the commands or gates the plan named, report the gap against the plan's own bar rather than a generic coverage opinion.
+   - **Goal Capsule** — when the diff reaches past the Objective or trips a stated stop condition, that is a scope finding, not a style note.
 4. **Applied Fixes.** Include only if a fix phase ran in this invocation.
 5. **Residual Actionable Work.** Include when unresolved actionable findings were handed off or should be handed off.
 6. **Pre-existing.** Separate section, does not count toward verdict.
-7. **Learnings & Past Solutions.** Surface rosey-learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to rosey/solutions/ files.
+7. **Learnings & Past Solutions.** Surface rosey-learnings-researcher results: if past solutions or durable insights are relevant, flag them as "Known Pattern" with links to the `rosey/solutions/` or `rosey/insights/` files.
 8. **Agent-Native Gaps.** Surface rosey-agent-native-reviewer results. Omit section if no gaps found.
 9. **Deployment Notes.** If rosey-deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage. Schema drift appears in the findings tables as `data-migration` P1 rows — do not add a separate Schema Drift section.
 10. **Coverage.** Suppressed count by anchor (e.g., "N findings suppressed at anchor 50, M at anchor 25"), mode-aware demotion count (interactive/report-only) or suppression count (headless/autofix), validator drop count and reasons (when Stage 5b ran), validator over-budget drops (when the 15-cap fired), residual risks, testing gaps, failed/timed-out reviewers, and any intent uncertainty carried by non-interactive modes.
-11. **Verdict.** Ready to land on master / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements or implementation units, the verdict must reflect it — a session that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements or implementation units, note it in the verdict reasoning but do not block on it alone.
+11. **Verdict.** Ready to land / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements or implementation units, the verdict must reflect it — work that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional; the Goal Capsule's stop conditions are the evidence for that judgment when one is present. Surviving abandoned-approach code against an `explicit` plan's cleanup criterion is "Ready with fixes" at minimum. When an `inferred` plan has unaddressed requirements, implementation units, or contract gaps, note it in the verdict reasoning but do not block on it alone.
 
 Do not include time estimates.
 
@@ -554,7 +588,7 @@ Code review complete (headless mode).
 Scope: <scope-line>
 Intent: <intent-summary>
 Reviewers: <reviewer-list with conditional justifications>
-Verdict: <Ready to land on master | Ready with fixes | Not ready>
+Verdict: <Ready to land | Ready with fixes | Not ready>
 Artifact: rosey/qa/<run-id>/
 
 Applied N safe_auto fixes.
@@ -633,7 +667,7 @@ Before delivering the review, verify:
 2. **No false positives from skimming.** For each finding, verify the surrounding code was actually read. Check that the "bug" isn't handled elsewhere in the same function, that the "unused import" isn't used in a type annotation, that the "missing null check" isn't guarded by the caller.
 3. **Severity is calibrated.** A style nit is never P0. A SQL injection is never P3. Re-check every severity assignment.
 4. **Line numbers are accurate.** Verify each cited line number against the file content. A finding pointing to the wrong line is worse than no finding.
-5. **Protected artifacts are respected.** Discard any findings that recommend deleting or gitignoring files in `rosey/brainstorms/`, `rosey/plans/`, or `rosey/solutions/`.
+5. **Protected artifacts are respected.** Discard any findings that recommend deleting or gitignoring files in `rosey/brainstorms/`, `rosey/plans/`, `rosey/solutions/`, or `rosey/insights/`.
 6. **Findings don't duplicate linter output.** Don't flag things the project's linter/formatter would catch (missing semicolons, wrong indentation). Focus on semantic issues.
 
 ## After Review
@@ -658,7 +692,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 - **Zero-remaining case:** if no `gated_auto` or `manual` findings remain after the `safe_auto` pass, skip the routing question entirely. Emit a one-line completion summary phrased so advisory and pre-existing findings (which are not handled by this flow) are not implied to be cleared. When no advisory or pre-existing findings remain in the report, `All findings resolved — N safe_auto fixes applied.` is accurate. When advisory and/or pre-existing findings do remain, use the qualified form `All actionable findings resolved — N safe_auto fixes applied. (K advisory, J pre-existing findings remain in the report.)`, omitting any zero-count clause. Follow the summary with the existing end-of-review verdict, then proceed to Step 5 per the gating rule there.
 - **Tracker pre-detection:** before rendering the routing question, consult `references/tracker-defer.md` for the session's tracker tuple `{ tracker_name, confidence, named_sink_available, any_sink_available }`. The probe runs at most once per session and is cached for the rest of the run. `named_sink_available` drives the option C label (inline tracker name only when the named sink can actually be invoked). `any_sink_available` drives whether option C is offered at all.
 - **Verify question-tool pre-load (checklist, Claude Code only).** Before firing the routing question in Claude Code, confirm `AskUserQuestion` is loaded (per Interactive mode rules at the top of this skill). If not yet loaded this session, call `ToolSearch` with query `select:AskUserQuestion` now. Do not proceed to the routing question without this verification. Rendering the question as narrative text because the schema isn't loaded yet is a bug, not a valid fallback. On Codex, Gemini, and Pi this checklist does not apply — there is no `ToolSearch` preload step to perform. (If `request_user_input` is unavailable in the current Codex runtime mode, use the numbered-list fallback described below.)
-- **Routing question.** Ask using the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension)). Stem: `What should the agent do with the remaining N findings?` — use third-person voice referring to "the agent", not first-person "me" / "I". Options:
+- **Routing question.** Ask using the platform's blocking question tool (`AskUserQuestion` in Claude Code, `AskQuestion` in Cursor, `vscode_askQuestions` in VS Code, `question` in OpenCode, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension)). Stem: `What should the agent do with the remaining N findings?` — use third-person voice referring to "the agent", not first-person "me" / "I". Options:
 
   ```
   (A) Review each finding one by one — accept the recommendation or choose another action
@@ -723,8 +757,8 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 #### Step 3: Apply fixes with one fixer
 
 - Spawn exactly one fixer subagent for the current fixer queue in the current checkout. That fixer applies all approved changes and runs the relevant targeted tests in one pass against a consistent tree.
-- Do not fan out multiple fixers against the same checkout. Serial only.
-- Do not start a mutating review round concurrently with browser testing on the same checkout. Future orchestrators that want both must run `mode:report-only` during the parallel phase. Never isolate via worktree.
+- Do not fan out multiple fixers against the same checkout. Parallel fixers would require isolated worktrees, which a live-home forbids — run fixers serially.
+- Do not start a mutating review round concurrently with browser testing on the same checkout. Run `mode:report-only` during the parallel phase, or sequence the two.
 
 **Queue contract by caller path:**
 
@@ -759,7 +793,7 @@ The fixer accepts two queue shapes depending on which caller invoked it:
     "run_id": "<run-id>",
     "branch": "<git branch --show-current at dispatch time>",
     "head_sha": "<git rev-parse HEAD at dispatch time>",
-    "verdict": "<Ready to land on master | Ready with fixes | Not ready>",
+    "verdict": "<Ready to land | Ready with fixes | Not ready>",
     "completed_at": "<ISO 8601 UTC timestamp>"
   }
   ```
@@ -770,7 +804,7 @@ The fixer accepts two queue shapes depending on which caller invoked it:
 
 #### Step 5: Final next steps
 
-**Interactive mode only.** After the fix-review cycle completes (clean verdict or the user chose to stop), offer next steps on the current `master`/`main` checkout. Never offer Create PR. Never invoke `rosey-pr`.
+**Interactive mode only.** After the fix-review cycle completes (clean verdict or the user chose to stop), offer next steps based on the entry mode. Reuse the resolved review base/default branch from Stage 1 when known; do not hard-code only `main`/`master`.
 
 **The gate is total fixes applied this run, not routing option.** Track `fixes_applied_count` across the whole Interactive invocation. This counter includes both the `safe_auto` fixes applied automatically before the routing question (see Step 2 Interactive mode) AND any Apply decisions executed by routing option A (walk-through) or option B (best-judgment). Routing options C (File tickets) and D (Report only) add zero to this counter; neither does a walk-through that ends with only Skip / Defer / Acknowledge, and neither does a best-judgment dispatch whose findings were all routed to `failed` or `advisory`.
 
@@ -783,14 +817,13 @@ Common outcomes:
 - No `safe_auto` fixes AND walk-through / best-judgment finished with zero Applies → Step 5 skipped.
 - Zero-remaining case (no `gated_auto` / `manual` after `safe_auto`) with at least one `safe_auto` fix → Step 5 runs; the routing question was never asked but the counter is > 0.
 
-Options:
+- **Live-home (the only mode):**
+  - **Continue** -- proceed with next steps
+  - **Exit** -- done for now
 
-- **Continue** -- stay on `master`/`main`; session files remain in `FILES_CHANGED`
-- **Exit** -- done for now
+There is no PR route. `rosey-pr` is not installed here, and the work stays on `master`/`main`. Optional: `git push` to back the work up to origin, only when the user asks.
 
-Do not offer Push or Create PR. If the user later asks to commit, stage **only** session files — never `git add .`.
-
-**Autofix, report-only, and headless modes:** stop after the report, artifact emission, and residual-work handoff. Do not commit, push, or create a PR.
+**Autofix, report-only, and headless modes:** stop after the report, artifact emission, and residual-work handoff. Do not commit or push.
 
 ## Fallback
 

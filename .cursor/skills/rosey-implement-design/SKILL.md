@@ -45,11 +45,18 @@ When `INTERACTION_MODE=non-interactive`:
 
 ## Prerequisites
 
+**Working directory:** cwd is this skill's directory (the folder that contains this `SKILL.md`).
+
 Install skill dependencies once per machine:
 
 ```bash
-npm install --prefix .cursor/skills/rosey-implement-design
-npm install --prefix .cursor/skills/rosey-design-catalog
+npm install
+```
+
+In the sibling `rosey-design-catalog` skill directory:
+
+```bash
+npm install
 ```
 
 ## Workflow
@@ -68,7 +75,7 @@ Read when present (from `rosey-design-catalog`):
 - `rosey/designs/latest.json` (`activePageSlug`, `pages.<slug>.*`)
 - `rosey/designs/<page-slug>/design-context.json` (embedded `serialized` DOM — do not re-serialize unless HTML checksum changed)
 - `rosey/designs/component-catalog.json`
-- `.cursor/rules/rosey-design-system.mdc`
+- the generated design-system rule in this IDE's rules tree
 
 Token fields on `design-context.json` (prefer top-level):
 
@@ -79,7 +86,7 @@ Token fields on `design-context.json` (prefer top-level):
 ### Step 2: Prepare Implementation
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/prepare-implementation.js \
+node scripts/prepare-implementation.js \
   --project-root <projectRoot> \
   [--target-file <targetFile>] \
   [--page-slug <pageSlug>]
@@ -95,7 +102,7 @@ The prep script writes:
 
 Mappings use `stableId` (preferred) and numeric `controlInventory[].id`.
 
-When `pageSlug` differs from `latest.json` `activePageSlug`, re-run **rosey-design-catalog** for that page so `.cursor/rules/rosey-design-system.mdc` references the correct context.
+When `pageSlug` differs from `latest.json` `activePageSlug`, re-run **rosey-design-catalog** for that page so the generated design-system rule in this IDE's rules tree references the correct context.
 
 ### Step 3: Translate to Project Conventions (UI Only)
 
@@ -143,13 +150,13 @@ Use these lower-level commands only when the prep script or catalog state needs 
 Copy assets manually:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/copy-assets.js --project-root <projectRoot> --page-slug <pageSlug>
+node scripts/copy-assets.js --project-root <projectRoot> --page-slug <pageSlug>
 ```
 
 Run component mapping manually:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/component-mapping.js \
+node scripts/component-mapping.js \
   --project-root <projectRoot> \
   --page-slug <pageSlug> \
   [--target-file <targetFile>]
@@ -157,14 +164,16 @@ node .cursor/skills/rosey-implement-design/scripts/component-mapping.js \
 
 Rebuild catalog/context when HTML changed:
 
+From the `rosey-design-catalog` skill directory:
+
 ```bash
-node .cursor/skills/rosey-design-catalog/scripts/generate-design-system.js --html <htmlPath> --project-root <projectRoot> --page-slug <pageSlug>
+node scripts/generate-design-system.js --html <htmlPath> --project-root <projectRoot> --page-slug <pageSlug>
 ```
 
 Run all viewport parity reports:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/run-parity-viewports.js \
+node scripts/run-parity-viewports.js \
   --project-root <projectRoot> --page-slug <pageSlug> \
   --baseline-url <baselineUrl> --target-url <targetUrl>
 ```
@@ -172,7 +181,7 @@ node .cursor/skills/rosey-implement-design/scripts/run-parity-viewports.js \
 Merge parity into reviewer-shaped findings:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/merge-parity-report.js \
+node scripts/merge-parity-report.js \
   --project-root <projectRoot> --page-slug <pageSlug> \
   --baseline-url <baselineUrl> --target-url <targetUrl>
 ```
@@ -180,20 +189,20 @@ node .cursor/skills/rosey-implement-design/scripts/merge-parity-report.js \
 Validate iteration cycle artifacts:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/validate-iteration-cycle.js \
+node scripts/validate-iteration-cycle.js \
   --project-root <projectRoot> --page-slug <pageSlug> --cycle 1
 ```
 
 Rendered DOM + pixel diff (recommended):
 
 ```bash
-npm install --prefix .cursor/skills/rosey-implement-design
-npx --prefix .cursor/skills/rosey-implement-design playwright install chromium
+npm install
+npx playwright install chromium
 ```
 
 Stop baseline server:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/stop-baseline-server.js \
+node scripts/stop-baseline-server.js \
   --pid-file rosey/designs/<page-slug>/review/baseline-server.pid
 ```

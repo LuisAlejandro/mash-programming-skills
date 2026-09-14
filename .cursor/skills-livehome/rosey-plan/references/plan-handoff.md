@@ -1,8 +1,6 @@
-# Plan Handoff (live-home)
+# Plan Handoff
 
-This file contains post-plan-writing instructions: document review and post-generation options. Load it after the plan file has been written and the confidence check (5.3.1-5.3.7) is complete.
-
-Do not offer Create Issue or Create PR. Git is backup/sync, not a collaboration surface.
+This file contains post-plan-writing instructions: document review, post-generation options, and issue creation. Load it after the plan file has been written and the confidence check (5.3.1-5.3.7) is complete.
 
 ## 5.3.8 Document Review
 
@@ -19,7 +17,28 @@ Capture the headless envelope so it can drive the contextual summary above the p
 - The count of remaining findings, broken out by user-facing bucket (proposed fixes, decisions, FYI observations)
 - The severity breakdown of decisions and proposed fixes (specifically the P0/P1 count, since those benefit from explicit user attention)
 
-When rosey-doc-review returns "Review complete", proceed to Final Checks.
+When rosey-doc-review returns "Review complete", proceed to the ponytail sanity-check.
+
+## 5.3.8b Ponytail Sanity-Check
+
+Before final checks, run a lightweight over-engineering pass on the plan's Implementation Units. This is the write-time gate: catch speculative abstractions, unneeded dependencies, and over-scoped units *before* `rosey-work` commits to them, when they are cheapest to cut.
+
+For each Implementation Unit, ask the ponytail ladder:
+
+1. Does this unit need to exist at all? (YAGNI — is it speculative scope?)
+2. Does it reuse what already exists in the codebase, or does it plan a new abstraction/helper?
+3. Does it reach for the standard library or a native platform feature before a new dependency?
+4. Is the unit the minimum that works, or does it carry dead flexibility / config nobody sets / a layer with one caller?
+
+Flag only concrete cuts with a one-line replacement, e.g.:
+
+- `U3: yagni — "configurable retry policy" with no consumer. Hardcode the retry count until a second caller exists.`
+- `U5: stdlib — hand-rolled date parsing. Use the stdlib datetime/dateutil already in the tree.`
+- `U2: shrink — unit spans 3 files for one behavior. Collapse to one file.`
+
+Do **not** flag: correctness, security, performance, or domain complexity the requirements genuinely require. Do not flag a unit's single smoke test / `assert` self-check — that is the ponytail minimum, not bloat.
+
+**Routing:** Apply `safe_auto`-style cuts (drop a speculative unit, inline a one-caller abstraction) directly to the plan. Surface anything that changes scope or needs a user decision in the post-generation menu summary line alongside the doc-review state. If nothing to cut, note `Ponytail: lean — no cuts.` and move on.
 
 **Non-interactive mode:** Non-interactive planning always invokes `rosey-doc-review` with `mode:headless` and the plan path — the headless mode is identical to the interactive default at this phase. No further routing is offered in non-interactive mode; the caller decides what to do with the returned findings. Address any P0/P1 findings before returning control to the caller.
 
@@ -28,8 +47,7 @@ When rosey-doc-review returns "Review complete", proceed to Final Checks.
 Before proceeding to post-generation options:
 - Confirm the plan is stronger in specific ways, not merely longer
 - Confirm the planning boundary is intact
-- Confirm origin decisions were preserved when an origin document exists
-- Confirm the plan does not invent feature branches, worktrees, or PRs. Implementation lands on `master`/`main`.
+- Confirm origin decisions were preserved
 
 If artifact-backed mode was used:
 - Clean up the temporary scratch directory after the plan is safely updated
@@ -50,20 +68,19 @@ After all mutations in this run have settled (initial write, deepening synthesis
 **Question:** "Plan ready at `<absolute path to plan>`. What would you like to do next?"
 
 **Options:**
+1. **Start `/rosey-work`** (recommended) - Begin implementing this plan in the current session
+2. **Run deeper doc review** - Walk through the remaining findings interactively (full rosey-doc-review walkthrough)
+3. **Done for now** - Pause; the plan file is saved and can be resumed later
 
-1. **Start `/rosey-work`** (recommended) — implement on `master`/`main` in this session
-2. **Run deeper doc review** — Walk through the remaining findings interactively (full rosey-doc-review walkthrough)
-3. **Done for now** — pause; the plan file is saved
+This is a live-home: there is no issue-tracker or PR route. Work lands on `master`/`main` in this session.
 
-Do not offer Create Issue or Create PR.
+**Menu rendering:** Count visible options after applying the hide rules below. When **4 or fewer** options remain, use the platform's blocking question tool (see Interaction Method in SKILL.md). When the blocking tool is unavailable or errors, fall back to numbered-list-in-chat rendering. Never silently skip the question.
 
-**Menu rendering:** Count visible options after applying the hide rules below. When **4 or fewer** options remain, use the platform's blocking question tool (`AskUserQuestion` in Claude Code — call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded; `request_user_input` in Codex; `ask_user` in Gemini/Pi). When the blocking tool is unavailable or errors, fall back to numbered-list-in-chat rendering. Never silently skip the question.
+**Hide `Run deeper doc review` when no actionable findings remain.** Show option 2 only when the headless envelope reports `proposed_fixes_count + decisions_count > 0` — i.e., at least one `gated_auto` or `manual` finding at confidence anchor `75` or `100`. Drop the option in any other case, including FYI-only state. FYI observations (anchor `50`) do not enter `rosey-doc-review`'s interactive routing question or walkthrough — that flow is gated to actionable findings — so a `Run deeper doc review` option that only has FYIs to show is a dead-end: rosey-doc-review would re-dispatch the persona team, find the same FYIs, skip the routing question, and fall through to the terminal question with nothing to walk through. The user paid the dispatch cost for no engagement surface. After trimming, renumber visible options contiguously starting at 1. The summary line above the menu still names the FYI count when present (`Doc review applied 3 fixes. 2 FYI observations remain.`) so the user sees what was found, even though there is no menu action attached to it — the FYIs are visible in the headless envelope text the menu rendered alongside.
 
-**Hide `Run deeper doc review` when no actionable findings remain.** Show option 2 only when the headless envelope reports `proposed_fixes_count + decisions_count > 0` — i.e., at least one `gated_auto` or `manual` finding at confidence anchor `75` or `100`. Drop the option in any other case, including FYI-only state. After trimming, renumber visible options contiguously starting at 1.
-
-Based on selection:
-- **Start `/rosey-work`** -> Invoke the `rosey-work` skill via the platform's skill-invocation primitive, passing the plan path as the skill argument. Do not merely tell the user to type `/rosey-work` — fire the invocation now so the plan executes in this session.
-- **Run deeper doc review** -> Re-invoke the `rosey-doc-review` skill on the plan path **without** `mode:headless`. After it returns, re-render this menu with the refreshed counts so the user can pick what to do next.
+Based on selection (the bare per-option routing is also stated inline in the SKILL.md so it cannot be missed when this reference is not loaded; the elaborate sub-flows below are the reason this reference still exists):
+- **Start `/rosey-work`** -> Invoke the `rosey-work` skill via the harness's skill-invocation primitive, passing the plan path as the skill argument. Match by capability — whatever loads and runs a named skill in the current tool list. Do not merely tell the user to type `/rosey-work`; fire the invocation now so the plan executes in this session.
+- **Run deeper doc review** -> Re-invoke the `rosey-doc-review` skill on the plan path **without** `mode:headless` so the interactive routing question and walkthrough fire. The headless pass already applied `safe_auto` fixes and recorded its findings in the session, so the interactive pass picks up where headless stopped — its R29 suppression rule prevents prior-round Skipped/Deferred entries from re-raising. After it returns, re-render this menu with the refreshed counts so the user can pick what to do next.
 - **Done for now** -> Display a brief confirmation that the plan file is saved and end the turn. Do not start follow-up work without an explicit further user prompt.
-- **Free-form prompts that target the findings** (e.g., the user types "review", "walk through", "deep review" instead of picking a numbered option) -> route as if they had picked `Run deeper doc review`.
+- **Free-form prompts that target the findings** (e.g., the user types "review", "walk through", "deep review" instead of picking a numbered option) -> route as if they had picked `Run deeper doc review`. Do not loop back to the menu without firing the deeper review.
 - **Other free-form input** -> Accept revisions to the plan and loop back to options.

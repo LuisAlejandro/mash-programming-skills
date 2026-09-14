@@ -1,10 +1,10 @@
 # Handoff
 
-Read this when Phase 2 completes, or — on the Trivial route — as soon as the change is implemented. It owns the lint gate, the Sentrux handoff gate, the review brief, Hindsight retain, the handoff envelope, and the evidence artifact.
+Read this when Phase 2 completes. It owns the lint gate, the Sentrux handoff gate, the review brief, Hindsight retain, the handoff envelope, and the evidence artifact.
 
 ## Phase 3: Handoff
 
-Entered when all Phase 2 tasks are complete, or — on the Trivial route, which has no task list and no execution loop — as soon as the change is implemented. Every step below runs on both paths.
+Entered when all Phase 2 tasks are complete.
 
 1. **Run `rosey-lint` before handoff**:
    - Load [`rosey-lint`](../../rosey-lint/SKILL.md).
@@ -70,6 +70,6 @@ Entered when all Phase 2 tasks are complete, or — on the Trivial route, which 
 
    The body must be non-empty. [`rosey-parallel`](../../rosey-parallel/SKILL.md) treats a missing or empty block as task failure even when the handoff envelope is well-formed — a run is not done without proof it was verified.
 
-   **Name the command, then paste its real output — not a summary of it.** "Tests pass" is not evidence; `pytest -q` followed by its actual tail is. When no automated verification was possible (no configured test runner, manual-only surface), state that explicitly along with whatever check _was_ run; do not omit the block.
+   **Name the command, then paste its real output — not a summary of it.** "Tests pass" is not evidence; `make test` followed by the relevant output tail is. When the repository has no Make target, use the Compose fallback. When no automated verification was possible (no configured test runner, manual-only surface), state that explicitly along with whatever check _was_ run; do not omit the block.
 
 9. **Stop**. Do not invoke `rosey-qa`, `rosey-pr`, or any shipping workflow. Shipping/QA adaptation is handled by a separate plan.

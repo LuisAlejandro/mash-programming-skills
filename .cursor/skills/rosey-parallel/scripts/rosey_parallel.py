@@ -1900,10 +1900,44 @@ def run_scaffold(driver, tasks: dict) -> dict:
     }
 
 
+def task_origin_slug(task_id: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", str(task_id).lower()).strip("-") or "task"
+
+
 def task_origin_doc_path(task_id: str) -> str:
-    """Repo-relative path of the per-task origin requirements doc."""
-    slug = re.sub(r"[^a-z0-9]+", "-", str(task_id).lower()).strip("-") or "task"
-    return f"rosey/brainstorms/{slug}-requirements.md"
+    """Repo-relative path of a projected per-task origin requirements doc."""
+    return f"rosey/parallel/origins/{task_origin_slug(task_id)}-requirements.md"
+
+
+_DATE_PREFIXED_ORIGIN = re.compile(
+    r"^\d{4}-\d{2}-\d{2}-(.+)-requirements\.md$"
+)
+
+
+def existing_brainstorm_origin(repo_root, slug: str) -> str | None:
+    """Return a matching real brainstorm origin if one exists.
+
+    Searches the flat `rosey/brainstorms/` directory only. Matches
+    `{slug}-requirements.md` or `YYYY-MM-DD-<slug>-requirements.md`.
+    Never `scratch/` or nested dirs. `rosey/parallel/` is not a search root.
+    """
+    brainstorms = Path(repo_root) / "rosey" / "brainstorms"
+    if not brainstorms.is_dir():
+        return None
+    exact = brainstorms / f"{slug}-requirements.md"
+    if exact.is_file():
+        return f"rosey/brainstorms/{exact.name}"
+    dated = [
+        path
+        for path in brainstorms.glob("*-requirements.md")
+        if path.parent == brainstorms
+        and (m := _DATE_PREFIXED_ORIGIN.fullmatch(path.name))
+        and m.group(1) == slug
+    ]
+    if not dated:
+        return None
+    newest = max(dated, key=lambda p: p.stat().st_mtime)
+    return f"rosey/brainstorms/{newest.name}"
 
 
 def write_task_origin_docs(repo_root, tasks: dict) -> dict[str, str]:
@@ -1912,9 +1946,10 @@ def write_task_origin_docs(repo_root, tasks: dict) -> dict[str, str]:
     rosey-plan requires an upstream requirements document and stops without
     one. The epic-level brainstorm that produced this task list happens
     outside the run, so each task's {id, goal, deps} is projected into a
-    minimal requirements doc that serves as that task's origin. Existing
-    files are never overwritten -- a real brainstorm doc for the same slug
-    wins over the generated projection.
+    minimal requirements doc under `rosey/parallel/origins/` that serves
+    as that task's origin. A matching real file under
+    `rosey/brainstorms/` wins -- no projection is written for that task.
+    Existing projected files are never overwritten.
 
     Returns {task_id: repo-relative path}.
     """
@@ -1922,6 +1957,11 @@ def write_task_origin_docs(repo_root, tasks: dict) -> dict[str, str]:
         return {}
     out: dict[str, str] = {}
     for tid, t in tasks.items():
+        slug = task_origin_slug(tid)
+        existing = existing_brainstorm_origin(repo_root, slug)
+        if existing:
+            out[tid] = existing
+            continue
         rel = task_origin_doc_path(tid)
         dest = Path(repo_root) / rel
         out[tid] = rel
@@ -2184,6 +2224,8 @@ class HarnessPhaseDriver:
                 "You are a rosey worker running one task of an epic inside a "
                 "pre-created worktree.\n\nTASK GOAL: {goal}\nPLAN PATH: {plan_path}\n"
                 "ORIGIN DOC: {origin_doc}\nPhase: {phase}\n"
+                "track_branch: {track_branch}\nqa_diff_base: {qa_diff_base}\n"
+                "branch_setup: {branch_setup}\n"
             )
         return template.format(
             goal=ctx.get("goal", task_id),
@@ -2192,6 +2234,7 @@ class HarnessPhaseDriver:
             track_branch=ctx.get("branch") or overrides.get("branch") or "",
             phase=phase,
             qa_diff_base=qa_base,
+            branch_setup=overrides.get("branch_setup") or "do not run branch setup",
         )
 
     def _invoke(self, task_id: str, phase: str) -> str:

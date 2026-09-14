@@ -71,6 +71,17 @@ def test_worker_overrides_neutralize_branch_and_sentrux():
     assert overrides["branch_setup"] == "do not run branch setup"
     assert overrides["sentrux"] == "skip"
     assert overrides["branch"] == "the-track-branch"
+    prompt = rp.load_worker_prompt().format(
+        goal="g",
+        plan_path="p",
+        origin_doc="o",
+        track_branch="the-track-branch",
+        phase="work",
+        qa_diff_base="track-branch-point",
+        branch_setup=overrides["branch_setup"],
+    )
+    assert "`do not run branch setup`" in prompt or "do not run branch setup" in prompt
+    assert "do NOT run branch setup" not in prompt
 
 
 def test_worker_overrides_include_diff_base_for_track():

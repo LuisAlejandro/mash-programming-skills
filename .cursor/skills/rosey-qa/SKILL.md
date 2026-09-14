@@ -22,7 +22,7 @@ This skill follows the upstream code-review workflow, with Rosey handoff and Sen
 - When `SENTRUX_REVIEW_CONTEXT` is present, include it in reviewer context and synthesis. Structural regression is a first-class review axis alongside logic, requirements, tests, and maintainability.
 - Treat a failed Sentrux `session_end`, quality-signal drop, new import cycle, or behavior-critical `test_gaps` entry as a P1/P2 finding depending on impact. If the context documents `override sentrux handoff block`, keep the concern visible as residual risk but do not block solely because of the override.
 - When `FILES_CHANGED` is provided, use it as the authoritative file list to cross-check the computed git diff. If the computed diff misses any provided file, include that mismatch in the review scope notes.
-- Run the Hindsight gate (see `.cursor/rules/hindsight-memory.mdc`) before Stage 1 when review may be affected by prior preferences, conventions, or session context.
+- Run the Hindsight gate (always-on Hindsight guideline; CLI in [`rosey-hindsight`](../rosey-hindsight/SKILL.md)) before Stage 1 when review may be affected by prior preferences, conventions, or session context.
 - Use GitHub MCP tools for GitHub PR metadata and comments. Do not rely on the GitHub CLI.
 
 ## When to Use
@@ -212,6 +212,7 @@ The following paths are Rosey pipeline artifacts and must never be flagged for d
 - `rosey/plans/*.md` -- plan files created by rosey-plan (decision artifacts; execution progress is derived from git, not stored in plan bodies)
 - `rosey/solutions/*.md` -- solution documents created during the pipeline
 - `rosey/insights/*.md` -- durable repo lessons surfaced by rosey-learnings-researcher
+- `rosey/dogfood/*` -- post-merge dogfood reports created by rosey-dogfood
 
 If a reviewer flags any file in these directories for cleanup or removal, discard that finding during synthesis.
 
@@ -756,7 +757,7 @@ Before delivering the review, verify:
 2. **No false positives from skimming.** For each finding, verify the surrounding code was actually read. Check that the "bug" isn't handled elsewhere in the same function, that the "unused import" isn't used in a type annotation, that the "missing null check" isn't guarded by the caller.
 3. **Severity is calibrated.** A style nit is never P0. A SQL injection is never P3. Re-check every severity assignment.
 4. **Line numbers are accurate.** Verify each cited line number against the file content. A finding pointing to the wrong line is worse than no finding.
-5. **Protected artifacts are respected.** Discard any findings that recommend deleting or gitignoring files in `rosey/brainstorms/`, `rosey/plans/`, `rosey/solutions/`, or `rosey/insights/`.
+5. **Protected artifacts are respected.** Discard any findings that recommend deleting or gitignoring files in `rosey/brainstorms/`, `rosey/plans/`, `rosey/solutions/`, `rosey/insights/`, or `rosey/dogfood/`.
 6. **Findings don't duplicate linter output.** Don't flag things the project's linter/formatter would catch (missing semicolons, wrong indentation). Focus on semantic issues.
 
 ## After Review

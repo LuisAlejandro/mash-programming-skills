@@ -42,10 +42,10 @@ When a plan doc is warranted, these sections are present. They carry the contrac
 - **Summary** — what the plan proposes, in 1-3 lines. Forward-looking; orients the reader before they invest in detail.
 - **Problem Frame** — why the work is being done. Backward-looking / situational. May merge with Summary for compact plans where the motivation is a single sentence.
 - **Requirements** (with stable R-IDs) — what must be true after the work ships. Reviewer's checklist; downstream code review verifies against these.
-- **Key Technical Decisions** (KTDs) — the load-bearing choices that constrain implementation. Each entry is `<decision>: <rationale>`. Without these, the implementer can't tell which design choices are open and which are pinned.
-- **Implementation Units** (with stable U-IDs) — the discrete units of work, sized so each is independently landable. `rosey-work` consumes these to execute. For trivial single-step plans the work may collapse into Summary prose and U-IDs may be omitted; this is rare.
+- **Key Technical Decisions** (KTDs) — the load-bearing choices that constrain implementation. Each entry is `KTD1. <decision>: <rationale>` (plain prefix, stable across revisions). Goal Capsule and units cite them (`Means: … (KTD2)`). Without these, the implementer can't tell which design choices are open and which are pinned.
+- **Implementation Units** (with stable U-IDs) — the discrete units of work, sized so each is independently landable. `rosey-work` consumes these to execute. A software plan always has at least `U1`. A single-step plan is still one unit (Goal, Files, Verification), not Summary-only.
   - **Unit Index (large plans only, ~10+ units).** When the plan has roughly ten or more units, open the section with a compact navigation table — one row per unit: **U-ID · one-line title · files touched · depends-on**. It lets an executor map units to files and resolve dependency order without scanning every unit body. It is a **navigation aid only**: the unit bodies stay authoritative, it carries nothing beyond those four fields (no approach, tests, or rationale), and `files touched` is the key paths rather than an exhaustive restatement. **Never use it to derive a file footprint** — `rosey-parallel` sequences tracks from each unit's `Files:` section, and the index is deliberately non-exhaustive, so a footprint taken from it would silently under-report overlap. **Omit it below ~10 units**, where the per-unit `Dependencies` and `Files` already suffice and an index would be ceremony.
-- **Verification Contract** — the repo-specific commands and quality gates that prove the plan: which tests to run, which lint or build gates apply, and what behavioral checks are required. Name the repo's actual commands; avoid generic "run tests" language when concrete ones exist. When the goal is optimization-shaped (build time, latency, coverage, bundle size), express a measurable threshold as the exit criterion (e.g. "p95 latency < 200ms", "build time reduced 30%") — a metric target is a sharper done signal than a boolean check.
+- **Verification Contract** — the repo-specific commands and quality gates that prove the plan: which tests to run, which lint or build gates apply, and what behavioral checks are required. Name the repo's actual commands; avoid generic "run tests" language when concrete ones exist. Prefer Makefile / Compose targets (`make test`, `make lint`) over host `npm test` / `pytest` when those targets exist. When the goal is optimization-shaped (build time, latency, coverage, bundle size), express a measurable threshold as the exit criterion (e.g. "p95 latency < 200ms", "build time reduced 30%") — a metric target is a sharper done signal than a boolean check.
 - **Definition of Done** — global and per-unit completion criteria. This is the completion contract for long-running or autonomous execution. Include a **cleanup criterion**: a long run accumulates dead-end and experimental code from approaches that did not pan out, and declaring done requires that abandoned-attempt code is removed, not left in the diff.
 
 ## Include when material
@@ -54,9 +54,20 @@ These sections are present when they carry information that isn't covered elsewh
 
 - **High-Level Technical Design** — include when the technical approach has shape that prose alone doesn't carry well: architecture across components, sequencing across processes, state machines, branching gates. Visualizations (component topology, sequence, swim lane, flowchart, data-flow) typically live here. Skip when the approach is a one-paragraph pattern application that the prose itself conveys.
 
-- **Scope Boundaries** — include when scope is contested, when there are tempting non-goals worth naming explicitly, or when "deferred for later" needs distinguishing from "outside the product's identity." Skip when scope is obvious from Requirements alone.
+- **Scope Boundaries** — include when scope is contested, when there are tempting non-goals worth naming explicitly, or when "deferred for later" needs distinguishing from "outside the product's identity." Carry origin **How This Work Fits Together** here (or as a short Related Work note) as contextual, non-active scope — never as Implementation Units. Skip when scope is obvious from Requirements alone.
 
 - **Open Questions** — include when there are genuinely unresolved items that block planning or implementation. Skip when the plan is complete; an empty "Open Questions: none" section signals false uncertainty.
+
+  Question-lifecycle mapping (canonical headings; new plans use these names only):
+
+  | Lifecycle | Canonical heading |
+  | --- | --- |
+  | Product decision blocked planning | Origin `### Resolve Before Planning` — must be empty before planning proceeds |
+  | Answered during planning | Origin `### Deferred to Planning` — consume during research; do not copy as unresolved |
+  | Still unresolved when this plan is written | `## Open Questions` |
+  | Intentionally answered during execution | `### Deferred to Implementation` under Open Questions |
+
+  `Implementation-Time Unknowns` is a compatibility alias for older plans. Work still parses it; do not use it in new plans.
 
 - **System-Wide Impact** — include when the change affects cross-cutting concerns (data lifecycles, auth boundaries, performance posture, cardinal rules, shared infrastructure). Skip for changes localized to one component where the impact is self-evident.
 
@@ -83,13 +94,14 @@ The agent also picks per artifact:
 
 ## Plan metadata fields
 
-Every plan carries a small set of stable metadata fields that downstream tooling depends on. The contract is format-independent: in markdown these fields appear as YAML frontmatter at the top of the file; in HTML they appear as visible header text (typically a `<dl>` of `<dt>`/`<dd>` pairs or a stats strip). Field names and semantics are the same across both formats so consumers can locate them without knowing which format produced the plan.
+Every plan carries a small set of stable metadata fields that downstream tooling depends on. In markdown these fields appear as YAML frontmatter at the top of the file.
 
 ### Required
 
 - **`title`** — verbatim plan title. Matches the H1 so file metadata and visible heading don't drift.
-- **`type`** — conventional-commit-prefix-aligned classification (`feat`, `fix`, `refactor`, `chore`, `docs`, `perf`, `test`, etc.). Carries the intent the eventual commit message should reflect.
+- **`type`** — conventional-commit-prefix-aligned classification (`feat`, `fix`, `refactor`, `chore`, `docs`, `perf`, `test`, etc.). Carries the intent the eventual commit message should reflect. The filename `<type>` token is this same value.
 - **`date`** — creation date in ISO 8601 (`YYYY-MM-DD`), ASCII digits only.
+- **`origin`** — required on **software** plans: repo-relative path to the upstream brainstorm requirements doc (e.g., `rosey/brainstorms/2026-05-12-pagination-requirements.md`). Carried for traceability and re-resolved when `rosey-plan` re-deepens. **Absent on universal / non-software plans** (those use `# Title` + `Created:` and have no YAML origin).
 
 No `status` or lifecycle field. A plan is a point-in-time record, not a tracked work item — whether the work shipped is derived from git, not stored in the doc.
 
@@ -97,7 +109,6 @@ No `status` or lifecycle field. A plan is a point-in-time record, not a tracked 
 
 These fields are not required, but when set they have fixed names and semantics so downstream tooling can rely on them:
 
-- **`origin`** — repo-relative path to the upstream brainstorm requirements doc (e.g., `rosey/brainstorms/2026-05-12-pagination-requirements.md`). Always set: every plan has an origin. Carried for traceability and re-resolved when `rosey-plan` re-deepens.
 - **`deepened`** — ISO 8601 date marking the first time the confidence check substantively strengthened the plan. Presence affects Phase 0.1 resume fast-path logic (see `references/deepening-workflow.md`).
 
 Field names are stable across plan revisions — never rename a field or repurpose its semantics. Agents composing new plans MUST use these exact names; adding new fields is fine, but renaming `title` to `name` or `origin` to `source` breaks the downstream consumers above.
@@ -106,8 +117,8 @@ Field names are stable across plan revisions — never rename a field or repurpo
 
 These apply regardless of rendering format.
 
-- **Stable IDs.** R-IDs (Requirements), U-IDs (Implementation Units), A-IDs (if Actors fire), F-IDs (if Flows fire), AE-IDs (if Acceptance Examples fire). IDs are stable across plan revisions — never renumber to "clean up gaps."
-- **Plain prefix.** `R1.`, `U1.` as bullet prefixes. Do not bold; the prefix is visually distinctive on its own.
+- **Stable IDs.** R-IDs (Requirements), U-IDs (Implementation Units), KTD-IDs (Key Technical Decisions), A-IDs (if Actors fire), F-IDs (if Flows fire), AE-IDs (if Acceptance Examples fire). IDs are stable across plan revisions — never renumber to "clean up gaps."
+- **Plain prefix.** `R1.`, `U1.`, `KTD1.` as bullet prefixes. Do not bold; the prefix is visually distinctive on its own. Goal Capsule `Means:` and units cite KTDs as `(KTD2)`.
 - **Repo-relative paths.** Always. Never absolute paths in plan content; they break portability across machines, worktrees, teammates.
 - **No process exhaust.** No "captured at Phase X" notes, no `## Next Steps` pointing to the next skill, no italic provenance lines. Engineering process metadata belongs in commit messages and tool output, not the artifact.
 - **Group Requirements by concern when they span distinct logical areas.** The trigger is distinct concerns, not item count — even four requirements benefit from grouping if they cover three different topics. Skip grouping only when all requirements are genuinely about the same thing; a long flat list is a smell that subgroups were missed. Group by capability (e.g., "Packaging", "Migration and compatibility", "Contributor workflow"), not by the order requirements were discussed. R-IDs stay continuous across groups (R1, R2 in the first group; R3, R4 in the second; never restart at R1 per group).
@@ -116,4 +127,4 @@ These apply regardless of rendering format.
 
 Read `references/markdown-rendering.md` for how to render these sections.
 
-This reference (`plan-sections.md`) is about WHAT the plan contains; the markdown rendering reference is about HOW to present it on the page. The section catalog is the same regardless of format.
+This reference (`plan-sections.md`) is about WHAT the plan contains; the markdown rendering reference is about HOW to present it on the page.

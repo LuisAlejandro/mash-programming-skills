@@ -26,13 +26,13 @@ Ask the user only when the answer materially affects architecture, scope, sequen
 #### 3.1 Title and File Naming
 
 - Draft a clear, searchable title using conventional format such as `feat: Add user authentication` or `fix: Prevent checkout double-submit`
-- Determine the plan type: `feat`, `fix`, or `refactor`
+- Determine the plan type from frontmatter `type`: `feat`, `fix`, `refactor`, `chore`, `docs`, `perf`, `test`, or another conventional-commit prefix. The filename `<type>` token is that exact value — not a three-value subset.
 - Build the filename following the repository convention: `rosey/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md`
   - Create `rosey/plans/` if it does not exist
   - Check existing files for today's date to determine the next sequence number (zero-padded to 3 digits, starting at 001)
-  - **Reserve the path with exclusive creation.** If the chosen name already exists, take the next available `NNN` rather than overwriting — two plan runs on the same day must never collide. The token shape is fixed: `rosey-work` and `rosey-pr` both derive branch slugs by stripping `YYYY-MM-DD-NNN-<type>-`, and `rosey-pr` stops before commit when the plan and branch slugs diverge
+  - **Reserve the path with exclusive creation.** If the chosen name already exists, take the next available `NNN` rather than overwriting — two plan runs on the same day must never collide. The token shape is fixed: `rosey-work` and `rosey-pr` both derive branch slugs by stripping `YYYY-MM-DD-NNN-<type>-` (generic `<type>`, not only feat/fix/refactor), and `rosey-pr` stops before commit when the plan and branch slugs diverge
   - Keep the descriptive name concise (3-5 words) and kebab-cased
-  - Examples: `2026-01-15-001-feat-user-authentication-flow-plan.md`, `2026-02-03-002-fix-checkout-race-condition-plan.md`
+  - Examples: `2026-01-15-001-feat-user-authentication-flow-plan.md`, `2026-02-03-002-fix-checkout-race-condition-plan.md`, `2026-03-10-001-docs-api-error-catalog-plan.md`, `2026-04-01-001-chore-release-script-plan.md`
   - Avoid: missing sequence numbers, vague names like "new-feature", invalid characters (colons, spaces)
 
 #### 3.2 Stakeholder and Impact Awareness
@@ -79,7 +79,7 @@ Each unit carries a stable plan-local **U-ID** assigned in Phase 3.5 (`U1`, `U2`
 
 When the plan's technical approach has shape that prose alone doesn't carry well — architecture across components, sequencing across processes, state machines, branching gates, lifecycles, quantitative comparisons — include a High-Level Technical Design section that conveys the shape. The exact form (component diagram, sequence, swim lane, flowchart, state machine, decision matrix, pseudo-code grammar, bar chart for sizing concerns) is the agent's call per artifact — pick what makes the content land fastest for the reader.
 
-See `references/plan-sections.md` for the section catalog including HTD's "include when material" criterion. See the format-rendering reference loaded at Phase 0.0 for how visualizations render in the target format (mermaid in markdown, inline SVG in HTML — with the layout-legibility principles around halo, contrast, and label placement when in HTML).
+See `references/plan-sections.md` for the section catalog including HTD's "include when material" criterion. Visualizations render as Mermaid in Markdown — see `references/markdown-rendering.md`.
 
 When the plan's approach is a one-paragraph pattern application that prose conveys directly, skip the section. The presence of HTD should earn its keep with content that genuinely benefits from visualization.
 
@@ -111,28 +111,25 @@ For each unit, include:
 - **Dependencies** - what must exist first (cite by U-ID, e.g., "U1, U3")
 - **Files** - repo-relative file paths to create, modify, or test (never absolute paths)
 - **Approach** - key decisions, data flow, component boundaries, or integration notes
-- **Execution note** - optional, only when the unit benefits from a non-default execution posture such as test-first or characterization-first
+- **Execution note** - optional override only. When absent, work uses proof-first for behavioral changes when a test runner and suitable test surface exist. Use an Execution note only to override that default (characterization-first, smoke-first, or an explicit no-test exception with replacement verification).
 - **Technical design** - optional pseudo-code or diagram when the unit's approach is non-obvious and prose alone would leave it ambiguous. Frame explicitly as directional guidance, not implementation specification
 - **Patterns to follow** - existing code or conventions to mirror
-- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank. **AE-link convention:** when a test scenario directly enforces an origin Acceptance Example, prefix it with `Covers AE<N>.` (or `Covers F<N> / AE<N>.`). This is sparse-by-design — most test scenarios are finer-grained than AEs and do not link. Do not force AE links onto tests that only cover lower-level implementation details.
+- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank. If the repo has **no configured test runner**, feature-bearing units use `Test expectation: none -- no test runner configured in this repo` and name replacement verification instead of inventing a runner. **AE-link convention:** when a test scenario directly enforces an origin Acceptance Example, prefix it with `Covers AE<N>.` (or `Covers F<N> / AE<N>.`). This is sparse-by-design — most test scenarios are finer-grained than AEs and do not link. Do not force AE links onto tests that only cover lower-level implementation details.
   - **Happy path behaviors** - core functionality with expected inputs and outputs
   - **Edge cases** (when the unit has meaningful boundaries) - boundary values, empty inputs, nil/null states, concurrent access
   - **Error and failure paths** (when the unit has failure modes) - invalid input, downstream service failures, timeout behavior, permission denials
   - **Integration scenarios** (when the unit crosses layers) - behaviors that mocks alone will not prove, e.g., "creating X triggers callback Y which persists Z". Include these for any unit touching callbacks, middleware, or multi-layer interactions
 - **Verification** - how an implementer should know the unit is complete, expressed as outcomes rather than shell command scripts
 
-Every feature-bearing unit should include the test file path in `**Files:**`.
+Every feature-bearing unit should include the test file path in `**Files:**` **when a configured test runner exists**. If none exists, do not invent test infrastructure unless that work is explicitly in scope.
 
-Use `Execution note` sparingly. Good uses include:
-- `Execution note: Start with a failing integration test for the request/response contract.`
-- `Execution note: Add characterization coverage before modifying this legacy parser.`
-- `Execution note: Implement new domain behavior test-first.`
+When `Execution note` is absent, work uses proof-first for behavioral changes when a test runner and suitable test surface exist. Use an Execution note only to override that default (characterization-first, smoke-first, or an explicit no-test exception with replacement verification).
 
 Do not expand units into literal `RED/GREEN/REFACTOR` substeps.
 
-#### 3.6 Keep Planning-Time and Implementation-Time Unknowns Separate
+#### 3.6 Keep Planning-Time Questions and Deferred-to-Implementation Items Separate
 
-If something is important but not knowable yet, record it explicitly under deferred implementation notes rather than pretending to resolve it in the plan.
+If something is important but not knowable yet, record it explicitly under `### Deferred to Implementation` (under `## Open Questions`) rather than pretending to resolve it in the plan. Do not use the heading `Implementation-Time Unknowns` on new plans.
 
 Examples:
 - Exact method or helper names
@@ -190,7 +187,7 @@ Do not add these as boilerplate. Include them only when they improve execution q
 
 Compose the plan using two paired references:
 
-- `references/plan-sections.md` — the section contract. Describes what the plan contains: the outcome the plan must enable for downstream consumers, the hard floor (Summary, Problem Frame, Requirements, KTDs, Implementation Units), the include-when-material catalog (HTD, Scope Boundaries, Open Questions, System-Wide Impact, Risks & Dependencies, Acceptance Examples, Documentation/Operational Notes, Sources & Research), the agency-driven escape hatch (introduce new sections when content warrants), and the ID/content rules.
+- `references/plan-sections.md` — the section contract. Describes what the plan contains: the outcome the plan must enable for downstream consumers, the hard floor (Goal Capsule, Summary, Problem Frame, Requirements, Key Technical Decisions, Implementation Units, Verification Contract, Definition of Done), the include-when-material catalog (HTD, Scope Boundaries, Open Questions, System-Wide Impact, Risks & Dependencies, Acceptance Examples, Documentation/Operational Notes, Sources & Research), the agency-driven escape hatch (introduce new sections when content warrants), and the ID/content rules.
 - `references/markdown-rendering.md` — how to present the sections in markdown.
 
 The section catalog is the same regardless of format. Format-specific principles (table-vs-prose by content shape, ID prefix format, diagram rendering, etc.) live in the rendering reference.
@@ -205,7 +202,7 @@ Omit "include when material" sections that don't carry information for this spec
 - Do not include implementation code — no imports, exact method signatures, or framework-specific syntax
 - Pseudo-code sketches and DSL grammars are allowed in the High-Level Technical Design section and per-unit technical design fields when they communicate design direction. Frame them explicitly as directional guidance, not implementation specification
 - Mermaid diagrams are encouraged when they clarify relationships or flows that prose alone would make hard to follow — ERDs for data model changes, sequence diagrams for multi-service interactions, state diagrams for lifecycle transitions, flowcharts for complex branching logic
-- Do not include git commands, commit messages, or exact test command recipes
+- Do not include git commands, commit messages, or shell choreography in Implementation Units. `## Verification Contract` **must** name real repo commands (`make test` / `make lint` when a Makefile exists).
 - Do not expand implementation units into micro-step `RED/GREEN/REFACTOR` instructions
 - Do not pretend an execution-time question is settled just to make the plan look complete
 

@@ -6,11 +6,13 @@ This file is loaded when rosey-plan detects a non-software task (Phase 0.1b). It
 
 Phase 0.1b (`references/intake.md`) routes here for anything that isn't clearly software. Verify the classification is correct before proceeding:
 
-- **Is this actually a software task?** The key distinction is task-type, not topic-domain. A study guide about Rust is non-software (producing educational content). A Rust library refactor is software (modifying code). If this is actually software, return to Phase 0.2 in `references/intake.md`.
+- **Is this actually a software task?** The key distinction is task-type, not topic-domain. A study guide about Rust is non-software (producing educational content). A Rust library refactor is software (modifying code). If this is actually software **and a software-shaped origin exists** (`## Requirements` present), return to Phase 0.2 in `references/intake.md`. A named wrap-up without that heading is not a software origin — stay on this workflow; do not bounce back to 0.2.
 - **Is this a quick-help request, not a planning task?** Error messages, factual questions, and single-step tasks don't need a plan. Respond directly and exit. Examples: "zsh: command not found: brew", "what's the capital of France."
-- **Non-interactive mode?** If `mode:non-interactive` is active: output "This is a non-software task. The autonomous code pipeline requires rosey-work, which only supports software tasks. Use `/rosey-plan` directly for non-software planning." and stop.
+- **Non-interactive mode?** If `mode:non-interactive` is active: output "Non-software planning is not valid in `mode:non-interactive`. Re-run `/rosey-plan` interactively or remove `mode:non-interactive`." and stop.
 
 Once past these checks, commit to producing a plan. Do not exit because the task looks like a "lookup" or "research question" — the user invoked `rosey-plan` because they want a structured output.
+
+**Named wrap-up origin.** If Phase 0.1b passed a `*-requirements.md` that is not software-shaped, read it as the brainstorm wrap-up and use it as the source of truth for Step 2. Skip Step 1b when that wrap-up already names the decisions that would change the plan; ask only if a material variable is still missing. Do not use the software plan template.
 
 ---
 

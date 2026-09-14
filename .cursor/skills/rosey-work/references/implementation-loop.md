@@ -1,6 +1,6 @@
 # Implementation Loop
 
-Read this before the first implementation write, including on the Trivial route. It owns the task execution loop, evidence strategy, test discovery and completeness, the system-wide test check, incremental commits, and pattern-following.
+Read this before the first implementation write. It owns the task execution loop, evidence strategy, test discovery and completeness, the system-wide test check, incremental commits, and pattern-following.
 
 ## Phase 2: Execute
 
@@ -33,7 +33,7 @@ Read this before the first implementation write, including on the Trivial route.
 
    When a task reveals durable context, retain it immediately with `hindsight-embed memory retain` using the guidance in [`rosey-hindsight`](../../rosey-hindsight/SKILL.md). Good candidates include user preferences, project conventions, failed-command fixes, environment requirements, architecture decisions, and workarounds. Do not store secrets or sensitive data.
 
-   When a unit carries an `Execution note`, honor it. For test-first units, write the failing test before implementation for that unit. For characterization-first units, capture existing behavior before changing it. For units without an `Execution note`, **default to proof-first when the code and test surface make it practical** — an unannotated behavior change should not silently become test-after.
+   When a unit carries an `Execution note`, honor it. When `Execution note` is absent, work uses proof-first for behavioral changes when a test runner and suitable test surface exist. Use an Execution note only to override that default (characterization-first, smoke-first, or an explicit no-test exception with replacement verification). Do not expand units into literal RED/GREEN/REFACTOR choreography.
 
    Guardrails for execution posture:
    - Do not write the test and implementation in the same step when working test-first
@@ -56,7 +56,7 @@ Read this before the first implementation write, including on the Trivial route.
 
    The last row is not a silence: name what was checked instead. Note also that the test-runner prerequisite below resolves the strategy to that row by construction — with no configured runner there is no test to place, so record the exception and move on rather than treating the two rules as being in conflict.
 
-   **Test runner prerequisite** — Before creating or running automated tests, confirm the touched repo already has a configured test runner (for example `jest`, `vitest`, Playwright/Cypress, `pytest`, `go test`, `cargo test`, `mix test`, or an equivalent project-standard runner). If no runner is configured, do not create test files, do not add ad hoc test scripts, and document the skip reason. If the user explicitly asks to add test infrastructure, treat that as implementation scope and proceed according to the plan.
+   **Test runner prerequisite** — Before creating or running automated tests, confirm the touched repo already has a configured test runner. Discover it through the Makefile (`make test`), Compose, or `rosey-lint` — not by running host `npm test`, `pytest`, `node`, or `python`. If no runner is configured, do not create test files, do not add ad hoc test scripts, and document the skip reason. If the user explicitly asks to add test infrastructure, treat that as implementation scope and proceed according to the plan.
 
    **Test Scenario Completeness** — Before writing tests for a feature-bearing unit, check whether the plan's `Test scenarios` cover all categories that apply to this unit. If a category is missing or scenarios are vague (e.g., "validates correctly" without naming inputs and expected outcomes), supplement from the unit's own context before writing tests:
 
@@ -99,21 +99,26 @@ Read this before the first implementation write, including on the Trivial route.
    **Commit workflow:**
 
    ```bash
-   # 1. Verify tests pass (use project's test command)
-   # Examples: bin/rails test, npm test, pytest, go test, etc.
+   # 1. Verify tests pass (use the command resolved in Phase 1)
+   # Prefer the repository Makefile: make test, make lint.
+   # If no Make target exists, use:
+   # docker compose run --rm <service> <command>
+   # Never run project npm, pytest, node, or python on the host.
 
    # 2. Stage only files related to this logical unit (not `git add .`)
    git add <files related to this logical unit>
 
-   # 3. Commit with conventional message, path-limited to those same files
-   git commit -m "feat(scope): description of this unit" -- <files related to this logical unit>
+   # 3. Commit path-limited. Subject rule: see rosey-pr SKILL.md Step 2.
+   # If .gitchangelog.rc exists: [ADD]/[FIX]/[REF]/[DEL] + imperative summary.
+   # Ambiguous → [FIX]. Otherwise Conventional Commits.
+   git commit -m "<subject>" -- <files related to this logical unit>
    ```
 
    **Path-limit every commit.** A bare `git commit` absorbs whatever the user already had staged before this run started. Pass the same file list to `git commit -- <paths>` so only this unit's files land.
 
    **Handling merge conflicts:** If conflicts arise during rebasing or merging, resolve them immediately. Incremental commits make conflict resolution easier since each commit is small and focused.
 
-   **Note:** Commits use clean conventional messages. No attribution footers, at any stage — `rosey-pr` does not add them either.
+   **Note:** Commit subjects follow [`rosey-pr`](../../rosey-pr/SKILL.md) Step 2 (gitchangelog tags when `.gitchangelog.rc` exists; otherwise Conventional Commits). No attribution footers, at any stage — `rosey-pr` does not add them either.
 
    **Commit ownership is the orchestrator's, always.** Serial subagents implement and may run their own unit's focused tests as a self-check; staging, committing, and the authoritative test run happen here after the diff is reviewed.
 
@@ -127,11 +132,12 @@ Read this before the first implementation write, including on the Trivial route.
 
 4. **Test Continuously**
 
-   - Run relevant tests after each significant change
+   - Run the Phase 1 resolved command after each significant change (`make test` / `make lint` when those targets exist)
    - Don't wait until the end to test
    - Fix failures immediately
    - Add new tests for new behavior, update tests for changed behavior, remove tests for deleted behavior
    - **Unit tests with mocks prove logic in isolation. Integration tests with real objects prove the layers work together.** If your change touches callbacks, middleware, or error handling — you need both.
+   - Full `rosey-lint` still runs at Phase 3; do not treat it as the first time commands are discovered.
 
 5. **Simplify as You Go**
 
@@ -141,18 +147,16 @@ Read this before the first implementation write, including on the Trivial route.
 
    If a `/simplify` skill or equivalent is available, use it. Otherwise, review the changed files yourself for reuse and consolidation opportunities.
 
-6. **Figma Design Sync** (if applicable)
+6. **Design sync** (if applicable)
 
-   For UI work with Figma designs:
-
-   - Implement components following design specs
-   - Use the applicable design sync/review workflow iteratively to compare
-   - Fix visual differences identified
-   - Repeat until implementation matches design
+   - If the plan or origin names OpenDesign exported HTML/CSS, follow [`rosey-implement-design`](../../rosey-implement-design/SKILL.md) and the applicable design iterator.
+   - If visual parity is already aligned, implement remaining functionality only. Do not rerun design implementation.
+   - If the plan explicitly names Figma, follow the repository's Figma process.
+   - If neither design artifact exists, skip design sync. Do not treat Figma as the default.
 
 7. **Track Progress**
    - Keep the task list updated as you complete tasks
    - Note any blockers or unexpected discoveries
-   - Create new tasks if scope expands
+   - Do **not** add tasks for unplanned product behavior, files, or requirements outside the plan/origin. Interactive: ask whether to return to `/rosey-plan` or `/rosey-brainstorm`. Non-interactive: stop with `BLOCKERS: scope expansion: …`. Keep genuinely discovered implementation details inside the current unit when they do not change scope. Do not edit the plan body.
    - Keep user informed of major milestones
    - When the plan defines U-IDs for Implementation Units, or the plan or origin document carries stable R-IDs (and optionally A/F/AE IDs), reference them in blockers, deferred-work notes, task summaries, and final verification — not routine status updates. U-IDs anchor units across plan edits; R/A/F/AE anchor product intent across the brainstorm-plan handoff. Use the IDs the plan supplies and do not invent ones it does not. This preserves traceability without burying signal under noise.

@@ -1,15 +1,7 @@
 ---
 name: rosey-product-pulse
 description: "Generate time-windowed product pulse reports from configured signals."
-disable-model-invocation: true
 argument-hint: "[lookback window, e.g. '24h', '7d', '1h'; default 24h]"
-allowed-tools:
-  - Read
-  - Write
-  - Glob
-  - Grep
-  - Bash
-  - AskUserQuestion
 ---
 
 # Product Pulse

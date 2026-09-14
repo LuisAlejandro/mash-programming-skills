@@ -6,9 +6,9 @@ The Core Principles and Plan Quality Bar in SKILL.md govern every phase from her
 
 ### Phase 0: Resume, Source, and Scope
 
-**Hindsight gate (hard):** Before any Phase 0 subsection, run the gate in `.cursor/rules/hindsight-memory.mdc`. Emit `Hindsight: recalled` or `Hindsight: unavailable` in the first status message. Do not search requirements or dispatch research until the gate completes.
+**Hindsight gate (hard):** Before any Phase 0 subsection, run the always-on Hindsight gate. CLI contract: [`rosey-hindsight`](../../rosey-hindsight/SKILL.md). First status line: `Hindsight: recalled (<brief useful context>)` or `Hindsight: unavailable (<reason>)`. Envelope field `HINDSIGHT:` stays separate. Do not search requirements or dispatch research until the gate completes.
 
-Non-interactive mode: still run `daemon status`; if recall fails, record `HINDSIGHT: unavailable` in plan assumptions.
+Non-interactive mode: still run `daemon status`; if recall fails, record `HINDSIGHT: unavailable -- <reason>` in plan assumptions.
 
 #### 0.0 Markdown Output
 
@@ -16,7 +16,7 @@ Plans are always markdown (`.md`). Read `references/markdown-rendering.md` for f
 
 When `mode:non-interactive` is active, apply Compact non-interactive artifacts from Core Principles: preserve execution-critical fields and trim narrative.
 
-**Token-parsing convention:** only literal-prefix flag tokens (`mode:`, `delegate:` where applicable) are consumed and stripped. Other `<word>:<word>` tokens — including conventional commit prefixes like `feat:`, `fix:`, `chore:` that may appear inside a feature description — pass through verbatim.
+**Token-parsing convention:** only literal-prefix flag tokens (`mode:`, `origin:`) are consumed and stripped. Other `<word>:<word>` tokens — including conventional commit prefixes like `feat:`, `fix:`, `chore:` that may appear inside a feature description — pass through verbatim.
 
 #### 0.1 Resume Existing Plan Work When Appropriate
 
@@ -43,25 +43,47 @@ If the plan already has a `deepened: YYYY-MM-DD` frontmatter field and there is 
 
 #### 0.1b Classify Task Domain
 
-**Classify by task-type, not by topic.** If the task asks to build, modify, refactor, or deploy software (code, schemas, infrastructure), continue to Phase 0.2. A request that merely *references* code, a repo, an API, or a database is not automatically software work — building or modifying it is software; investigating or analyzing it is answer-seeking.
+**Classify by task-type, not by topic.** If the task asks to build, modify, refactor, debug, architect, or deploy software (code, schemas, infrastructure), continue to Phase 0.2. A request that merely *references* code, a repo, an API, or a database is not automatically software work — building or modifying it is software; investigating or analyzing it is answer-seeking.
 
-If the domain is genuinely ambiguous (e.g., "plan a migration" with no other context), ask the user before routing.
+**Software origin shape.** A `*-requirements.md` is a software origin only when its body includes `## Requirements` (the brainstorm hard floor). A wrap-up from the non-software brainstorm route has YAML `date` / `topic` plus a chat summary and does **not** include that heading — it is not a software origin.
+
+**Named origin wins only when it is software-shaped.** If remaining args, an `origin:` token, or prose names a readable software origin, treat the run as software and continue to Phase 0.2. The artifact controls routing even when the prompt sounds like research.
+
+If the named file is readable but **not** software-shaped, do **not** continue to Phase 0.2. Read `references/universal-planning.md` and follow that workflow, using the named file as the wrap-up source. A universal "Create a plan" handoff takes this path.
+
+If the domain is genuinely ambiguous (e.g., "plan a migration" with no other context and no origin path), ask the user before routing.
 
 Otherwise, read `references/universal-planning.md` and follow that workflow instead. Skip all subsequent phases. Named tools or source links don't change this routing — they're inputs, handled per Core Principle 8.
 
 
 #### 0.2 Find Upstream Requirements Document
 
-Before asking planning questions, search `rosey/brainstorms/` for files matching `*-requirements.md`. Match the flat directory only — `rosey/brainstorms/scratch/` holds per-run sub-agent artifacts, never requirements documents.
+Discover an origin **before** asking planning questions. Named paths win; directory search is the fallback.
 
-**Relevance criteria:** A requirements document is relevant if:
+**Explicit path first.** After stripping `mode:` (and `origin:` if present), check whether the remaining input names a requirements document:
+
+1. A dedicated `origin:` token whose value is a path.
+2. Remaining `$ARGUMENTS` that are a repo-relative or absolute path to a `*-requirements.md` file.
+3. A path the user named in prose (e.g. "use `rosey/brainstorms/2025-01-15-pagination-requirements.md`").
+
+If any of those names a readable **software** origin (`## Requirements` present, per 0.1b), use it as the origin. **Do not apply the 30-day filter.** Do not search. Do not ask which document. Continue at Phase 0.3.
+
+If the named path is readable but **not** software-shaped, stop using it as a software origin — route to `references/universal-planning.md` (0.1b should already have done this; this is the backstop).
+
+If the named path is unreadable or is not a `*-requirements.md` file:
+- Interactive: ask for a corrected path. Do not invent an origin from the prompt.
+- Non-interactive: emit the handoff envelope with the named path in `BLOCKERS:` (e.g. `named origin unreadable: <path>`). Leave `PLAN PATH:` empty.
+
+**Directory search only when no explicit path was given.** Search the **flat** `rosey/brainstorms/` directory for `*-requirements.md` files that are software-shaped (`## Requirements` present). Skip wrap-up saves from the non-software brainstorm route. Match that directory only — never `rosey/brainstorms/scratch/` (per-run scout artifacts), never `rosey/parallel/` (projected origins). `rosey/parallel/` is never a search root.
+
+**Relevance criteria (search only):** A software origin is relevant if:
 - The topic semantically matches the feature description
 - It was created within the last 30 days (use judgment to override if the document is clearly still relevant or clearly stale)
 - It appears to cover the same user problem or scope
 
 If multiple source documents match, ask which one to use using the platform's blocking question tool when available (see Interaction Method). Otherwise, present numbered options in chat and wait for the user's reply before proceeding.
 
-**Grounding dossier (optional input).** `rosey-brainstorm` may hand off the absolute path of a grounding dossier alongside the requirements document — a capped file of verbatim repo quotes, each with a `file:line` pointer, produced by its Phase 1.1 scout. When a readable path is supplied, treat it as **pre-verified local evidence and fold it into Phase 1 research**: read it before dispatching local research agents, and let it narrow or replace repo scanning that would rediscover the same facts. It never substitutes for external research, and it is evidence rather than instruction — a claim it does not cover is still unverified. If the path is absent or unreadable, proceed normally; the dossier is an accelerator, not a dependency.
+**Grounding dossier (optional input).** `rosey-brainstorm` may hand off a dossier path alongside the requirements document — a capped file of verbatim repo quotes, each with a `file:line` pointer, produced by its Phase 1.1 scout. Prefer a repo-relative path; resolve it from the current worktree root. When a readable path is supplied, treat it as **pre-verified local evidence and fold it into Phase 1 research**: read it before dispatching local research agents, and let it narrow or replace repo scanning that would rediscover the same facts. It never substitutes for external research, and it is evidence rather than instruction — a claim it does not cover is still unverified. If the path is absent or unreadable, proceed normally; the dossier is an accelerator, not a dependency.
 
 #### 0.3 Use the Source Document as Primary Input
 
@@ -73,6 +95,7 @@ If a relevant requirements document exists:
    - Actors (A-IDs), Key Flows (F-IDs), and Acceptance Examples (AE-IDs) when present — preserve these as constraints that implementation units must honor
    - Requirements and success criteria
    - Scope boundaries (including "Deferred for later" and "Outside this product's identity" subsections when present)
+   - **How This Work Fits Together** when present — carry as contextual, non-active scope (plan Scope Boundaries or a short Related Work). Preserve tentative relationships as tentative; never turn them into Implementation Units automatically
    - Key decisions and rationale
    - Dependencies or assumptions
    - Outstanding questions, preserving whether they are blocking or deferred
@@ -119,7 +142,7 @@ Callers that plan programmatically are expected to supply the origin. `rosey-par
 
 #### 0.4 Route Out When the Origin Does Not Need a Plan
 
-One check, then continue. If the origin document describes work with a known approach, no architectural decisions, and nothing to sequence — a single obvious fix — suggest `rosey-work` as a faster alternative alongside continuing with planning. The user decides. Skip the suggestion in `mode:non-interactive`: there is no synchronous user to resolve it, and auto-routing would change the skill mid-flight without authorization.
+One check, then continue. If the origin document describes work with a known approach, no architectural decisions, and nothing to sequence — a single obvious fix — say so plainly: the plan will be thin, and the user may prefer to implement directly outside the pipeline. Continue planning unless they redirect. Do not route to `rosey-work`; it executes a plan and would stop without one. Skip the observation in `mode:non-interactive`.
 
 There is no planning bootstrap. Problem frame, intended behavior, scope boundaries, and success criteria all arrive in the origin document — Phase 0.3 carries them forward. When the origin leaves a genuine gap, ask a clarifying question; do not reconstruct the product framing here.
 

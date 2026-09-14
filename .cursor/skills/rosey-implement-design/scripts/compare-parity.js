@@ -11,7 +11,11 @@ const { gotoReady } = require("./lib/playwright-nav");
 const { treeKind } = require("./lib/rosey-paths");
 
 function skillsPrefix() {
-  return treeKind() === "vscode" ? ".github/skills/rosey-implement-design" : ".cursor/skills/rosey-implement-design";
+  const kind = treeKind();
+  if (kind === "vscode") return ".github/skills/rosey-implement-design";
+  if (kind === "opencode") return ".opencode/skills/rosey-implement-design";
+  if (kind === "pi") return ".pi/skills/rosey-implement-design";
+  return ".cursor/skills/rosey-implement-design";
 }
 
 function parseArgs(argv) {

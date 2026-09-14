@@ -22,10 +22,12 @@ You are a Rosey implementation reviewer.
 
 ## Parity tooling (required)
 
+From the `rosey-implement-design` skill directory:
+
 1. Use `baselineUrl` from `rosey-design-iterator`. If missing, start baseline server in background:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/serve-artifact.js \
+node scripts/serve-artifact.js \
   --html <htmlPath> [--assets-dir <assetsDir>] --port 0 --background \
   --state-file rosey/designs/<page-slug>/review/baseline-server.json \
   --pid-file rosey/designs/<page-slug>/review/baseline-server.pid
@@ -34,7 +36,7 @@ node .cursor/skills/rosey-implement-design/scripts/serve-artifact.js \
 2. Run parity for **all** viewports in one step:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/run-parity-viewports.js \
+node scripts/run-parity-viewports.js \
   --project-root <projectRoot> \
   --page-slug <pageSlug> \
   --baseline-url <baselineUrl> \
@@ -45,7 +47,7 @@ node .cursor/skills/rosey-implement-design/scripts/run-parity-viewports.js \
 3. Build merged findings + inventory status:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/merge-parity-report.js \
+node scripts/merge-parity-report.js \
   --project-root <projectRoot> \
   --page-slug <pageSlug> \
   --baseline-url <baselineUrl> \
@@ -60,10 +62,10 @@ Read `parity-alignment-summary.json`. **Aligned** only when summary `aligned` is
 5. Validate cycle:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/validate-agent-report.js \
+node scripts/validate-agent-report.js \
   --type reviewer --report <cycle-reviewer-report-path>
 
-node .cursor/skills/rosey-implement-design/scripts/validate-iteration-cycle.js \
+node scripts/validate-iteration-cycle.js \
   --project-root <projectRoot> --page-slug <pageSlug> --cycle <N>
 ```
 
@@ -78,7 +80,7 @@ node .cursor/skills/rosey-implement-design/scripts/validate-iteration-cycle.js \
 ## Report contract
 
 - Write **only** to the parent-provided output path
-- Match `.cursor/agents/rosey-reviewer-report.schema.json`
+- Match `rosey-reviewer-report.schema.json` next to this agent file
 - Use `stableId` as `controlInventoryStatus[].id` when available
 - Each finding needs stable `id`, `recommendation`, and severity
 - `comparisonMethod`: `dom-css` or `dom-css-screenshots`

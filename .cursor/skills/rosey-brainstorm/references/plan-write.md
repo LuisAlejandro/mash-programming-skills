@@ -1,6 +1,6 @@
 # Phase 3: Capture the Requirements
 
-Write or update a requirements document on every run. The document is the pipeline's contract with `/rosey-plan`, which requires it as origin, and in non-interactive mode it is the only channel back to a caller that cannot see chat. There is no path through this skill that ends without one. If a concrete document cannot be written safely, stop with a blocker instead of returning prose.
+Write or update a requirements document on every **software** run. The document is the pipeline's contract with `/rosey-plan`, which requires it as origin, and in non-interactive mode it is the only channel back to a caller that cannot see chat. If a concrete document cannot be written safely, stop with a blocker instead of returning prose. Non-software runs write a file only when the user saves or chooses Create a plan.
 
 Compose it using:
 

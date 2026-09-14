@@ -19,6 +19,8 @@ Capture the headless envelope so it can drive the contextual summary above the p
 
 When rosey-doc-review returns "Review complete", proceed to the ponytail sanity-check.
 
+**Non-interactive mode:** Non-interactive planning always invokes `rosey-doc-review` with `mode:headless` and the plan path — the headless mode is identical to the interactive default at this phase. Headless applies `safe_auto` fixes. Remaining findings (including P0/P1) stay in the headless envelope; do not wait to resolve them and do not invent plan edits to clear them. No further routing is offered. The caller decides what to do with the returned findings.
+
 ## 5.3.8b Ponytail Sanity-Check
 
 Before final checks, run a lightweight over-engineering pass on the plan's Implementation Units. This is the write-time gate: catch speculative abstractions, unneeded dependencies, and over-scoped units *before* `rosey-work` commits to them, when they are cheapest to cut.
@@ -40,7 +42,7 @@ Do **not** flag: correctness, security, performance, or domain complexity the re
 
 **Routing:** Apply `safe_auto`-style cuts (drop a speculative unit, inline a one-caller abstraction) directly to the plan. Surface anything that changes scope or needs a user decision in the post-generation menu summary line alongside the doc-review state. If nothing to cut, note `Ponytail: lean — no cuts.` and move on.
 
-**Non-interactive mode:** Non-interactive planning always invokes `rosey-doc-review` with `mode:headless` and the plan path — the headless mode is identical to the interactive default at this phase. No further routing is offered in non-interactive mode; the caller decides what to do with the returned findings. Address any P0/P1 findings before returning control to the caller.
+**Non-interactive mode:** Apply safe ponytail cuts without waiting. Scope-changing cuts go to blockers/open questions rather than waiting for a user decision.
 
 ## 5.3.9 Final Checks and Cleanup
 
@@ -102,7 +104,7 @@ When the user selects "Create Issue", detect their project tracker:
    linear issue create --title "<title>" --description "$(cat <plan_path>)"
    ```
 
-4. If no tracker is configured, ask the user which tracker they use with the platform's blocking question tool (see Interaction Method in SKILL.md). Options: `GitHub`, `Linear`, `Skip`. Then:
+4. If no tracker is configured, ask the user which tracker they use with the platform's blocking question tool (see Interaction Method in SKILL.md). Missing `project_tracker` is the normal first-run path — do not invent a default tracker. Options: `GitHub`, `Linear`, `Skip`. Then:
    - Proceed with the chosen tracker's command above
    - Offer to persist the choice by adding `project_tracker: <value>` to `AGENTS.md`, where `<value>` is the lowercase tracker key (`github` or `linear`) — not the display label — so future runs match the detector in step 1 and skip this prompt
    - If `Skip`, return to the options without creating an issue

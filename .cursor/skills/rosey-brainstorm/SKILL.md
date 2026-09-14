@@ -1,26 +1,49 @@
 ---
 name: rosey-brainstorm
-description: 'Explore requirements and approaches through collaborative dialogue, then write a right-sized requirements document. Use when the user says "let''s brainstorm", "what should we build", or "help me think through X", presents a vague or ambitious feature request, or seems unsure about scope or direction -- even without explicitly asking to brainstorm.'
+description: 'Explore a single feature or change through collaborative dialogue, then write a right-sized requirements document. Use when the user says "let''s brainstorm" or "help me think through X", presents a vague feature request, or seems unsure about scope or direction -- even without explicitly asking to brainstorm. For an epic spanning several separately-deliverable areas, use rosey-epic-frame instead.'
 argument-hint: "[feature idea or problem to explore]"
 ---
 
 # Rosey Brainstorm
 
-Brainstorming answers **WHAT** to build through collaborative dialogue; `/rosey-plan` then answers **HOW**. This skill does not implement code — it explores, clarifies, and documents decisions for later planning or execution. **The current year is 2026**, for dating artifacts.
+Brainstorming answers **WHAT** to build through collaborative dialogue; `/rosey-plan` then answers **HOW**. This skill does not implement code — it explores, clarifies, and documents decisions for later planning or execution. Use the current calendar year when dating artifacts.
 
-**Outcome:** a requirements document under `rosey/brainstorms/` that planning can consume without inventing product behavior, scope boundaries, or success criteria. Every run writes one — the document is the pipeline's contract with `/rosey-plan`, which requires it. In other workflows the artifact might be called a lightweight PRD or feature brief; in Rosey the workflow keeps the name `brainstorm` and the artifact is a **requirements document**.
+**Outcome:** a requirements document under `rosey/brainstorms/` that planning can consume without inventing product behavior, scope boundaries, or success criteria. Every **software** run writes one — the document is the pipeline's contract with `/rosey-plan`, which requires it. In other workflows the artifact might be called a lightweight PRD or feature brief; in Rosey the workflow keeps the name `brainstorm` and the artifact is a **requirements document**.
 
-**Done:** the requirements document is written, its Phase 3 checks pass, and Phase 4's handoff has been presented.
+| Route | Artifact |
+| --- | --- |
+| Software | Always write `*-requirements.md` |
+| Non-software | Chat summary required; write a file when the user saves or chooses Create a plan |
+| Neither | Not a brainstorm run; answer and stop |
 
-**Scope floor.** This skill is for work big enough to need a durable product artifact. Small, well-understood changes belong in direct implementation or `/rosey-work`, not here — there is no cheap chat-only path through this skill.
+**Done:** Interactive: the requirements document is written, its Phase 3 checks pass, the Phase 4 menu is presented, and the selected action is executed. Non-interactive: the document is written and `ROSEY_BRAINSTORM_HANDOFF` is emitted, with blockers and assumptions.
+
+**Scope floor.** This skill is for work big enough to need a durable product artifact. Small, well-understood changes belong in direct implementation, not here — there is no cheap chat-only path through this skill, and no shortcut from here to execution.
 
 **IMPORTANT: All file references in generated documents must use repo-relative paths (e.g., `src/models/user.rb`), never absolute paths. Absolute paths break portability across machines, worktrees, and teammates.**
+
+## Communication while using this skill
+
+**Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors and code unchanged. Drop lite only for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or when the user asks for normal or long-form wording.
+
+Caveman lite applies to chat and status prose, not to the requirements document, which stays clear enough for humans to review.
+
+## Rosey gates
+
+Always-on rules; full procedures live in those guidelines — do not duplicate them here.
+
+1. **Hindsight** before research — always-on Hindsight guideline; CLI in [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
+2. **Karpathy brief** before the first artifact edit
+3. **Ponytail ladder** before adding abstractions or dependencies
+4. **Docker-via-Make** for app commands and tooling
+
+See also the always-on Rosey workflow-gates guideline.
 
 ## Rosey Overlay
 
 This skill follows the Rosey-native brainstorm workflow with Rosey handoffs and OpenDesign boundaries:
 
-- Handoff target is `/rosey-plan`, or `/rosey-work` only when the direct-to-work gate passes.
+- Handoff target is `/rosey-plan`. There is no direct-to-work route: planning is not skippable.
 - Do **not** create a separate PRD artifact. The requirements document is the durable product artifact for planning.
 - Do **not** create a separate design doc unless the user explicitly asks for one. The requirements document should be right-sized and can include design-relevant decisions when they matter.
 - After `rosey-implement-design` completes with visual parity aligned, use this skill for the remaining functionality only: real data sources, business logic, validation, submission, error handling, auth, routing guards, and deferred checklist items. Do not rerun `rosey-implement-design` for functionality work.
@@ -46,7 +69,7 @@ When `INTERACTION_MODE=non-interactive`:
 - Infer conservatively from the prompt, repo scan, and issue context supplied by the caller.
 - Record material assumptions in the requirements document.
 - Skip Phase 1.3 dialogue, Phase 2 approach menus, Phase 2.5 confirmation, and Phase 4 handoff menus.
-- A requirements document is always written — it is the only channel back to the caller. If one cannot be written safely, stop with a concise blocker.
+- On the **software** route, a requirements document is always written — it is the only channel back to the caller. If one cannot be written safely, stop with a concise blocker. Non-software non-interactive runs return the chat summary and stop; they are not a software pipeline handoff.
 
 **If the feature description above is empty:** In interactive mode, ask the user: "What would you like to explore? Please describe the feature, problem, or improvement you're thinking about." In non-interactive mode, stop with a blocker.
 
@@ -67,7 +90,7 @@ Phases run in this order. Each names the files it cannot run correctly without: 
 | when the unfamiliarity tripwire or the mid-dialogue signal fires | `references/blindspot-pass.md` | the territory-scoped gate and its can't-evaluate guard; the offer wording; the 3–7 item decision map and how mapped decisions re-enter dialogue |
 | 2–2.6 approaches, synthesis, verification | `references/approaches.md`, plus `references/synthesis-summary.md` before composing the synthesis | approach generation and granularity; the anti-genericness test; the scoping synthesis contract and its confirmation gate; the independent claim verifier |
 | 3 write the requirements | `references/plan-write.md`, then `references/brainstorm-sections.md` and `references/markdown-rendering.md` | write-tight discipline; the section contract; the markdown format |
-| 4 handoff | `references/handoff.md` | the option set and its visibility conditions, per-selection dispatch, the dossier pass-through, and the closing summary format |
+| 4 handoff | `references/handoff.md` | the option set and its visibility conditions, per-selection dispatch, the dossier pass-through, the non-interactive `ROSEY_BRAINSTORM_HANDOFF` envelope, and the closing summary format |
 
 **Read a reference on phase entry, completely.** A read made before that phase does not satisfy it, and a reference is re-read at its phase even when it is already in context.
 

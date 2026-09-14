@@ -107,7 +107,7 @@ Match repo style for commit messages and PR titles in this order: project instru
 
 **When `.gitchangelog.rc` exists** (Rosey product repos that ship HISTORY):
 
-- Commit subjects: `[ADD]` / `[FIX]` / `[REF]` / `[DEL]` plus an imperative user-facing summary (see `.cursor/rules/gitchangelog-commits.mdc`).
+- Commit subjects: `[ADD]` / `[FIX]` / `[REF]` / `[DEL]` plus an imperative user-facing summary (see the gitchangelog always-on guideline).
 - Ambiguous ADD vs FIX → default to `[FIX]`.
 - Non-user-facing work → append `!cosmetic` / `!refactor` / `!wip`, or use a `CI:` prefix, so gitchangelog ignores them.
 - PR titles may stay Conventional-style (`type: description`); only commit subjects feed HISTORY / release notes.

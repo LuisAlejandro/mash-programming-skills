@@ -6,19 +6,30 @@ argument-hint: "[optional: feature description, requirements doc path, plan path
 
 # Rosey Plan
 
-`rosey-brainstorm` defines **WHAT** to build. `rosey-plan` defines **HOW** to build it. `rosey-work` executes the plan. **The current year is 2026**, for dating plans and searching recent documentation.
+`rosey-brainstorm` defines **WHAT** to build. `rosey-plan` defines **HOW** to build it. `rosey-work` executes the plan. Use the current calendar year when dating plans and searching recent documentation.
 
-**An upstream requirements document is required.** The pipeline is `rosey-brainstorm` → `rosey-plan` → `rosey-work`, and planning starts from the brainstorm's requirements document. When Phase 0.2 finds no relevant document, this skill stops and routes to `rosey-brainstorm` rather than inventing product scope from the prompt — see the missing-origin stop in `references/intake.md`.
+**An upstream requirements document is required.** The pipeline is `rosey-brainstorm` → `rosey-plan` → `rosey-work`, and planning starts from the brainstorm's requirements document. When Phase 0.2 finds no relevant document, this skill stops at Phase 0.3b and routes to `rosey-brainstorm` rather than inventing product scope from the prompt — see the missing-origin stop in `references/intake.md`.
 
 **Outcome:** a durable plan under `rosey/plans/` that an implementer can act on without re-deciding what was already settled.
 
 **Done:** that result is delivered **and** its handoff has fired — the Phase 5.4 menu presented and the selected action actually executed; in `mode:non-interactive`, the handoff envelope emitted. Writing the file, running the confidence check, and running or explicitly skipping document review are **intermediate milestones, not completion**. Rendering the menu, receiving a selection, or announcing a route is not completion either — execute the selected action.
 
-**Once an origin document is in hand, always plan.** Never classify such an invocation as "not a planning task" and abandon the workflow. If the origin leaves something unclear, ask clarifying questions — but stay in the workflow. The missing-origin stop is the one sanctioned exit.
+**Once an origin document is in hand, always plan.** Never classify such an invocation as "not a planning task" and abandon the workflow. If the origin leaves something unclear, ask clarifying questions — but stay in the workflow. Sanctioned stops: missing origin (0.3b), unreadable required reference, non-software route, or an ambiguous deepen target in non-interactive mode.
 
 **Research, decide, and write the plan — never implement.** No production code, no test runs, no learning from execution-time results. Directional pseudo-code may communicate design; changing code to see what happens belongs in `rosey-work`.
 
 **IMPORTANT:** Use repo-relative paths everywhere in the plan (e.g., `src/models/user.rb`), never absolute paths. This applies to unit file lists, pattern references, origin links, and prose.
+
+## Rosey gates
+
+Always-on rules; full procedures live in those guidelines — do not duplicate them here.
+
+1. **Hindsight** before research — always-on Hindsight guideline; CLI in [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
+2. **Karpathy brief** before the first artifact edit
+3. **Ponytail ladder** before adding abstractions or dependencies
+4. **Docker-via-Make** for app commands and tooling
+
+See also the always-on Rosey workflow-gates guideline.
 
 ## Rosey Overlay
 
@@ -54,12 +65,12 @@ Ask one question at a time. Prefer a concise single-select choice when natural o
 
 ## Interaction Mode
 
-Parse `$ARGUMENTS` for at most one interaction mode token:
+Parse `$ARGUMENTS` for at most one interaction mode token, and optionally one `origin:` token:
 
 - `mode:interactive` — default for direct chat invocation. The skill may ask blocking questions and present post-generation options.
 - `mode:non-interactive` — scripted or skill-to-skill execution. The skill must not ask blocking questions or wait for confirmations.
 
-Strip the interaction mode token before treating the remainder as the feature description or path. If no interaction mode token is present, set `INTERACTION_MODE=interactive`. If multiple interaction mode tokens appear, stop and report the conflict.
+Strip `mode:` and `origin:` tokens before treating the remainder as the feature description or path. If no interaction mode token is present, set `INTERACTION_MODE=interactive`. If multiple interaction mode tokens appear, stop and report the conflict.
 
 In non-interactive mode, make conservative assumptions from the prompt, origin document, repo research, and Sentrux context. Route unvalidated bets to `## Assumptions`, skip post-generation menus, and report anything that needs human judgment through the handoff envelope's `BLOCKERS:` field rather than stopping silently.
 
@@ -67,16 +78,26 @@ In non-interactive mode, make conservative assumptions from the prompt, origin d
 
 <feature_description> #$ARGUMENTS </feature_description>
 
-**If the feature description above is empty, ask the user:** "What would you like to plan? Describe the task, goal, or project you have in mind." Then wait for their response before continuing.
+**If the feature description above is empty:** In interactive mode, ask the user: "What would you like to plan? Describe the task, goal, or project you have in mind." Then wait for their response before continuing. In `mode:non-interactive`, do not wait — emit:
 
-If the input is present but unclear or underspecified, ask one or two clarifying questions to identify which requirements document the user means. Phase 0.2 then searches for it, and Phase 0.3b stops the run when none is found.
+```text
+ROSEY_PLAN_HANDOFF
+PLAN PATH:
+FILES:
+BLOCKERS: empty input; supply a requirements document path or feature description
+END_ROSEY_PLAN_HANDOFF
+```
+
+If the input is a path to a `*-requirements.md` file (or an `origin:` token names one), Phase 0.1b classifies it: a software origin (`## Requirements` present) continues to Phase 0.2, which uses that path; a wrap-up without that heading routes to `references/universal-planning.md`. Do not ask which document first.
+
+If the input is present but is not a path and is unclear or underspecified, ask one or two clarifying questions to identify which requirements document the user means. Phase 0.2 then searches for it, and Phase 0.3b stops the run when none is found.
 
 ## Core Principles
 
-1. **Use requirements as the source of truth** - If `rosey-brainstorm` produced a requirements document, planning should build from it rather than re-inventing behavior.
+1. **Use the origin as the source of truth** - Use the origin requirements document as the source of truth. Do not reinvent behavior, scope, or success criteria. If no origin exists, stop at Phase 0.3b.
 2. **Decisions, not code** - Capture approach, boundaries, files, dependencies, risks, and test scenarios. Do not pre-write implementation code or shell choreography. Pseudo-code is fine only as directional design guidance.
 3. **Research before structuring** - Explore the codebase, institutional learnings, and external guidance when warranted before finalizing the plan.
-4. **Right-size the artifact** - Small work gets a compact plan, or no plan at all. Large work gets more structure. The philosophy stays the same at every depth.
+4. **Right-size the artifact** - Small software work that reached this skill gets a Lightweight plan. Large work gets more structure. The philosophy stays the same at every depth.
 5. **Separate planning from execution discovery** - Resolve planning-time questions here. Explicitly defer execution-time unknowns to implementation.
 6. **Keep the plan portable** - The plan should work as a living document, review artifact, or issue body without embedding tool-specific executor instructions.
 7. **Carry execution posture lightly when it matters** - Note test-first, characterization-first, or smoke-first posture when clearly implied. Do not turn it into execution choreography.
@@ -89,7 +110,7 @@ Every plan should contain:
 - A clear problem frame and scope boundary
 - Concrete requirements traceability back to the request or origin document
 - Repo-relative file paths for the work being proposed (never absolute paths)
-- Explicit test file paths for feature-bearing implementation units
+- Explicit test file paths for feature-bearing implementation units when a configured test runner exists; otherwise `Test expectation: none -- no test runner configured in this repo` plus replacement verification
 - Decisions with rationale, not just tasks
 - Existing patterns or code references to follow
 - Enumerated test scenarios for each feature-bearing unit, specific enough that an implementer knows exactly what to test without inventing coverage themselves
@@ -99,7 +120,7 @@ A plan is ready when an implementer can start confidently without needing the pl
 
 ## Output Contract
 
-Every run that reaches Phase 1 writes a durable plan under `rosey/plans/`. There is no chat-only output tier: a run either has an origin requirements document and produces a plan, or it stops at the missing-origin gate in Phase 0.2. Work too small to deserve a plan is too small to have earned a brainstorm, and belongs in `rosey-work` or direct implementation instead.
+Every run that reaches Phase 1 writes a durable plan under `rosey/plans/`. There is no chat-only output tier: a run either has an origin requirements document and produces a plan, or it stops at the missing-origin gate in Phase 0.3b. Small work without a plan is **direct implementation**, not `rosey-work`.
 
 ## Workflow
 
@@ -121,4 +142,10 @@ Phases run in order unless an owner routes out or short-circuits.
 | 5.3.8–5.4 — document review and handoff | `references/plan-handoff.md` | mandatory document review and its headless default; the ponytail sanity-check; final checks; menu visibility, rendering, and per-selection routing; issue creation |
 | the scoping synthesis (5.1.5) | `references/synthesis-summary.md` | the affirmability and keep tests; summary shape budgets; anti-patterns; the literal templates; non-interactive routing |
 
-**STOP at 5.3.8.** Document review is mandatory for a Durable plan and its default is `mode:headless`. Read `references/plan-handoff.md` before 5.3.8 and 5.4 — without it the menu renders and the run stops without firing the routed action. If the selection arrives after a user turn, reload that reference before acting.
+**Before Phase 5.3.8, read `references/plan-handoff.md`.** Document review, ponytail checks, final checks, and Phase 5.4 remain part of this skill. Done means the selected Phase 5.4 action executed in interactive mode or the handoff envelope emitted in non-interactive mode. Document review is mandatory for every software plan that reaches Phase 5.3.8, including Lightweight plans. Its default is `mode:headless`. Without that reference the menu renders and the run stops without firing the routed action. If the selection arrives after a user turn, reload that reference before acting.
+
+**Phase 5.4 routing (concise; details in `references/plan-handoff.md`):**
+- **Start `/rosey-work`** — invoke `rosey-work` with the plan path now. Do not only tell the user to type the command.
+- **Run deeper doc review** — invoke `rosey-doc-review` on the plan path without `mode:headless`.
+- **Create Issue** — follow the Issue Creation section in `references/plan-handoff.md`.
+- **Done for now** — confirm the plan file is saved and stop.

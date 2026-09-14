@@ -21,7 +21,7 @@ Do **not** run it for generic planning, implementation, code review, or "impleme
 
 You **must** run this sequence **before** other research or edits:
 
-1. Read `.cursor/skills/rosey-hindsight/SKILL.md`
+1. Read `../skills/rosey-hindsight/SKILL.md`
 2. Run `hindsight-embed daemon status` with `PATH="${HOME}/.local/bin:${PATH}"` (daemon warm-restart: Cursor `sessionStart` hook / VS Code `.vscode/tasks.json` `folderOpen` task / OpenCode `SessionStart` hook / Pi `session_start` extension via `ensure-hindsight-daemon.sh`)
 3. If status OK → run `hindsight-embed memory recall <bank> "<task summary>"`
 4. If status fails → continue the skill but state `Hindsight: unavailable — <reason>` in the first status message

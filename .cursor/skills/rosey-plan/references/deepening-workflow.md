@@ -75,7 +75,7 @@ If the plan already has a `deepened:` date:
 - Units are too large, too vague, or broken into micro-steps
 - Approach notes are thin or do not name the pattern to follow
 - Test scenarios are vague (don't name inputs and expected outcomes), skip applicable categories (e.g., no error paths for a unit with failure modes, no integration scenarios for a unit crossing layers), or are disproportionate to the unit's complexity
-- Feature-bearing units have blank or missing test scenarios (feature-bearing units require actual test scenarios; the `Test expectation: none` annotation is only valid for non-feature-bearing units)
+- Feature-bearing units have blank or missing test scenarios (feature-bearing units require actual test scenarios unless the repo has no configured test runner; then `Test expectation: none -- no test runner configured in this repo` plus replacement verification is valid. The `Test expectation: none` annotation is also valid for non-feature-bearing units)
 - Verification outcomes are vague or not expressed as observable results
 - Existing U-IDs were renumbered after a unit was reordered, split, or deleted (U-IDs are stable: never renumber existing IDs; gaps from deletions are preserved; new units take the next unused number)
 - A unit realizing an origin Key Flow does not cite the F-ID, or a unit enforcing an origin Acceptance Example does not cite the AE-ID, when origin supplies them
@@ -249,7 +249,7 @@ Allowed changes:
 
 Do **not**:
 - Add implementation code — no imports, exact method signatures, or framework-specific syntax. Pseudo-code sketches and DSL grammars are allowed
-- Add git commands, commit choreography, or exact test command recipes
+- Add git commands, commit choreography, or shell recipes in Implementation Units. `## Verification Contract` **must** name real repo commands (`make test` / `make lint` when a Makefile exists)
 - Add generic `Research Insights` subsections everywhere
 - Rewrite the entire plan from scratch
 - Invent new product requirements, scope changes, or success criteria without surfacing them explicitly

@@ -13,8 +13,7 @@ ORIGIN DOC: {origin_doc}   (the task's requirements doc; rosey-plan's origin)
 REPO CONVENTIONS: read AGENTS.md at the repo root.
 
 CONSTRAINTS:
-- Branch is pre-created ({track_branch}): do NOT run branch setup. Record
-  BRANCH_DECISION: continued.
+- Branch is pre-created ({track_branch}): pass `{branch_setup}` in the `rosey-work` skill arguments. Honor it: skip branch setup. Record `BRANCH_DECISION: continued`. Self-check after work: the envelope has `BRANCH_DECISION: continued` and you did not create `feature/<slug>`.
 - Skip Sentrux session gating. Record SENTRUX: unavailable for this phase.
 - Phase: {phase}  (one of: plan | work | qa | lint)
 

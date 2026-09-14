@@ -7,14 +7,18 @@ const DESIGNS_DIR = path.join("rosey", "designs");
 
 /**
  * Detect which Rosey tree this script is running from, based on its own location.
- * - .cursor/skills/**  -> Cursor tree  -> rules live in .cursor/rules/*.mdc
- * - .github/skills/**  -> VS Code tree -> rules live in .github/instructions/*.instructions.md
+ * - .cursor/skills/**    -> Cursor tree   -> rules live in .cursor/rules/*.mdc
+ * - .github/skills/**    -> VS Code tree  -> rules live in .github/instructions/*.instructions.md
+ * - .opencode/skills/**  -> OpenCode tree -> rules live in .opencode/rules/*.mdc
+ * - .pi/skills/**        -> Pi tree       -> rules live in .pi/rules/*.mdc
  * Fallback: prefer .cursor/rules if it exists, else .github/instructions.
  */
 function treeKind() {
   const segments = __dirname.split(path.sep);
   if (segments.includes(".cursor")) return "cursor";
   if (segments.includes(".github")) return "vscode";
+  if (segments.includes(".opencode")) return "opencode";
+  if (segments.includes(".pi")) return "pi";
   return null;
 }
 
@@ -22,6 +26,8 @@ function rulesRoot(projectRoot) {
   const kind = treeKind();
   if (kind === "cursor") return path.join(projectRoot, ".cursor", "rules");
   if (kind === "vscode") return path.join(projectRoot, ".github", "instructions");
+  if (kind === "opencode") return path.join(projectRoot, ".opencode", "rules");
+  if (kind === "pi") return path.join(projectRoot, ".pi", "rules");
   const cursorRules = path.join(projectRoot, ".cursor", "rules");
   return fs.existsSync(cursorRules) ? cursorRules : path.join(projectRoot, ".github", "instructions");
 }

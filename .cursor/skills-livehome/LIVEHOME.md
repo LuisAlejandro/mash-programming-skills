@@ -25,6 +25,7 @@ Slash commands keep the same names (`/rosey-brainstorm`, `/rosey-plan`, `/rosey-
 
 - These homes run **on the host**. Docker-via-Make does not apply. Host `node` / `python` / package managers are allowed when the home already uses them.
 - Prefer serial, in-place execution. No worktrees (they hide the live files). No parallel writers in the same git index.
+- `rosey-pr`, `rosey-parallel`, and `rosey-epic-decompose` are **not installed** here. Never attempt PR creation or parallel/worktree orchestration; if a plan is too large for one run, reduce its scope instead.
 
 ## Dirty-tree rule
 

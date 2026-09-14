@@ -21,7 +21,7 @@ Depth matches what the dialogue produced. A brainstorm with sparse content produ
 These are always present.
 
 - **Summary** — what is being proposed, in 1-3 lines. Forward-looking. Orients the reader before they invest in detail.
-- **Requirements** (with stable R-IDs) — what must be true about the proposed thing. For very sparse brainstorms (≤3 simple items where the bullets ARE the summary), plain bullets without IDs are acceptable; the trigger for R-IDs is whether downstream consumers will reference them. When requirements span distinct concerns (e.g., "Packaging" / "Migration and compatibility" / "Contributor workflow"), group them under bold inline headers within the Requirements section — group by capability or concern, not by the order requirements were discussed. The trigger is distinct concerns, not item count — even four requirements benefit if they cover three different topics. Skip grouping only when all requirements are genuinely about the same thing; a long flat list is a smell that subgroups were missed. R-IDs stay continuous across groups (R1, R2 in the first group; R3, R4 in the second; never restart at R1 per group).
+- **Requirements** (with stable R-IDs) — what must be true about the proposed thing. For very sparse brainstorms (≤3 simple items where the bullets ARE the summary), plain bullets without IDs are acceptable; the trigger for R-IDs is whether downstream consumers will reference them. When requirements span distinct concerns (e.g., "Packaging" / "Migration and compatibility" / "Contributor workflow"), group them under bold inline headers within the Requirements section — group by capability or concern, not by the order requirements were discussed. The trigger is distinct concerns, not item count — even four requirements benefit if they cover three different topics. Skip grouping only when all requirements are genuinely about the same thing; a long flat list is a smell that subgroups were missed. R-IDs stay continuous across groups (R1, R2 in the first group; R3, R4 in the second; never restart at R1 per group). **This heading is the software-origin marker:** `rosey-plan` treats a `*-requirements.md` as software only when `## Requirements` is present; a universal wrap-up omits it.
 
 ## Include when material
 
@@ -47,7 +47,16 @@ The agent decides per brainstorm whether each section carries information that i
 
 - **Dependencies / Assumptions** — include when material upstream dependencies exist or when load-bearing assumptions need to be surfaced.
 
-- **Outstanding Questions** — include when there are unresolved items. Distinguish "Resolve Before Planning" (blocks planning) from "Deferred to Planning" (answered during planning or codebase exploration).
+- **How This Work Fits Together** — include when the coherent-work gate narrowed one area from a broader request (see `references/phase-0.md`). Describe the current area's place among sibling areas, mark tentative relationships as tentative, and do not treat sibling areas as active scope.
+
+- **Outstanding Questions** — include when there are unresolved items. Use this lifecycle mapping (canonical headings; do not invent aliases):
+
+| Lifecycle | Canonical heading |
+| --- | --- |
+| Product decision blocks planning | `### Resolve Before Planning` |
+| Answered during planning | `### Deferred to Planning` — plan consumes these during research and does not copy them as unresolved |
+| Still unresolved when the plan is written | Plan `## Open Questions` |
+| Intentionally answered during execution | Plan `### Deferred to Implementation` under Open Questions |
 
 - **Sources / Research** — surface research that orients the planner or justifies framing choices. The test: *"if I were the planner reading this cold, would this breadcrumb help me make better choices?"* Yes → surface (code locations, external docs, RFCs, constraints, prior plans — the category is inclusive, not enumerated). Process exhaust (reading the user's prompt, glancing at obvious files) → omit.
 

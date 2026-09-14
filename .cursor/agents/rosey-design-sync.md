@@ -31,11 +31,11 @@ You are a Rosey sync specialist.
 ## Report contract
 
 - Write **only** to the parent-provided output path
-- Match `.cursor/agents/rosey-sync-report.schema.json`
-- Validate:
+- Match `rosey-sync-report.schema.json` next to this agent file
+- Validate from the `rosey-implement-design` skill directory:
 
 ```bash
-node .cursor/skills/rosey-implement-design/scripts/validate-agent-report.js \
+node scripts/validate-agent-report.js \
   --type sync --report <output-path>
 ```
 

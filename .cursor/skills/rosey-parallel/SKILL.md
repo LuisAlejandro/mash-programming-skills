@@ -31,29 +31,31 @@ A run receives:
 
 The epic-level brainstorm that produced the validated task list happens **outside** the run (origin 5.1). The task list arrives as a pre-existing input.
 
-**Per-task origin docs.** `rosey-plan` requires an upstream requirements document and stops without one. Before planning, each task's `{id, goal, deps}` is projected into `rosey/brainstorms/<task-slug>-requirements.md` and passed to the worker as `ORIGIN DOC`. An existing file at that path is never overwritten, so a real brainstorm doc for the same slug wins over the projection.
+**Per-task origin docs.** `rosey-plan` requires an upstream requirements document and stops without one. Before planning, each task's `{id, goal, deps}` is projected into `rosey/parallel/origins/<task-slug>-requirements.md` and passed to the worker as `ORIGIN DOC`. If a real `rosey/brainstorms/*-requirements.md` already exists whose slug matches the task, that file is used and no projection is written. `rosey/parallel/` is never a search root for brainstorm or plan origin discovery.
 
 ## Helper
 
 All state transitions, validation, footprint parsing, sequencing, worktree ops, harness drivers, phase runners, and integration live in the helper module. The coordinating agent invokes helper subcommands and narrates status — it does not reimplement logic in prose.
 
+**Working directory:** cwd is this skill's directory (the folder that contains this `SKILL.md`).
+
 ```bash
 # self-check / smoke
-.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py --self-check
+.venv/bin/python scripts/rosey_parallel.py --self-check
 
 # run an epic (loads run-inputs.json, orchestrates, saves state)
 # First invocation plans and STOPS at the human gate (tasks stay PLANNED).
-.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py run run-inputs.json [--max-parallel N]
+.venv/bin/python scripts/rosey_parallel.py run run-inputs.json [--max-parallel N]
 
 # After reviewing the plans, resume with --approve to run work/qa/lint.
 # A plain --resume (no --approve) re-stops at the gate and does NOT re-plan.
-.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py run run-inputs.json --resume <run-id> --approve [--max-parallel N]
+.venv/bin/python scripts/rosey_parallel.py run run-inputs.json --resume <run-id> --approve [--max-parallel N]
 
 # scaffold phase only
-.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py scaffold run-inputs.json
+.venv/bin/python scripts/rosey_parallel.py scaffold run-inputs.json
 
 # parallel verification on an integrated tip
-.cursor/skills/rosey-parallel/.venv/bin/python .cursor/skills/rosey-parallel/scripts/rosey_parallel.py verify <integrated-tip>
+.venv/bin/python scripts/rosey_parallel.py verify <integrated-tip>
 ```
 
 ## Flow

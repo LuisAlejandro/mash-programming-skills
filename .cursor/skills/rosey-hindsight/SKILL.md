@@ -20,7 +20,7 @@ No line → gate not run. "Unavailable" requires a failed `daemon status` — no
 
 **Memory boundary:** Caveman ultra applies to chat/status prose, not memory recall text, retain payloads, handoff fields, or instructions the user must run exactly.
 
-Rosey uses Hindsight through the local `hindsight-embed` CLI. This is a CLI-only integration: do not add a Hindsight server to `.cursor/mcp.json` for this flow.
+Rosey uses Hindsight through the local `hindsight-embed` CLI. This is a CLI-only integration: do not add Hindsight to the workspace MCP config.
 
 ## CLI usage
 
@@ -50,7 +50,7 @@ hindsight-embed daemon status
 
 If status fails (CLI missing, not configured, or daemon down):
 
-1. Record `Hindsight: unavailable — <reason>` in the first status message.
+1. Record `Hindsight: unavailable (<reason>)` in the first status message.
 2. Continue the Rosey workflow without memory.
 3. Do not attempt to install, configure, or upgrade Hindsight from this skill.
 4. Optionally note that local memory is unavailable and the user can enable it via their Rosey agentic-env setup outside this repo — do not invent install steps here.
@@ -64,9 +64,9 @@ Daemon warm-restart (already wired when Rosey was installed into the repo):
 
 Do not run `daemon start` manually during Rosey workflows; use `daemon status` only.
 
-If status still fails after the hook runs, check `~/.hindsight/hook-last-run.log` for clues. Record `Hindsight: unavailable — <reason>` and continue.
+If status still fails after the hook runs, check `~/.hindsight/hook-last-run.log` for clues. Record `Hindsight: unavailable (<reason>)` and continue.
 
-Do not block Rosey planning, implementation, QA, or handoff when Hindsight is unavailable. Continue the workflow and record `HINDSIGHT: unavailable` where a handoff envelope asks for memory status.
+Do not block Rosey planning, implementation, QA, or handoff when Hindsight is unavailable. Continue the workflow and record `HINDSIGHT: unavailable -- <reason>` where a handoff envelope asks for memory status.
 
 ## Bank Resolution
 

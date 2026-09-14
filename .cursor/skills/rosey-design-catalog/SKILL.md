@@ -36,16 +36,23 @@ First skill in the OpenDesign-to-code flow. After completing in interactive mode
 
 ### Outputs
 
-- `.cursor/rules/rosey-design-system.mdc` — project conventions (includes active `pageSlug`; re-run when switching pages)
+- the generated design-system rule in this IDE's rules tree — project conventions (includes active `pageSlug`; re-run when switching pages)
 - `rosey/designs/component-catalog.json`
 - `rosey/designs/<page-slug>/design-context.json`
 - `rosey/designs/latest.json` — multi-page index (`pages`, `activePageSlug`)
 
 ## Prerequisites
 
+**Working directory:** cwd is this skill's directory (the folder that contains this `SKILL.md`).
+
 ```bash
-npm install --prefix .cursor/skills/rosey-design-catalog
-npm install --prefix .cursor/skills/rosey-implement-design
+npm install
+```
+
+In the sibling `rosey-implement-design` skill directory:
+
+```bash
+npm install
 ```
 
 ## Workflow
@@ -64,7 +71,7 @@ Do not call OpenDesign MCP tools unless descriptors are verified.
 ### Step 2: Analyze the Codebase
 
 ```bash
-node .cursor/skills/rosey-design-catalog/scripts/scan-project-architecture.js --root <projectRoot>
+node scripts/scan-project-architecture.js --root <projectRoot>
 ```
 
 ### Step 3: Inspect OpenDesign Artifact
@@ -79,7 +86,7 @@ Serialized DOM lives in `design-context.json`; page-specific details live there,
 ### Step 4: Generate Files
 
 ```bash
-node .cursor/skills/rosey-design-catalog/scripts/generate-design-system.js \
+node scripts/generate-design-system.js \
   --html <htmlPath> --project-root <projectRoot> --page-slug <pageSlug> [--design <designPath>]
 ```
 
@@ -88,7 +95,7 @@ Optional: `--css <path[,path]>`, `--allow-missing-design`, `--assets-dir <assets
 Validate:
 
 ```bash
-node .cursor/skills/rosey-design-catalog/scripts/validate-generated-files.js \
+node scripts/validate-generated-files.js \
   --project-root <projectRoot> --page-slug <pageSlug>
 ```
 

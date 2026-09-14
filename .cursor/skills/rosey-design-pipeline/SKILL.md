@@ -21,6 +21,8 @@ candidates → [STOP: pick winner] → source/ → catalog → implement → ite
 
 This skill **orchestrates** existing skills. It does not reimplement OpenDesign or UI coding.
 
+**Working directory:** when running a skill's scripts, cwd is that skill's directory (the folder that contains its `SKILL.md`).
+
 ## Interaction Mode
 
 Parse `$ARGUMENTS` for at most one:
@@ -60,10 +62,9 @@ Wait for `DESIGN_CANDIDATES_HANDOFF` with `SUCCESS: true`.
 ### Stage B — Select winner
 
 ```bash
+# cwd is the `rosey-design-candidates` skill directory (the folder that contains that skill's SKILL.md).
 REPO="$(git rev-parse --show-toplevel)"
-PYTHON="${REPO}/.cursor/skills/rosey-design-candidates/.venv/bin/python"
-cd "${REPO}/.cursor/skills/rosey-design-candidates/scripts"
-"${PYTHON}" select_winner.py \
+.venv/bin/python scripts/select_winner.py \
   --repo-root "${REPO}" \
   --page-slug "<page-slug>" \
   --variation N
@@ -90,7 +91,7 @@ Invoke **`rosey-implement-design`** with `mode:non-interactive`:
 
 ### Stage E — Iterator
 
-Invoke the Rosey design iterator agent (Cursor: `.cursor/agents/rosey-design-iterator.md`; VS Code: `.github/agents/rosey-design-iterator.md`) with `mode:non-interactive`, `PAGE_SLUG`, `TARGET_URL`, and HTML path. Stop servers when done. Accept `iterator-report.json` status `aligned` or `needs-targeted-pass`.
+Invoke agent `rosey-design-iterator` with `mode:non-interactive`, `PAGE_SLUG`, `TARGET_URL`, and HTML path. Stop servers when done. Accept `iterator-report.json` status `aligned` or `needs-targeted-pass`.
 
 ### Stage F — Lint
 
@@ -118,9 +119,16 @@ END_DESIGN_PIPELINE_HANDOFF
 
 Same as `rosey-design-candidates` (OpenDesign daemon, Playwright) plus:
 
+In the `rosey-design-catalog` skill directory:
+
 ```bash
-npm install --prefix .cursor/skills/rosey-design-catalog
-npm install --prefix .cursor/skills/rosey-implement-design
+npm install
+```
+
+In the `rosey-implement-design` skill directory:
+
+```bash
+npm install
 ```
 
 ## Out of scope

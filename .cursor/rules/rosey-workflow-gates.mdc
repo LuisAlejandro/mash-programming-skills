@@ -11,15 +11,15 @@ alwaysApply: true
 
 Generic planning, implementation, code review, or "implement this" / "review this diff" does **not** trigger Hindsight or the Karpathy brief.
 
-Ponytail and Docker-via-Make stay always-on. Caveman lite applies while those Rosey skills (and `rosey-hindsight`) are active — see `.cursor/rules/caveman.mdc`.
+Ponytail and Docker-via-Make stay always-on. Caveman lite applies while those Rosey skills (and `rosey-hindsight`) are active — see `caveman.mdc`.
 
 ## Before code, plans, or review reports (those four skills only)
 
-1. **Hindsight gate** — see `.cursor/rules/hindsight-memory.mdc`
-2. **Karpathy brief** — see `.cursor/rules/karpathy-guidelines.mdc` (assumptions + `step → verify`; proof line or `Karpathy: trivial, skipped`)
-3. **Ponytail ladder** — see `.cursor/rules/ponytail.mdc` (YAGNI → codebase reuse → stdlib → platform native → existing dep → one-line → minimum code)
-4. **Caveman lite** for status prose — see `.cursor/rules/caveman.mdc`
-5. **Docker via Make** — see `.cursor/rules/docker-via-make.mdc` (run apps/tooling in containers; never host npm/pip/node/python)
+1. **Hindsight gate** — see `hindsight-memory.mdc`
+2. **Karpathy brief** — see `karpathy-guidelines.mdc` (assumptions + `step → verify`; proof line or `Karpathy: trivial, skipped`)
+3. **Ponytail ladder** — see `ponytail.mdc` (YAGNI → codebase reuse → stdlib → platform native → existing dep → one-line → minimum code)
+4. **Caveman lite** for status prose — see `caveman.mdc`
+5. **Docker via Make** — see `docker-via-make.mdc` (run apps/tooling in containers; never host npm/pip/node/python)
 
 Order during those four skills: Hindsight → Karpathy brief → Ponytail ladder → caveman-lite status → edits (with Docker-via-Make for any run/install/test).
 

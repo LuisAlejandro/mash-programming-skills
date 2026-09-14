@@ -53,12 +53,12 @@ When the conversation has enough material to narrow — reflect back what you've
 
 **Always synthesize a summary in the chat.** Before offering any next steps, reflect back what emerged: key decisions, the direction chosen, open threads, and any assumptions made. This is the primary output of the brainstorm — the user should be able to read the summary and know what they landed on.
 
-**Then offer next steps** using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `AskQuestion` in Cursor, `vscode_askQuestions` in VS Code, `question` in OpenCode, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension). Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
+**Then offer next steps** using the Interaction Method contract in `references/interaction-rules.md`. Never silently skip the question.
 
 In `mode:non-interactive`, do not offer next steps. Return the summary and stop; non-software tasks are not valid inputs for the autonomous code pipeline.
 
 **Question:** "Brainstorm wrapped. What would you like to do next?"
 
-- **Create a plan** → hand off to `/rosey-plan` with the decided goal and constraints
-- **Save summary to disk** → write the summary as a markdown file in the current working directory
+- **Create a plan** → write `rosey/brainstorms/YYYY-MM-DD-<topic>-requirements.md` from the chat summary (YAML frontmatter with `date` and `topic` only). Do **not** add `## Requirements` — that heading marks a software origin. Then load `/rosey-plan` with that path. Plan 0.1b takes the universal route and structures a non-software plan from this wrap-up; it will not invent Implementation Units.
+- **Save summary to disk** → write to that same `rosey/brainstorms/YYYY-MM-DD-<topic>-requirements.md` path by default (same shape: no `## Requirements`). Write in the current working directory only if the user asks for CWD. Plan's software origin search ignores files without `## Requirements`.
 - **Done** → the conversation was the value, no artifact needed

@@ -7,7 +7,7 @@ argument-hint: "[feature, focus area, or constraint] [output:md]"
 
 # Generate Improvement Ideas
 
-**The current year is 2026** — use it when dating documents and checking recent artifacts.
+Use the current calendar year when dating documents and checking recent artifacts.
 
 `rosey-ideate` answers "which ideas are worth exploring?" It generates a grounded set of candidate ideas, critiques each one, and leaves the user holding a ranked deliverable and a next-steps menu — it does not write requirements, plans, or code.
 

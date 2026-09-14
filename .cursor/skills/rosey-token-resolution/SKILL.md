@@ -17,6 +17,8 @@ Resolves design tokens from OpenDesign exported artifacts. Artifact-first: expor
 
 ## Workflow
 
+**Working directory:** cwd is this skill's directory (the folder that contains this `SKILL.md`).
+
 ### 1. Inputs
 
 - `htmlPath`: required
@@ -27,7 +29,7 @@ Resolves design tokens from OpenDesign exported artifacts. Artifact-first: expor
 ### 2. Extract
 
 ```bash
-node .cursor/skills/rosey-token-resolution/scripts/resolve-tokens.js \
+node scripts/resolve-tokens.js \
   --html <htmlPath> --project-root <projectRoot> [--design <designPath>] [--require-design] \
   --css <cssPath> --assets-dir <assetsDir>
 ```
@@ -36,7 +38,7 @@ node .cursor/skills/rosey-token-resolution/scripts/resolve-tokens.js \
 
 With `projectRoot`, match extracted values to project CSS variables. With `DESIGN.md`, map colors via `designSystemResolved` (`mapped` / `unmapped`).
 
-Unresolved values go to `failedTokens` for rules in `.cursor/rules/rosey-design-system.mdc`.
+Unresolved values go to `failedTokens` for the generated design-system rule in this IDE's rules tree.
 
 Returns `{ extractedTokens, designSystem, designSystemResolved, resolvedTokens, failedTokens }`.
 

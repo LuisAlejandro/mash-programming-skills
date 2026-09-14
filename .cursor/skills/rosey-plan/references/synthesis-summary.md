@@ -8,7 +8,7 @@
 
 ## When it fires
 
-Phase 5.1.5 — after Phase 1 research, before Phase 5.2 plan-write. Fires on every run except the Phase 0.1 fast paths (resume normal, deepen-intent).
+Phase 5.1.5 — after Phase 1 research, before Phase 5.2 plan-write. Fires on every run except the Phase 0.1 fast paths (resume normal, deepen-intent). Resume and deepen fast paths do not re-run the scoping synthesis.
 
 Every plan is brainstorm-sourced: the missing-origin stop at Phase 0.3b guarantees an origin document, so the synthesis always has a validated WHAT behind it.
 

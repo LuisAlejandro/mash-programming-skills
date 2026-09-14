@@ -4,18 +4,17 @@ Read this before anything else on every run, including the non-software route �
 
 ## Communication while using this skill
 
-**Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors and code unchanged. Drop lite only for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or when the user asks for normal or long-form wording.
-
-## Memory gate (required check)
-
-Before Phase 1.2:
-
-1. Read [`rosey-hindsight`](../../rosey-hindsight/SKILL.md) and run `hindsight-embed daemon status` + `hindsight-embed memory recall` (prepend `~/.local/bin` to PATH; see skill) OR document `Hindsight: unavailable — <reason>`.
-2. Do not write the requirements doc until step 1 completes or is explicitly marked unavailable.
-
-"Unavailable" means CLI failed — not "I skipped it."
+**Caveman lite** is defined in [`SKILL.md`](../SKILL.md). Follow that kernel wording; do not restate it here.
 
 ## Phase 0: Resume, Assess, and Route
+
+**Memory gate (hard):** Run this **before any Phase 0 subsection** — before 0.0, resume, classification, or the Phase 1.1 grounding scout. Do not search the repo or dispatch research until the gate completes.
+
+1. Read [`rosey-hindsight`](../../rosey-hindsight/SKILL.md) and run `hindsight-embed daemon status` + `hindsight-embed memory recall` (prepend `~/.local/bin` to PATH; see skill) OR document `Hindsight: unavailable (<reason>)`.
+2. First status line: `Hindsight: recalled (<brief useful context>)` or `Hindsight: unavailable (<reason>)`. Envelope field `HINDSIGHT:` stays separate.
+3. Do not write the requirements doc until step 1 completes or is explicitly marked unavailable.
+
+"Unavailable" means CLI failed — not "I skipped it."
 
 ### 0.0 Markdown Output
 
@@ -23,12 +22,13 @@ Requirements documents are always markdown (`.md`). Read `references/markdown-re
 
 When `mode:non-interactive` is active, apply Compact non-interactive artifacts from Output Guidance in `references/interaction-rules.md`: preserve IDs and decision-bearing content, trim narrative.
 
-**Token-parsing convention:** only literal-prefix flag tokens (`mode:`, `delegate:` where applicable) are consumed and stripped. Other `<word>:<word>` tokens — including conventional commit prefixes like `feat:`, `fix:`, `chore:` that may appear inside a feature description — pass through verbatim.
+**Token-parsing convention:** only literal-prefix flag tokens (`mode:`) are consumed and stripped. Other `<word>:<word>` tokens — including conventional commit prefixes like `feat:`, `fix:`, `chore:` that may appear inside a feature description — pass through verbatim.
 
 ### 0.1 Resume Existing Work When Appropriate
 
-If the user references an existing brainstorm topic or document, or there is an obvious recent matching `*-requirements.md` file in `rosey/brainstorms/`:
+If the user references an existing brainstorm topic or document, or there is an obvious recent matching `*-requirements.md` file in the **flat** `rosey/brainstorms/` directory:
 
+- Search that directory only. Never `rosey/brainstorms/scratch/` (per-run scout artifacts). Never `rosey/parallel/` — it is not a search root.
 - Read the document
 - Confirm with the user before resuming: "Found an existing requirements doc for [topic]. Should I continue from this, or start fresh?"
 - If resuming, summarize the current state briefly, continue from its existing decisions and outstanding questions, and update the existing document instead of creating a duplicate
@@ -39,14 +39,16 @@ In non-interactive mode, do not ask. Resume the matching document when the topic
 
 Before proceeding to Phase 0.2, classify whether this is a software task. The key question is: **does the task involve building, modifying, or architecting software?** -- not whether the task *mentions* software topics.
 
-**Software** (continue to Phase 0.2) -- the task references code, repositories, APIs, databases, or asks to build/modify/debug/deploy software.
+**Software** (continue to Phase 0.2) -- the user asks to build, modify, refactor, debug, architect, or deploy software. Always write `*-requirements.md`. A request that merely *references* code, a repo, an API, or a database is not software by itself.
 
 **Non-software brainstorming** (route to universal brainstorming) -- BOTH conditions must be true:
 
-- None of the software signals above are present
+- The user is not asking to build, modify, refactor, debug, architect, or deploy software
 - The task describes something the user wants to explore, decide, or think through in a non-software domain
 
-**Neither** (respond directly, skip all brainstorming phases) -- the input is a quick-help request, error message, factual question, or single-step task that doesn't need a brainstorm.
+Chat summary is required. Write a requirements file only when the user saves or chooses Create a plan (see `references/universal-brainstorming.md`).
+
+**Neither** (not a brainstorm run) -- the input is a quick-help request, error message, factual question, or single-step task that doesn't need a brainstorm. Answer and stop; skip all brainstorming phases.
 
 **If non-software brainstorming is detected:** Read `references/universal-brainstorming.md` and use those facilitation principles. Skip Phases 0.2–4 below — the **Core Principles and Interaction Rules in `references/interaction-rules.md` still apply unchanged**, including one-question-per-turn, asking only decisions the environment cannot settle, and the default to the platform's blocking question tool.
 
@@ -73,7 +75,13 @@ Standard is the floor. Work too small for a requirements document does not belon
 
 In non-interactive mode, do not ask. Classify conservatively from the supplied feature description and record the classification as an assumption when it materially affects the document.
 
-**Every run writes a requirements document.** The Phase 1.1 grounding scout, Phase 2's approach generation, and Phase 2.6's claim verifier run per their own gates on every run, and Phase 3 always produces a document. There is no chat-only outcome and no tier that skips the artifact — `/rosey-plan` requires the document as its origin.
+**Every software run writes a requirements document.** `/rosey-plan` requires it as origin. There is no software-route chat-only outcome.
+
+**Gates (do not run scout / approaches / verifier on every run):**
+- Clear-requirements (0.2) skips Phase 1.1 and 1.2.
+- The Phase 1.1 grounding scout runs only when Phase 1.1 runs.
+- Approach generation follows the gates in `references/approaches.md`.
+- The claim verifier runs only for checkable repo claims (see `references/approaches.md`).
 
 **Deep sub-mode: feature vs product.** For Deep scope, also classify whether the brainstorm must establish product shape or inherit it:
 

@@ -1,6 +1,6 @@
 # Open Questions Deferral
 
-This reference defines the Defer action's in-doc append mechanic. When the user chooses Defer on a finding (from the walk-through or from the bulk-preview Append-to-Open-Questions path), an entry for that finding appends to a `## Deferred / Open Questions` section at the end of the document under review.
+This reference defines the Defer action's in-doc append mechanic. When the user chooses Defer on a finding (from the walk-through or from the bulk-preview Append-to-Open-Questions path), an entry for that finding appends under the document's existing question section. Preserve that heading. Create `## Deferred / Open Questions` only when none of the recognized headings exist.
 
 Interactive mode only. Invoked by `references/walkthrough.md` (per-finding Defer option) and `references/bulk-preview.md` (routing option C Proceed).
 
@@ -10,11 +10,19 @@ Interactive mode only. Invoked by `references/walkthrough.md` (per-finding Defer
 
 ### Step 1: Locate or create the Open Questions section
 
-Scan the document for an existing `## Deferred / Open Questions` heading (case-sensitive match on the full heading text). Behavior by location:
+Scan the document for an existing question-section heading, in this order (case-sensitive match on the full heading text):
+
+1. `## Open Questions`
+2. Else `## Outstanding Questions`
+3. Else `## Deferred / Open Questions`
+4. If none exists, create `## Deferred / Open Questions` at the end of the document. If the document has a trailing horizontal-rule separator (`---`) or a trailing footer (table, links section), insert the new section above it. If the document has only frontmatter and no body, create the section after the frontmatter block (not at byte 0).
+
+Preserve the heading that already exists. Do not rename it and do not create a second semantically identical section.
+
+Behavior by location of the heading that matched (or was just created):
 
 - **Heading present at the end of the document (last `##`-level section):** append new content inside this section at the end.
 - **Heading present mid-document (not the last `##`-level section):** still append inside the existing heading at that location. Do not create a duplicate at the end — the user positioned the section deliberately.
-- **Heading absent:** create `## Deferred / Open Questions` at the end of the document. If the document has a trailing horizontal-rule separator (`---`) or a trailing footer (table, links section), insert the new section above it. If the document has only frontmatter and no body, create the section after the frontmatter block (not at byte 0).
 
 ### Step 2: Locate or create the timestamped subsection
 
@@ -121,6 +129,8 @@ When append-availability is true at Phase 4 start but an individual append fails
 ---
 
 ## Example appended content
+
+The examples below use `## Deferred / Open Questions` because that is the heading created when none of the recognized headings already exist. If the document already has `## Open Questions` or `## Outstanding Questions`, append under that heading instead — do not add a second section.
 
 Starting document state:
 

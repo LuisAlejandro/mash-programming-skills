@@ -4,33 +4,56 @@ Read this on entering Phase 0. It owns input triage and complexity routing, plan
 
 ## Phase 0: Input Triage
 
-Determine how to proceed based on what was provided in `<input_document>`.
+`rosey-work` executes a plan. Resolve one from `<input_document>` or from the session, in this order:
 
-**Plan document** (input is a file path to an existing plan or specification) → skip to Phase 1 after Phase 0.0 gate completes.
+**Branch-setup bypass.** After stripping `mode:`, if the remaining input contains the exact phrase `do not run branch setup`, strip that phrase and set `BRANCH_SETUP_BYPASS`. When that flag is set: skip branch setup entirely and record `BRANCH_DECISION: continued`. Do not infer the bypass from being inside a worktree. Then resolve the plan path from whatever remains.
 
-**Bare prompt** (input is a description of work, not a file path):
+0. **Blank input — latest software plan.** After stripping `mode:` (and the bypass phrase if present), if the remaining input is empty:
+   1. Glob `rosey/plans/*-plan.md`.
+   2. Keep only **software** plans: YAML frontmatter is present. Skip universal plans that start with `# Title` plus a `Created:` date and have no YAML frontmatter.
+   3. Pick the newest remaining file by mtime.
+   4. Interactive: if more than one software plan was modified today, confirm which one. Otherwise announce the chosen path and use it.
+   5. Non-interactive: use that unique latest match. If none exist, use the no-plan envelope below (`BLOCKERS: no plan path supplied or resolvable`).
+1. **Explicit path** — the input is a file path to a plan. Use it.
+2. **Handoff** — `rosey-plan` loaded this skill and passed a plan path. Use it.
+3. **Session context** — a plan was written earlier in this conversation and the user is now asking to implement it, possibly after clarifying questions. Use that plan; name the path so the user can correct it.
 
-1. **Scan the work area**
+**Software-plan shape.** After resolving a path (explicit, handoff, or session), inspect the document:
+- YAML frontmatter plus software plan sections (Implementation Units) → continue.
+- No YAML and no Implementation Units → stop: "This is a non-software plan; `rosey-work` does not execute it." In `mode:non-interactive`, emit the handoff envelope with that sentence in `BLOCKERS:`.
 
-   - Identify files likely to change based on the prompt
-   - Find existing test files for those areas (search for test/spec files that import, reference, or share names with the implementation files)
-   - Note local patterns and conventions in the affected areas
+Once a software plan is resolved, continue to Phase 1 after the Phase 0.0 gate completes.
 
-2. **Assess complexity and route**
+**No plan resolved — stop.** Do not implement from a prose description. The pipeline is `rosey-brainstorm` → `rosey-plan` → `rosey-work`, and the plan is what carries the Goal Capsule, Verification Contract, Definition of Done, and Implementation Units this skill executes against. Without one, there is nothing to execute and no contract to verify against.
 
-   | Complexity         | Signals                                                                             | Action                                                                                                                                                                        |
-   | ------------------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | **Trivial**        | 1-2 files, no behavioral change (typo, config, rename)                              | Proceed to Phase 1 step 2 (environment setup), then implement directly — no task list, no execution loop. Apply Test Discovery if the change touches behavior-bearing code. **Phase 3 still runs in full** — lint, Sentrux gate, Hindsight retain, and the handoff envelope are not skipped |
-   | **Small / Medium** | Clear scope, under ~10 files                                                        | Build a task list from discovery. Proceed to Phase 1 step 2                                                                                                                   |
-   | **Large**          | Cross-cutting, architectural decisions, 10+ files, touches auth/payments/migrations | Recommend `/rosey-brainstorm` or `/rosey-plan` to surface edge cases and boundaries. Honor the user's choice. If proceeding, build a task list and continue to Phase 1 step 2 |
+In `mode:interactive`, name the gap and offer the route:
 
-   In non-interactive mode, do not offer routing choices for Large bare prompts. Stop and require a plan path instead.
+```text
+No plan found for this work.
+
+rosey-work implements a plan — it does not decide what to build. Point me at a
+plan in rosey/plans/, or run /rosey-plan first (which needs a requirements doc
+from /rosey-brainstorm).
+
+If a plan exists somewhere I did not look, give me the path.
+```
+
+Offer to load `rosey-plan` in-session. If the user supplies a path, treat it as the plan and continue. Do not proceed on any other answer.
+
+In `mode:non-interactive`, do not halt silently — emit the handoff envelope with the gap named in `BLOCKERS:`, so an automated caller sees a result rather than a hang:
+
+```text
+ROSEY_WORK_HANDOFF
+FILES_CHANGED:
+BLOCKERS: no plan path supplied or resolvable; rosey-work requires a plan. Pass one explicitly.
+END_ROSEY_WORK_HANDOFF
+```
 
 ---
 
 ## Phase 1: Quick Start
 
-1. **Read Plan and Clarify** _(skip if arriving from Phase 0 with a bare prompt)_
+1. **Read Plan and Clarify**
 
    - **Size the read.** Plans are markdown (`.md`). Read them as `rosey-plan`'s [`plan-sections.md`](../../rosey-plan/references/plan-sections.md) prescribes: a short plan in full; anything longer heading-scanned first (`rg -n '^#{1,3} ' <plan>`), then read in ranges — Goal Capsule, the active unit plus what it cites, Verification Contract, Definition of Done. That file owns the reading protocol; do not restate its mechanics here.
    - Treat the plan as a decision artifact, not an execution script
@@ -40,9 +63,9 @@ Determine how to proceed based on what was provided in `<input_document>`.
      - **Verification Contract** — the repo's actual commands and gates. Phase 3 runs these; note them now.
      - **Definition of Done** — global and per-unit completion criteria, including the cleanup criterion.
 
-     **A missing section is a noted degradation, not a blocker.** A bare prompt has no plan at all, so the no-contract path has to work regardless. Fall back to per-unit `Verification` plus `rosey-lint`, and record the gap in the handoff envelope (e.g. `no Verification Contract`). This matches how the skill already treats an unavailable Sentrux, an unavailable Hindsight, and a missing test runner.
+     **A missing section is a noted degradation, not a blocker.** Older plans predate the three contract sections, so the no-contract path still has to work. Fall back to per-unit `Verification` plus `rosey-lint`, and record the gap in the handoff envelope (e.g. `no Verification Contract`). This matches how the skill already treats an unavailable Sentrux, an unavailable Hindsight, and a missing test runner.
    - Check for `Execution note` on each implementation unit — these carry the plan's execution posture signal for that unit (for example, test-first or characterization-first). Note them when creating tasks.
-   - Check for a `Deferred to Implementation` or `Implementation-Time Unknowns` section — these are questions the planner intentionally left for you to resolve during execution. Note them before starting so they inform your approach rather than surprising you mid-task
+   - Check for `### Deferred to Implementation` under `## Open Questions` — these are questions the planner intentionally left for you to resolve during execution. Note them before starting so they inform your approach rather than surprising you mid-task. Older plans may use `Implementation-Time Unknowns` as a compatibility alias; parse that heading if present, but do not expect it on new plans. See the lifecycle mapping in [`plan-sections.md`](../../rosey-plan/references/plan-sections.md).
    - Check for a `Scope Boundaries` section — these are explicit non-goals. Refer back to them if implementation starts pulling you toward adjacent work
    - Review any references or links provided in the plan
    - If the plan references a Sentrux topology artifact, read it before creating tasks. If no explicit path exists, look beside the plan for `<plan-basename>.topology.json`.
@@ -79,10 +102,9 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    - From a plan path: take the basename without extension, strip the leading date and sequence/type tokens (`YYYY-MM-DD-NNN-<type>-`) and any trailing `-plan` suffix, kebab-case, max ~50 characters.
      Example: `rosey/plans/2026-05-29-001-feat-seo-phase-2-content-plan.md` → `seo-phase-2-content`.
-   - From bare prompt: kebab-case summary of the work.
    - Expected branch: `feature/<slug>`.
 
-   **Plan ↔ branch alignment** (run whenever a plan path or bare-prompt slug exists):
+   **Plan ↔ branch alignment**:
 
    | Signal                                                                                             | Action                                                                                                        |
    | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -142,16 +164,22 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    Use a meaningful slug based on the plan or work (e.g. `user-authentication`). `git flow feature start <slug>` creates and checks out `feature/<slug>`. Keep branch names on `feature/<slug>` for `pr-auto-merge.yml` head filter compatibility.
 
-   **Running under `rosey-parallel`?** The orchestrator pre-creates the worktree and the track branch and passes `do not run branch setup`. Honor it: skip this step entirely and record `BRANCH_DECISION: continued`. Never create a worktree from inside one.
+   **Running under `rosey-parallel`?** The orchestrator pre-creates the worktree and the track branch and passes `do not run branch setup`. Honor `BRANCH_SETUP_BYPASS`: skip this step entirely and record `BRANCH_DECISION: continued`. Never create a worktree from inside one. Do not infer the bypass from cwd or worktree layout.
 
-3. **Create Task List** _(skip if Phase 0 already built one, or if Phase 0 routed as Trivial)_
+   **Resolve verification commands** (reuse in the Phase 2 loop; still run full `rosey-lint` at Phase 3):
+   1. Use the plan's `## Verification Contract` when present.
+   2. Otherwise inspect Makefile targets (`make test`, `make lint`) and Compose services.
+   3. Otherwise resolve through [`rosey-lint`](../../rosey-lint/SKILL.md) discovery and the Docker-via-Make always-on guideline.
+   4. Never run project `npm`, `pytest`, `node`, or `python` on the host.
+
+3. **Create Task List**
    - Use the harness's task-tracking tool (`manage_todo_list` in VS Code, the todo/plan primitive elsewhere — match by capability) to break the plan into actionable tasks. When the harness exposes none, keep the task list in your own working context rather than simulating one in chat
    - Derive tasks from the plan's implementation units, dependencies, files, test targets, and verification criteria
    - When the plan defines U-IDs for Implementation Units, name the task from a brief outcome-led form of the unit's Goal and **append** the U-ID (e.g., "Add parser coverage (U3)"). Never lead with the identifier — the reader should understand the work before the traceability label; aim for five words or fewer before the ID. This keeps blocker references, deferred-work notes, and final summaries anchored to the same identifier the plan uses, so progress and traceability remain unambiguous across plan edits. Skip ordinal counts ("unit 1 of 5") when the full task list is already visible
    - Carry each unit's `Execution note` into the task when present
    - For each unit, read the `Patterns to follow` field before implementing — these point to specific files or conventions to mirror
    - Use each unit's `Verification` field as the primary "done" signal for that task
-   - Do not expect the plan to contain implementation code, micro-step TDD instructions, or exact shell commands
+   - Do not expect Implementation Units to contain implementation code, micro-step TDD instructions, or shell choreography. The Verification Contract names real repo commands — resolve those in Setup Environment above.
    - Include dependencies between tasks
    - Prioritize based on what needs to be done first
    - Include testing and quality check tasks
@@ -169,11 +197,10 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - If Sentrux is unavailable, continue implementation and record the reason for the final review brief.
 
    **Hindsight recall:**
-   - Read [`rosey-hindsight`](../../rosey-hindsight/SKILL.md) before the first implementation task.
-   - Resolve the Hindsight bank ID using the skill's bank resolution rule.
-   - Run `hindsight-embed memory recall <bank> "<task summary>"` with the plan path or bare prompt, affected modules, important risks, and U/R/A/F/AE IDs when present (see [`rosey-hindsight`](../../rosey-hindsight/SKILL.md)).
-   - Fold useful recalled context into the execution approach. Do not paste raw recall output into chat unless the user asks.
-   - If Hindsight is unavailable, continue and record the unavailable status for handoff.
+   - Phase 0.0 already ran the required recall. Fold that result into the execution approach. Do not paste raw recall output into chat unless the user asks.
+   - Do **not** call `memory recall` again.
+   - **Deferred-recall exception:** if the plan path was unknown at Phase 0.0 (blank-input latest-plan glob or session resolve after the gate) and the first query could not include plan context, run **one** additional `hindsight-embed memory recall` with the plan path, affected modules, important risks, and U/R/A/F/AE IDs. That is the only second recall this skill allows.
+   - If Hindsight is unavailable, continue and record `HINDSIGHT: unavailable -- <reason>` for handoff.
 
 4. **Choose Execution Strategy**
 
@@ -181,7 +208,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    | Strategy             | When to use                                                                                                                                                                                                                  |
    | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | **Inline**           | 1-2 small tasks, or tasks needing user interaction mid-flight. **Default for bare-prompt work** — bare prompts rarely produce enough structured context to justify subagent dispatch. Also the whole run when the harness exposes no subagent primitive: execute every unit inline under the same unit packet and verification contract |
+   | **Inline**           | 1-2 small tasks, or tasks needing user interaction mid-flight. Also the whole run when the harness exposes no subagent primitive: execute every unit inline under the same unit packet and verification contract |
    | **Serial subagents** | 3+ tasks. Each subagent gets a fresh context window focused on one unit — prevents context degradation across many tasks. Requires plan-unit metadata (Goal, Files, Approach, Test scenarios) |
 
    **`rosey-work` does not dispatch parallel subagents.** Concurrent implementation belongs to [`rosey-parallel`](../../rosey-parallel/SKILL.md), which owns real per-task worktrees, deterministic file-disjoint sequencing, a batched human gate, and bounded integration. Serial dispatch already buys the thing that matters here — a fresh context window per unit — and parallelism is a latency optimization, not a quality one. When a plan is large enough to want concurrency, hand the epic to `rosey-parallel` rather than improvising it here.
