@@ -125,7 +125,7 @@ example OmniRoute:
 
 ```dotenv
 HINDSIGHT_API_LLM_PROVIDER=openai
-HINDSIGHT_API_LLM_MODEL=openrouter/google/gemini-3.1-flash-lite
+HINDSIGHT_API_LLM_MODEL=omniroute-hindsight
 HINDSIGHT_API_LLM_API_KEY=<gateway key>
 HINDSIGHT_API_LLM_BASE_URL=https://assistant.fundere.app/v1
 ```
@@ -133,9 +133,10 @@ HINDSIGHT_API_LLM_BASE_URL=https://assistant.fundere.app/v1
 Set those four keys in `.env` and re-run `install.sh` on an unconfigured
 machine. Existing `~/.hindsight/embed` files are never overwritten, so a machine
 already configured for another provider must be updated by hand (or removed) and
-the daemon restarted with `hindsight-embed daemon restart`. Pin a concrete model
-rather than a routing alias such as `auto/*`, because Hindsight runs repeated
-structured extraction over the same memory and needs a stable model.
+the daemon restarted with `hindsight-embed daemon restart`. Use a purpose-built
+combo such as `omniroute-hindsight` rather than a generic routing alias such as
+`auto/*`, because Hindsight runs repeated structured extraction over the same
+memory and needs stable behavior.
 Embeddings stay on the local provider by default; switching them to a gateway
 changes the vector dimensions and invalidates existing memories.
 

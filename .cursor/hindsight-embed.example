@@ -7,8 +7,8 @@ HINDSIGHT_EMBED_API_DATABASE_URL=pg0://hindsight-embed-default:15432
 
 # LLM used for memory extraction. Any OpenAI-compatible gateway works: keep
 # HINDSIGHT_API_LLM_PROVIDER=openai and point HINDSIGHT_API_LLM_BASE_URL at the
-# gateway root. For OmniRoute that is https://assistant.fundere.app/v1 with a
-# gateway model id such as openrouter/google/gemini-3.1-flash-lite.
+# gateway root. For OmniRoute that is https://assistant.fundere.app/v1 with the
+# purpose-built omniroute-hindsight combo.
 # Native providers (gemini, anthropic, groq, deepseek, ...) leave BASE_URL empty.
 HINDSIGHT_API_LLM_PROVIDER=
 HINDSIGHT_API_LLM_MODEL=
