@@ -1083,7 +1083,11 @@ rosey_global_gitignore_path() {
     if command -v git >/dev/null 2>&1; then
         if p="$(git config --global --get core.excludesFile 2>/dev/null)" && [ -n "$p" ]; then
             case "$p" in
-                "~"/*) p="${HOME}${p#\~}" ;;
+                /*) ;;                                 # absolute: keep as-is
+                "~"/*) p="${HOME}${p#\~}" ;;           # ~/... -> $HOME/...
+                *)                                    # relative: git would resolve it
+                    echo "   ⚠️  core.excludesFile is relative ($p); treating it as \$HOME-relative." >&2
+                    p="${HOME}/${p#/}" ;;              # against the current directory; normalize to $HOME
             esac
             printf '%s\n' "$p"
             return 0
@@ -1099,15 +1103,18 @@ rosey_global_gitignore_path() {
 rosey_global_gitignore_ensure() {
     local gf
     gf="$(rosey_global_gitignore_path)"
-    mkdir -p "$(dirname "$gf")"
+    if ! mkdir -p "$(dirname "$gf")" 2>/dev/null; then
+        echo "   ⚠️  Could not create $(dirname "$gf"); skipping global gitignore block." >&2
+        return 0
+    fi
     if grep -q '^# Rosey Agentic Environment' "$gf" 2>/dev/null; then
         echo "-> Global gitignore already has the Rosey block ($gf)"
         return 0
     fi
     if [ -s "$gf" ]; then
-        printf '\n' >> "$gf"
+        printf '\n' >> "$gf" 2>/dev/null || true
     fi
-    cat >> "$gf" <<'EOF'
+    if ! cat >> "$gf" <<'EOF' 2>/dev/null
 # Rosey Agentic Environment
 # Added by rosey-agentic-env/install.sh. Remove this block to stop ignoring.
 rosey/brainstorms/
@@ -1139,6 +1146,10 @@ opencode.json
 .pi/
 .agents/
 EOF
+    then
+        echo "   ⚠️  Could not write the global gitignore block to $gf; Rosey files may appear untracked." >&2
+        return 0
+    fi
     echo "-> Added Rosey block to global gitignore ($gf)"
 }
 
