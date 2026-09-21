@@ -24,7 +24,7 @@ ROSEY_AGENTIC_ENV=/Users/luisalejandro/Development/rosey-agentic-env \
 ### What the installer does:
 1. Downloads the latest rules and skills from this repository.
 2. Creates and populates the `.cursor/rules` and `.cursor/skills` folders in your target repository, plus per-IDE skill/agent trees for VS Code/Copilot (`.github/…`), OpenCode (`.opencode/…`), and Pi (`.pi/…`).
-3. Automatically updates your `.gitignore` to keep Rosey-local artifacts out of version control: `.cursor/`, `.opencode/`, `.pi/`, `rosey/brainstorms/`, `rosey/plans/`, `rosey/designs/`, `rosey/solutions/`, `rosey/insights/`, `rosey/design-system/`, `rosey/qa/`, `rosey/parallel/`, `rosey/deepening/`, `rosey/loops/`, `rosey/ideation/`, `rosey/agentic-env.json`, and `rosey/maintainer-manifest.json`.
+3. Keeps Rosey-local artifacts out of version control by appending a marked block once to your **global** git excludes file (resolved from `git config --global core.excludesFile`, falling back to `$XDG_CONFIG_HOME/git/ignore` or `~/.config/git/ignore`): `.cursor/`, `.opencode/`, `.pi/`, `rosey/…`, `AGENTS.md`, `.cursorrules`, `DESIGN.md`, `.agents/`, plus the `.github/…`, `.vscode/mcp.json`, and `opencode.json` Rosey paths. It no longer edits per-repository `.gitignore` files.
 4. Creates `rosey/agentic-env.json` so orchestrators can detect the installed version.
 5. Always writes agent guidance (overwrites on each install unless `--no-agents`):
    - Default: minimal `AGENTS.md` with IDE-conditional paths for Cursor (`.cursor/…`), VS Code / Copilot (`.github/…`, `.vscode/…`), OpenCode (`.opencode/…`), and Pi (`.pi/…`).
@@ -56,14 +56,13 @@ To update the rules and skills in a target repository, simply run the install co
 ./uninstall.sh --check         # exit 0 if installed, 1 if not
 ```
 
-It removes the Rosey-owned trees (`.cursor/rules|skills|agents|hooks`, `.github/copilot-instructions.md`, `.github/{instructions,skills,agents,hooks}`, `.opencode/…`, `.pi/…`, `.agents/shared`, `rosey/agentic-env.json`, `rosey/hindsight-pin`) and surgically edits the shared files it touched: only the Rosey task is dropped from `.vscode/tasks.json`, only the seeded `mcp`/plugin entries from `opencode.json`, and only the exact block it appended to `.gitignore`. `AGENTS.md` / `.cursorrules` are removed only when they still match what the installer wrote; appended user content makes them be kept (with a warning).
+It removes the Rosey-owned trees (`.cursor/rules|skills|agents|hooks`, `.github/copilot-instructions.md`, `.github/{instructions,skills,agents,hooks}`, `.opencode/…`, `.pi/…`, `.agents/shared`, `rosey/agentic-env.json`, `rosey/hindsight-pin`) and surgically edits the shared files it touched: only the Rosey task is dropped from `.vscode/tasks.json` and only the seeded `mcp`/plugin entries from `opencode.json`. Per-repo `.gitignore` and the global excludes file are left untouched. `AGENTS.md` / `.cursorrules` are removed only when they still match what the installer wrote; appended user content makes them be kept (with a warning).
 
 Machine-wide tools (`uv`, `bun`, `jq`, `rg`, `gh`, git-flow, Sentrux, uv tools, Pi extensions, `hindsight-embed`), user data under `rosey/` (plans, insights, solutions, …), and `~/.hindsight` are **never touched** — uninstall is repo-local by design. Remaining flags:
 
 - `--targets=cursor,vscode,opencode,pi` — limit to some IDE trees.
 - `--purge-git-config` — unset the repo-local `user.signingkey` set by the installer (branches are never deleted; requires `--apply --yes`).
 - `--force` — remove generated files even when user-modified.
-- `--keep-gitignore` — leave `.gitignore` untouched.
 - `--yes` — confirm repo-local git-config changes.
 
 ## Bulk operations (`install.list`)

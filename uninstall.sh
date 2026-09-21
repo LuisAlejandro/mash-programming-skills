@@ -3,7 +3,7 @@
 #
 # Reverses install.sh for ONE target repository. It removes the Rosey-owned
 # artifacts that install.sh writes into the install root, and surgically edits
-# the shared files it touches (.gitignore, .vscode/tasks.json, opencode.json).
+# the shared files it touches (.vscode/tasks.json, opencode.json).
 #
 # Scope: repo-local only. This script never removes machine-wide tools (uv, bun,
 # jq, rg, gh, git-flow, Sentrux, uv tools, Pi extensions, hindsight-embed), user
@@ -16,7 +16,6 @@
 #
 # Usage: uninstall.sh [--check] [--version] [--apply] [--yes] [--force]
 #                      [--targets=cursor,vscode,opencode,pi]
-#                      [--keep-gitignore|--restore-gitignore]
 #                      [--purge-git-config]
 
 set -euo pipefail
@@ -34,7 +33,6 @@ APPLY=false
 CHECK_ONLY=false
 YES=false
 FORCE=false
-RESTORE_GITIGNORE=true
 PURGE_GIT_CONFIG=false
 TARGETS="cursor,vscode,opencode,pi"
 
@@ -62,14 +60,6 @@ while [ "$#" -gt 0 ]; do
             ;;
         --targets=*)
             TARGETS="${1#*=}"
-            shift
-            ;;
-        --keep-gitignore)
-            RESTORE_GITIGNORE=false
-            shift
-            ;;
-        --restore-gitignore)
-            RESTORE_GITIGNORE=true
             shift
             ;;
         --purge-git-config)
@@ -449,47 +439,8 @@ if want_target opencode && [ ! -e opencode.json ]; then
     remove_tree .opencode/.gitignore
 fi
 
-# .gitignore: strip the exact block install.sh appended, preserve user edits.
-if [ "$RESTORE_GITIGNORE" = true ] && [ -f .gitignore ]; then
-    out="$(python3 - .gitignore "$APPLY" <<'PY'
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-apply = sys.argv[2] == "true"
-HEADER = "# Rosey Agentic Environment"
-KNOWN = {
-    "rosey/brainstorms/", "rosey/plans/", "rosey/designs/", "rosey/solutions/",
-    "rosey/insights/", "rosey/design-system/", "rosey/qa/", "rosey/parallel/",
-    "rosey/deepening/", "rosey/loops/", "rosey/ideation/", "rosey/agentic-env.json",
-    "rosey/maintainer-manifest.json", "rosey/hindsight-pin", ".cursorrules",
-    "AGENTS.md", "DESIGN.md", ".cursor/", ".github/copilot-instructions.md",
-    ".github/instructions/", ".github/skills/", ".github/agents/", ".github/hooks/",
-    ".vscode/mcp.json", "opencode.json", ".opencode/", ".pi/", ".agents/",
-}
-try:
-    lines = path.read_text().splitlines()
-except Exception:
-    raise SystemExit(0)
-if HEADER not in lines:
-    raise SystemExit(0)
-
-idx = lines.index(HEADER)
-head = lines[:idx]
-while head and head[-1].strip() == "":
-    head.pop()
-tail = [ln for ln in lines[idx + 1:] if ln not in KNOWN]
-new = head + tail
-removed = len(lines) - len(new)
-verb = "edited" if apply else "would edit"
-print(f"   {verb:<12} .gitignore (remove {removed} Rosey line(s))")
-if apply:
-    text = "\n".join(new)
-    path.write_text(text + "\n" if text else "")
-PY
-)"
-    report_edit "$out"
-fi
+# Per-repo .gitignore is no longer touched: install.sh writes Rosey ignores to
+# the user's global excludes file, which uninstall never modifies.
 
 # --- Empty-dir cleanup ------------------------------------------------------
 
@@ -533,4 +484,4 @@ else
 fi
 note "   removed: $removed   edited: $edited   kept (user-modified): $kept"
 note "   Never touched: machine-wide tools, rosey/ user data, ~/.hindsight."
-note "   If this repo had a pre-existing AGENTS.md or .gitignore, review it for leftover Rosey lines."
+note "   If this repo had a pre-existing AGENTS.md, review it for leftover Rosey lines."

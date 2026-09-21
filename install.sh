@@ -1071,70 +1071,78 @@ seed_design_candidates_env_if_needed() {
 
 seed_design_candidates_env_if_needed
 
-# --- .gitignore ---
+# --- Global gitignore (machine-once) ---
 
-echo "-> Updating .gitignore..."
-touch .gitignore
+# Rosey artifacts are gitignored once, machine-wide, via the user's global
+# excludes file instead of per-repository .gitignore files. This keeps
+# downstream repos free of Rosey-specific ignore lines. Uninstall never
+# touches this file.
 
-rosey_gitignore_ensure_header() {
-    if ! grep -q "^# Rosey Agentic Environment" .gitignore 2>/dev/null; then
-        echo -e "\n# Rosey Agentic Environment" >> .gitignore
+rosey_global_gitignore_path() {
+    local p
+    if command -v git >/dev/null 2>&1; then
+        if p="$(git config --global --get core.excludesFile 2>/dev/null)" && [ -n "$p" ]; then
+            case "$p" in
+                "~"/*) p="${HOME}${p#\~}" ;;
+            esac
+            printf '%s\n' "$p"
+            return 0
+        fi
+    fi
+    if [ -n "${XDG_CONFIG_HOME:-}" ]; then
+        printf '%s\n' "$XDG_CONFIG_HOME/git/ignore"
+    else
+        printf '%s\n' "${HOME}/.config/git/ignore"
     fi
 }
 
-append_gitignore_if_missing() {
-    local line="$1"
-    if ! grep -qxF "$line" .gitignore 2>/dev/null; then
-        rosey_gitignore_ensure_header
-        echo "$line" >> .gitignore
+rosey_global_gitignore_ensure() {
+    local gf
+    gf="$(rosey_global_gitignore_path)"
+    mkdir -p "$(dirname "$gf")"
+    if grep -q '^# Rosey Agentic Environment' "$gf" 2>/dev/null; then
+        echo "-> Global gitignore already has the Rosey block ($gf)"
+        return 0
     fi
+    if [ -s "$gf" ]; then
+        printf '\n' >> "$gf"
+    fi
+    cat >> "$gf" <<'EOF'
+# Rosey Agentic Environment
+# Added by rosey-agentic-env/install.sh. Remove this block to stop ignoring.
+rosey/brainstorms/
+rosey/plans/
+rosey/designs/
+rosey/solutions/
+rosey/insights/
+rosey/design-system/
+rosey/qa/
+rosey/parallel/
+rosey/deepening/
+rosey/loops/
+rosey/ideation/
+rosey/agentic-env.json
+rosey/maintainer-manifest.json
+rosey/hindsight-pin
+AGENTS.md
+.cursorrules
+DESIGN.md
+.cursor/
+.github/copilot-instructions.md
+.github/instructions/
+.github/skills/
+.github/agents/
+.github/hooks/
+.vscode/mcp.json
+opencode.json
+.opencode/
+.pi/
+.agents/
+EOF
+    echo "-> Added Rosey block to global gitignore ($gf)"
 }
 
-# Shared rosey/ artifacts (both targets)
-append_gitignore_if_missing "rosey/brainstorms/"
-append_gitignore_if_missing "rosey/plans/"
-append_gitignore_if_missing "rosey/designs/"
-append_gitignore_if_missing "rosey/solutions/"
-append_gitignore_if_missing "rosey/insights/"
-append_gitignore_if_missing "rosey/design-system/"
-append_gitignore_if_missing "rosey/qa/"
-append_gitignore_if_missing "rosey/parallel/"
-append_gitignore_if_missing "rosey/deepening/"
-append_gitignore_if_missing "rosey/loops/"
-append_gitignore_if_missing "rosey/ideation/"
-append_gitignore_if_missing "rosey/agentic-env.json"
-append_gitignore_if_missing "rosey/maintainer-manifest.json"
-append_gitignore_if_missing "rosey/hindsight-pin"
-if is_livehome_install; then
-    append_gitignore_if_missing ".cursorrules"
-else
-    append_gitignore_if_missing "AGENTS.md"
-fi
-append_gitignore_if_missing "DESIGN.md"
-
-# Cursor target
-append_gitignore_if_missing ".cursor/"
-
-# VS Code target — gitignore the specific Rosey-managed paths under .github/ and .vscode/mcp.json.
-# Note: this ignores ALL of .github/instructions, .github/skills, .github/agents, .github/hooks.
-# If you commit other team content under those folders, review before pushing.
-append_gitignore_if_missing ".github/copilot-instructions.md"
-append_gitignore_if_missing ".github/instructions/"
-append_gitignore_if_missing ".github/skills/"
-append_gitignore_if_missing ".github/agents/"
-append_gitignore_if_missing ".github/hooks/"
-append_gitignore_if_missing ".vscode/mcp.json"
-append_gitignore_if_missing "opencode.json"
-
-# OpenCode target — .opencode/ covers skills/, agents/, hooks/, rules/ wholesale.
-append_gitignore_if_missing ".opencode/"
-
-# Pi target — .pi/ covers skills/, agents/, scripts/ wholesale.
-append_gitignore_if_missing ".pi/"
-
-# Shared references (generated per-tree by install.sh; canonical source lives in
-# the Rosey agentic env repo, not in downstream app repos).
-append_gitignore_if_missing ".agents/"
+rosey_global_gitignore_ensure
 
 # --- AGENTS.md / .cursorrules ---
 
