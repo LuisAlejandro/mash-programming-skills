@@ -1,108 +1,137 @@
 # Rosey Agentic Environment
 
-This is a standalone, portable Agentic Environment for Cursor, containing rules, skills, and MCP configurations.
+Rosey is a machine-global agent environment for Cursor, OpenCode, and Pi. The
+installer distributes Rosey skills, rules, agents, guidance, MCP configuration,
+and Hindsight hooks into each IDE's global home. It does **not** write IDE trees,
+`AGENTS.md`, `DESIGN.md`, MCP files, pins, or `rosey/*` directories into the
+current repository.
 
-It's designed to be injected directly into target application repositories so they gain the intelligence of the Rosey agents, with the agentic environment and application code sharing the same workspace root.
+Scoped skills that belong to a particular repository are owned locally by that
+repository and are not installed by Rosey. See
+`rosey/plans/2026-09-21-scoped-skills-repo-ownership.md` for that migration.
 
-## Installation into a target repository
+## Installation
 
-To scaffold this environment into any project, simply run the installation script in the root directory of your target repository:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/LuisAlejandro/rosey-agentic-env/main/install.sh | bash
-```
-
-*Note: Update the URL above to point to the raw location of the `install.sh` file in your actual remote repository.*
-
-For local orchestration from `rosey-maintainer-tools`, run from the target repository root:
-
-```bash
-ROSEY_AGENTIC_ENV=/Users/luisalejandro/Development/rosey-agentic-env \
-  bash /Users/luisalejandro/Development/rosey-agentic-env/install.sh --write-pin --agents
-```
-
-### What the installer does:
-1. Downloads the latest rules and skills from this repository.
-2. Creates and populates the `.cursor/rules` and `.cursor/skills` folders in your target repository, plus per-IDE skill/agent trees for VS Code/Copilot (`.github/…`), OpenCode (`.opencode/…`), and Pi (`.pi/…`).
-3. Keeps Rosey-local artifacts out of version control by appending a marked block once to your **global** git excludes file (resolved from `git config --global core.excludesFile`, falling back to `$XDG_CONFIG_HOME/git/ignore` or `~/.config/git/ignore`): `.cursor/`, `.opencode/`, `.pi/`, `rosey/…`, `AGENTS.md`, `.cursorrules`, `DESIGN.md`, `.agents/`, plus the `.github/…`, `.vscode/mcp.json`, and `opencode.json` Rosey paths. It no longer edits per-repository `.gitignore` files.
-4. Creates `rosey/agentic-env.json` so orchestrators can detect the installed version.
-5. Always writes agent guidance (overwrites on each install unless `--no-agents`):
-   - Default: minimal `AGENTS.md` with IDE-conditional paths for Cursor (`.cursor/…`), VS Code / Copilot (`.github/…`, `.vscode/…`), OpenCode (`.opencode/…`), and Pi (`.pi/…`).
-   - If the target already has a non-Rosey `AGENTS.md` (e.g. an OpenClaw/Hermes agent that owns that file for its core instructions), the installer leaves it untouched and writes the same guidance to `.cursorrules` instead. If `.cursorrules` is also non-Rosey, it warns and writes neither.
-   - Always-on Cursor rules (`alwaysApply: true`) are distributed per IDE: `.github/copilot-instructions.md` (VS Code/Copilot), `.opencode/rules/*.mdc` (OpenCode, via the `opencode-cursor-rules` plugin), and `.pi/APPEND_SYSTEM.md` (Pi, project-local). Cursor paths inside each are rewritten to that IDE's native paths.
-   Neither file stores preferences.
-6. Seeds `rosey-design-candidates` skill `.env` from `.env.example` using `CURSOR_API_KEY` in `rosey-agentic-env/.env` (never overwrites an existing skill `.env`).
-7. Seeds MCP configs from `.cursor/mcp.json.example`, substituting `GITHUB_TOKEN` and `OBSIDIAN_API_KEY` from `rosey-agentic-env/.env`: `.cursor/mcp.json` (Cursor), `.vscode/mcp.json` (VS Code), `.opencode/mcp.json` (OpenCode, `mcp.servers` with `type: local|remote`), and `.pi/settings.json` (Pi, `mcp.servers` merged into existing settings). The example is tracked; seeded files stay local (gitignored).
-8. Installs machine-once host CLIs when missing (macOS, Debian/Ubuntu, Windows WSL): git, make, curl, rsync, jq, rg, gh, uv, gitchangelog, bumpversion, git-flow, Sentrux, and Hindsight. Skips any command already on PATH. Linux/WSL uses apt only (not Homebrew). jq, rg, and gh are GitHub release binaries, not distro packages. In each target git repo: local `user.signingkey` from global config or the sole GPG secret key (`git flow` is initialized lazily by `rosey-pr` when first needed). Prints an inventory of tools it does not install (Docker, GPG, …).
-9. Installs the Pi extensions once when the `pi` CLI is present: `pi-subagents` (`pi install npm:pi-subagents`), `pi-mcp-adapter` (`pi install npm:pi-mcp-adapter`), and `pi-ask-user` (`pi install npm:pi-ask-user`). Skipped if `pi` is absent or each extension is already installed. `pi-subagents` enables the `.pi/agents/` tree.
-
-## Updating the environment
-To update the rules and skills in a target repository, simply run the install command again. It will overwrite the `.cursor` files with the latest versions from the remote repository.
-
-## Orchestration flags
-
-- `--version`: print the agentic environment version.
-- `--check`: verify `.cursor/`, `.opencode/`, `.pi/`, `rosey/agentic-env.json`, and the agent guidance (`AGENTS.md`, or `.cursorrules` when `AGENTS.md` is foreign) exist in the target.
-- `--write-pin` / `--no-write-pin`: enable or disable writing `rosey/agentic-env.json`.
-- `--agents` / `--no-agents`: enable or disable writing the agent guidance (`AGENTS.md`, or `.cursorrules` when `AGENTS.md` is foreign) (default: always overwrite).
-
-## Uninstalling
-
-`uninstall.sh` reverses `install.sh` for a single repository. It is a **dry run by default**:
+Run the installer from this source checkout, or point `ROSEY_AGENTIC_ENV` at the
+checkout:
 
 ```bash
-./uninstall.sh                 # print the plan, change nothing
-./uninstall.sh --apply         # remove repo-local Rosey artifacts
-./uninstall.sh --check         # exit 0 if installed, 1 if not
+ROSEY_AGENTIC_ENV=/path/to/rosey-agentic-env \
+  bash /path/to/rosey-agentic-env/install.sh
 ```
 
-It removes the Rosey-owned trees (`.cursor/rules|skills|agents|hooks`, `.github/copilot-instructions.md`, `.github/{instructions,skills,agents,hooks}`, `.opencode/…`, `.pi/…`, `.agents/shared`, `rosey/agentic-env.json`, `rosey/hindsight-pin`) and surgically edits the shared files it touched: only the Rosey task is dropped from `.vscode/tasks.json` and only the seeded `mcp`/plugin entries from `opencode.json`. Per-repo `.gitignore` and the global excludes file are left untouched. `AGENTS.md` / `.cursorrules` are removed only when they are Rosey-generated; a foreign `AGENTS.md` (owned by another agent) is always left in place, and appended user content makes them be kept (with a warning).
+The command is global-only and is safe to run from any directory. Re-running it
+refreshes Rosey-owned global skills, rules, agents, hooks, references, and
+configuration entries without touching project files.
 
-Machine-wide tools (`uv`, `bun`, `jq`, `rg`, `gh`, git-flow, Sentrux, uv tools, Pi extensions, `hindsight-embed`), user data under `rosey/` (plans, insights, solutions, …), and `~/.hindsight` are **never touched** — uninstall is repo-local by design. Remaining flags:
+### Global destinations
 
-- `--targets=cursor,vscode,opencode,pi` — limit to some IDE trees.
-- `--purge-git-config` — unset the repo-local `user.signingkey` set by the installer (branches are never deleted; requires `--apply --yes`).
-- `--force` — remove generated files even when user-modified.
-- `--yes` — confirm repo-local git-config changes.
+| Surface | Destination |
+|---|---|
+| Rosey state, pins, guidance, contracts | `~/.config/rosey/` |
+| Cursor rules | `~/.cursor/rules/` |
+| Cursor skills | `~/.cursor/skills/` |
+| Cursor agents | `~/.cursor/agents/` |
+| Cursor hooks | `~/.cursor/hooks.json`, `~/.cursor/hooks/` |
+| OpenCode skills | `~/.config/opencode/skills/` |
+| OpenCode agents | `~/.config/opencode/agents/` |
+| OpenCode global guidance | `config.instructions[]` in `~/.config/opencode/opencode.json` |
+| OpenCode warm-start | `~/.config/opencode/plugin/rosey-hindsight-daemon.ts` |
+| Pi skills and context | `~/.pi/agent/skills/`, `~/.pi/agent/AGENTS.md` |
+| Pi agents | `~/.agents/` |
+| Pi warm-start | `~/.pi/agent/extensions/`, `~/.pi/agent/scripts/` |
+| Pi shared MCP config | `~/.config/mcp/mcp.json` (plus the accepted `mcpServers` mirror in Pi settings) |
 
-## Bulk operations (`install.list`)
+OpenCode uses `config.instructions[]` rather than
+`~/.config/opencode/AGENTS.md`; this preserves repository-local `AGENTS.md`
+loading. Cursor receives global guidance through `~/.cursor/rules/*.mdc`, not a
+home-level `~/.cursor/AGENTS.md`.
 
-`install.list` holds one repository path per line (`#` comments and blank lines allowed). `bulk-install.sh` and `bulk-uninstall.sh` loop over it, forwarding every argument to `install.sh` / `uninstall.sh` and skipping entries whose directory is missing (unmounted volume, deleted folder):
+## What installation does
+
+1. Copies every remaining Rosey skill into the Cursor, OpenCode, and Pi global
+   skill homes. The 27 repository-scoped skills are absent from Rosey's source
+   and remain local untracked files in their owning repositories.
+2. Copies specialist agents to Cursor, OpenCode, and the Pi-subagents home.
+3. Copies Cursor's always-apply rules to `~/.cursor/rules/`.
+4. Installs global Hindsight warm-start hooks for all three supported IDEs.
+5. Writes `~/.config/rosey/AGENTS.md` and the Pi global context file. Rosey never
+   creates or edits a repository-root `AGENTS.md`.
+6. Installs the three shared contract references in
+   `~/.config/rosey/references/` and updates global skill call sites to use
+   those paths.
+7. Merges Rosey's MCP servers into the global Cursor, OpenCode, and Pi config
+   files. Same-name Rosey entries overwrite existing entries; this accepted
+   risk has no backup or rollback.
+8. Seeds the design-candidates `.env` in global skill homes from
+   `.env.example` and `CURSOR_API_KEY` when available.
+9. Installs optional machine tools and Pi extensions only when enabled and
+   missing. Existing commands are not reinstalled.
+10. Updates the machine-global Git excludes file so only Rosey working-output
+    directories and the maintainer manifest remain ignored. `AGENTS.md` and
+    `DESIGN.md` are not ignored.
+
+A design-system skill may create `DESIGN.md` when the user invokes it manually.
+The installer never creates that file. Other skills create `rosey/*` working
+files and directories lazily as needed.
+
+## Verification and flags
 
 ```bash
-./bulk-install.sh --check
-./bulk-install.sh --write-pin --agents
-./bulk-uninstall.sh                 # dry run across every repo
-./bulk-uninstall.sh --check         # installed / not-installed report
-./bulk-uninstall.sh --apply --yes   # bulk --apply refuses to run without --yes
+./install.sh --check
+./install.sh --version
+./install.sh --no-write-pin
+./install.sh --no-agents       # skip global Rosey guidance files
 ```
 
-Set `INSTALL_LIST` to use a different list file.
+`--agents`/`--guidance` explicitly enable global guidance. They no longer mean
+"write a repository AGENTS.md".
 
-## Optional: Hindsight local memory
+The compatibility `bulk-install.sh` wrapper invokes the same global installer;
+it no longer loops through `install.list`.
 
-Rosey can use [Hindsight](https://github.com/hindsight/hindsight) for cross-session memory via the `hindsight-embed` CLI (not MCP). This is optional.
+## Uninstallation
 
-1. Install [uv](https://docs.astral.sh/uv/) if needed.
-2. Put the keys listed in `.cursor/hindsight-embed.example` in `rosey-agentic-env/.env` (or the environment). Typical keys: `HINDSIGHT_API_LLM_*`, `HINDSIGHT_EMBED_BANK_ID`, `HINDSIGHT_EMBED_DAEMON_IDLE_TIMEOUT`. Never commit secrets.
-3. Run `install.sh` in a target repository. When no `~/.hindsight/embed` exists yet, the installer seeds it from `.cursor/hindsight-embed.example` (every `KEY=` filled from that `.env`), then installs the CLI **once per machine** if `hindsight-embed --help` does not already respond:
+Uninstallation is global-only and dry-run by default:
 
-   ```bash
-   pin="$(tr -d '[:space:]' < .cursor/hindsight-pin)"
-   uv tool install "hindsight-embed==${pin}" --with "hindsight-api==${pin}"
-   ```
+```bash
+./uninstall.sh                 # show what would be removed
+./uninstall.sh --check         # exit 0 if global Rosey artifacts exist
+./uninstall.sh --apply         # remove Rosey global payload
+./uninstall.sh --apply --force # also remove edited Rosey guidance files
+```
 
-   The first install may take 30–60+ minutes while large dependencies download. Later `install.sh` / `bulk-install.sh` runs skip the tool install when the CLI already responds. Daemon warm-start is left to IDE hooks after the first install.
+It removes Rosey-owned global skills, agents, rules, hooks, plugins, guidance,
+pins, contract references, manifest, and MCP entries. It preserves unrelated
+user entries in shared JSON files, machine tools, Hindsight memory, and all
+repositories. `bulk-uninstall.sh` is a compatibility wrapper and no longer
+mutates a fleet.
 
-   Fallback without a key: interactive `uvx "hindsight-embed@${pin}" configure`, then re-run `install.sh`.
+## Optional Hindsight local memory
 
-   Sentrux, git-flow, bumpversion, gitchangelog, and the other host CLIs are also installed only when their commands do not already respond.
+Hindsight is optional and machine-global. Configure keys in this checkout's
+`.env` or the process environment; never commit secrets.
 
-4. Warm-start the daemon when the IDE opens:
+```bash
+uv tool install "hindsight-embed@$(tr -d '[:space:]' < ~/.config/rosey/hindsight-pin)" \
+  --with "hindsight-api@$(tr -d '[:space:]' < ~/.config/rosey/hindsight-pin)"
+```
 
-   - **Cursor:** `.cursor/hooks/ensure-hindsight-daemon.sh` on `sessionStart` (via `.cursor/hooks.json`)
-   - **VS Code:** the same script under `.github/hooks/`, via a `.vscode/tasks.json` task with `"runOn": "folderOpen"` (Copilot has no session-start hooks). Allow automatic tasks once: **Tasks: Manage Automatic Tasks**
-   - **OpenCode:** `.opencode/hooks/ensure-hindsight-daemon.sh` on `SessionStart` (via `.opencode/hooks.json` and the `@monks1975/opencode-agent-hooks` plugin in `opencode.json`)
-   - **Pi:** `.pi/scripts/ensure-hindsight-daemon.sh` on `session_start` (via `.pi/extensions/rosey-hindsight-daemon.ts`)
+The installer seeds `~/.hindsight/embed` from
+`.cursor/hindsight-embed.example` when configured and starts the daemon when
+possible. Warm-start locations are:
 
-Routine agent commands use `hindsight-embed` with `PATH="${HOME}/.local/bin:${PATH}"`. See `.cursor/skills/rosey-hindsight/SKILL.md` for the full contract.
+- Cursor: `~/.cursor/hooks/ensure-hindsight-daemon.sh` via user `hooks.json`
+- OpenCode: native plugin under `~/.config/opencode/plugin/`
+- Pi: global extension and `~/.pi/agent/scripts/ensure-hindsight-daemon.sh`
+
+Routine Rosey commands use `hindsight-embed` with
+`PATH="${HOME}/.local/bin:${PATH}"`. See
+`.cursor/skills/rosey-hindsight/SKILL.md` for the full Hindsight contract.
+
+## Repository files
+
+Rosey does not generate repository guidance or scaffolding. If a project needs
+project-specific instructions, its owner may create and track `AGENTS.md`.
+`DESIGN.md` is similarly user/design-skill owned. Skills create `rosey/plans/`,
+`rosey/insights/`, `rosey/qa/`, and other working paths only when invoked.

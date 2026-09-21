@@ -1,9 +1,8 @@
 
 # This repo is the Rosey SOURCE and tracks .cursor/ and .agents/ directly.
-# Re-include them here, because the machine-global gitignore excludes them for
-# downstream install targets.
 !.cursor/
 !.agents/
+!.cursor/hooks-opencode/
 
 # Cursor beforeShellExecution hook (append-only debug log)
 .cursor/hooks/beforeShellExecution.log
@@ -33,8 +32,7 @@ rosey/deepening/
 rosey/loops/
 rosey/ideation/
 rosey/agentic-env.json
-AGENTS.md
-DESIGN.md
+# AGENTS.md and DESIGN.md are user-owned, trackable files.
 
 # Rosey Maintainer Tools
 rosey/maintainer-manifest.json

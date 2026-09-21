@@ -1,15 +1,14 @@
 /**
  * Rosey Hindsight warm-start for Pi.
- * Registered via .pi/extensions/ (auto-discovered after project trust).
- * Runs .pi/scripts/ensure-hindsight-daemon.sh on session_start — fail-open.
+ * Installed in ~/.pi/agent/extensions/ and auto-discovered globally.
+ * Runs ~/.pi/agent/scripts/ensure-hindsight-daemon.sh on session_start — fail-open.
  */
 import { spawn } from "node:child_process";
-import { join } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async () => {
-    const script = join(process.cwd(), ".pi/scripts/ensure-hindsight-daemon.sh");
+    const script = `${process.env.HOME ?? ""}/.pi/agent/scripts/ensure-hindsight-daemon.sh`;
     try {
       const child = spawn(script, [], {
         detached: true,

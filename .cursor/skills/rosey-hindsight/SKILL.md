@@ -24,7 +24,7 @@ Rosey uses Hindsight through the local `hindsight-embed` CLI. This is a CLI-only
 
 ## CLI usage
 
-The pin in `rosey/hindsight-pin` (fallback: `.cursor/hindsight-pin`) records the expected Hindsight version for this checkout. Agents do not install or upgrade Hindsight from this skill.
+The machine-global pin in `~/.config/rosey/hindsight-pin` records the expected Hindsight version. Agents do not install or upgrade Hindsight from this skill.
 
 **Routine commands** use the `hindsight-embed` binary on the machine (`PATH` often needs the uv tool shim — Cursor shells and hooks may omit it):
 
@@ -55,12 +55,13 @@ If status fails (CLI missing, not configured, or daemon down):
 3. Do not attempt to install, configure, or upgrade Hindsight from this skill.
 4. Optionally note that local memory is unavailable and the user can enable it via their Rosey agentic-env setup outside this repo — do not invent install steps here.
 
-Daemon warm-restart (already wired when Rosey was installed into the repo):
+Daemon warm-restart (installed globally by Rosey):
 
-- **Cursor:** `.cursor/hooks/ensure-hindsight-daemon.sh` via `.cursor/hooks.json` `sessionStart`
-- **VS Code:** same script at `.github/hooks/ensure-hindsight-daemon.sh` via `.vscode/tasks.json` `runOn: folderOpen` (Copilot has no session-start hooks). Allow automatic tasks once per workspace (`Tasks: Manage Automatic Tasks`)
-- **OpenCode:** `.opencode/hooks/ensure-hindsight-daemon.sh` via `.opencode/hooks.json` `SessionStart` and `@monks1975/opencode-agent-hooks` in `opencode.json`
-- **Pi:** `.pi/scripts/ensure-hindsight-daemon.sh` via `.pi/extensions/rosey-hindsight-daemon.ts` on `session_start`
+- **Cursor:** `~/.cursor/hooks/ensure-hindsight-daemon.sh` via user `~/.cursor/hooks.json` `sessionStart`
+- **OpenCode:** native plugin `~/.config/opencode/plugin/rosey-hindsight-daemon.ts`, which invokes the global script
+- **Pi:** `~/.pi/agent/scripts/ensure-hindsight-daemon.sh` via `~/.pi/agent/extensions/rosey-hindsight-daemon.ts` on `session_start`
+
+VS Code / Copilot warm-start is not supported.
 
 Do not run `daemon start` manually during Rosey workflows; use `daemon status` only.
 

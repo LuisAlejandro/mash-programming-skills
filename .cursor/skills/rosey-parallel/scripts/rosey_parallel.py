@@ -957,7 +957,6 @@ def _topo_order(group: list[str], tasks: dict) -> list[str]:
 
 RUNTIME_FILE_ALLOWLIST = (
     "AGENTS.md",
-    "rosey/hindsight-pin",
     ".env",
     ".env.example",
     ".cursor",

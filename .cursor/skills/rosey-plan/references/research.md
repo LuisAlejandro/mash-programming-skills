@@ -22,7 +22,7 @@ Run these agents in parallel:
 - Task rosey-repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
 - Task rosey-learnings-researcher(planning context summary)
 
-Dispatch tiering and the degradation ladder (no model override → inherit and keep the read budgets; no subagent primitive → run the work inline) follow `.agents/shared/references/model-tiers/model-tiers.md`; the win is context isolation, not cost, so the budgets matter more than the tier.
+Dispatch tiering and the degradation ladder (no model override → inherit and keep the read budgets; no subagent primitive → run the work inline) follow `~/.config/rosey/references/model-tiers.md`; the win is context isolation, not cost, so the budgets matter more than the tier.
 
 Collect:
 - Technology stack and versions (used in section 1.2 to make sharper external research decisions)

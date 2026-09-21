@@ -138,7 +138,7 @@ END_ROSEY_WORK_HANDOFF
 
    **`rosey-work` does not dispatch parallel subagents.** Concurrent implementation belongs to [`rosey-parallel`](../../rosey-parallel/SKILL.md), which owns real per-task worktrees, deterministic file-disjoint sequencing, a batched human gate, and bounded integration. Serial dispatch already buys the thing that matters here — a fresh context window per unit — and parallelism is a latency optimization, not a quality one. When a plan is large enough to want concurrency, invoke `rosey-parallel` explicitly rather than improvising it here.
 
-   Dispatch tiering and the degradation ladder (no per-dispatch model override → inherit and keep the read budgets; no subagent primitive → run inline; how to classify a rejected dispatch) follow `.agents/shared/references/model-tiers/model-tiers.md`.
+   Dispatch tiering and the degradation ladder (no per-dispatch model override → inherit and keep the read budgets; no subagent primitive → run inline; how to classify a rejected dispatch) follow `~/.config/rosey/references/model-tiers.md`.
 
    **Subagent dispatch** uses your available subagent or task spawning mechanism. For each unit, give the subagent:
    - The full plan file path (for overall context)

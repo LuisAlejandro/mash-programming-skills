@@ -92,7 +92,7 @@ Phases run in this order. Each names the files it cannot run correctly without: 
 |---|---|---|
 | 0 — memory gate, resume, scope floor, area detection | `references/phase-0.md` | the Hindsight gate and what "unavailable" means; markdown output and token parsing; resume; the scope floor and its stop; the separable-outcome test that finds the areas |
 | 1 — ground the epic | `references/dialogue.md` | the repo scan and grounding-scout dispatch with its lazily-created scratch path; verify-before-claiming; the per-area probe discipline; the cross-area integration check; the exit condition |
-| whenever a sub-agent is dispatched (1.1) | `.agents/shared/references/model-tiers/model-tiers.md` | the extraction / generation / ceiling tiers; blocking-dispatch and resolved-path rules; the degradation ladder down to inline |
+| whenever a sub-agent is dispatched (1.1) | `~/.config/rosey/references/model-tiers.md` | the extraction / generation / ceiling tiers; blocking-dispatch and resolved-path rules; the degradation ladder down to inline |
 | 2 — draw the areas | `references/area-mapping.md` | product-seam heuristics; granularity bounds; area ids and the slug contract; dependency declaration rules; where framing stops and `rosey-epic-decompose` takes over |
 | 3 — write the documents | `references/area-sections.md` | the per-area section contract and hard floor; the ID namespaces; the filename rule; the cross-area relationships section; sibling exclusion |
 | 4 — handoff | `references/handoff.md` | the area table; the dispatch to `/rosey-epic-decompose`; what decompose still owns; non-interactive envelope |

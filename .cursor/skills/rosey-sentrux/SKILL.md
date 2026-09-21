@@ -51,7 +51,7 @@ Do **not** commit `.sentrux/baseline.json` unless the team adopts `sentrux gate`
 
 ### MCP (workspace)
 
-Sentrux is configured in the workspace MCP config (Cursor `.cursor/mcp.json`, OpenCode `opencode.json`, VS Code `.vscode/mcp.json`):
+Sentrux is configured in the global MCP config (Cursor `~/.cursor/mcp.json`, OpenCode `~/.config/opencode/opencode.json`, or Pi's shared MCP config):
 
 ```json
 "sentrux": {

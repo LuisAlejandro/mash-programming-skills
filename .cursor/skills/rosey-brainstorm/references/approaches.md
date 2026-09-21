@@ -53,7 +53,7 @@ When the requirements document will assert checkable claims about the repo — a
 
 Why a separate agent rather than self-review: the author confirming its own claims is anchored on the reasoning that produced them. The verifier never saw the dialogue, so it checks the claim rather than the story behind it. Phase 1.1's verify-before-claiming rule is the first line of defense; this is the one that catches what survived it.
 
-Read `.agents/shared/references/model-tiers/model-tiers.md` for the tier and dispatch rules. Pass the verifier: the claim list, one line each; the grounding dossier path when one exists; and this instruction:
+Read `~/.config/rosey/references/model-tiers.md` for the tier and dispatch rules. Pass the verifier: the claim list, one line each; the grounding dossier path when one exists; and this instruction:
 
 > Verify each claim directly against the codebase — budget roughly 15 targeted reads. Return a per-claim verdict: **confirmed** (with `file:line`), **refuted** (with the contradicting evidence), or **unverifiable** (with what you looked for). Do not evaluate whether the claims are good ideas; only whether they are true.
 

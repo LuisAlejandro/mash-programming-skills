@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Rosey Hindsight warm-start: ensure embed daemon is running when configured.
-# Cursor: registered via .cursor/hooks.json sessionStart.
-# VS Code: registered via .vscode/tasks.json runOn folderOpen (Copilot has no session hooks).
-# OpenCode: .opencode/hooks.json SessionStart via opencode-agent-hooks plugin.
-# Pi: .pi/extensions/rosey-hindsight-daemon.ts session_start hook.
+# Cursor: registered via ~/.cursor/hooks.json sessionStart.
+# OpenCode: ~/.config/opencode/plugin/rosey-hindsight-daemon.ts.
+# Pi: ~/.pi/agent/extensions/rosey-hindsight-daemon.ts session_start hook.
 # Fail open — Hindsight is optional; never block the IDE session on startup errors.
 #
 # Requires `uv tool install hindsight-embed==<pin> --with hindsight-api==<pin>`
@@ -29,7 +28,7 @@ hindsight_hook_log() {
 }
 
 read_hindsight_pin() {
-    local pin_file=".cursor/hindsight-pin"
+    local pin_file="${ROSEY_CONFIG_DIR:-${HOME}/.config/rosey}/hindsight-pin"
     if [ -f "$pin_file" ]; then
         tr -d '[:space:]' <"$pin_file"
     else

@@ -1,6 +1,6 @@
 # Scoping Synthesis
 
-**Read `.agents/shared/references/scoping-synthesis/scoping-synthesis.md` first.** It carries the mechanism: the two-stage shape, the three-bucket internal draft, the affirmability and keep tests, the detail test, the re-cut rule, the anti-patterns, revision-vs-confirmation discipline, soft-cut behavior, self-redirect, non-interactive routing, and the artifact-shape rules. This file carries only what is specific to `rosey-brainstorm`.
+**Read `~/.config/rosey/references/scoping-synthesis.md` first.** It carries the mechanism: the two-stage shape, the three-bucket internal draft, the affirmability and keep tests, the detail test, the re-cut rule, the anti-patterns, revision-vs-confirmation discipline, soft-cut behavior, self-redirect, non-interactive routing, and the artifact-shape rules. This file carries only what is specific to `rosey-brainstorm`.
 
 **Synthesis ≠ requirements doc.** The synthesis is NOT a preview, draft, or substitute for the requirements doc — it is the scope checkpoint that doc-write consumes as input. The doc itself is written in Phase 3 from the confirmed synthesis. Both stay scope-only: implementation detail (file paths, code shapes, exact error wording) is `rosey-plan`'s job, not the requirements doc's.
 

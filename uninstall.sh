@@ -1,26 +1,19 @@
 #!/usr/bin/env bash
-# Rosey Agentic Environment — uninstaller (repo-local).
+# Rosey Agentic Environment — machine-global uninstaller.
 #
-# Reverses install.sh for ONE target repository. It removes the Rosey-owned
-# artifacts that install.sh writes into the install root, and surgically edits
-# the shared files it touches (.vscode/tasks.json, opencode.json).
+# This script never changes the current repository. It removes only the global
+# Rosey payload installed under the user's Cursor, OpenCode, Pi, .agents, and
+# ~/.config/rosey directories. Machine tools, Hindsight memory, and user-owned
+# project files are left alone.
 #
-# Scope: repo-local only. This script never removes machine-wide tools (uv, bun,
-# jq, rg, gh, git-flow, Sentrux, uv tools, Pi extensions, hindsight-embed), user
-# data under rosey/ (brainstorms, plans, insights, solutions, ...), or
-# ~/.hindsight memory. Those are shared across repositories and are left alone.
-#
-# Safe by default: without --apply the script only prints a plan. Use
-#   ./uninstall.sh              # dry run
-#   ./uninstall.sh --apply      # remove repo-local artifacts
-#
-# Usage: uninstall.sh [--check] [--version] [--apply] [--yes] [--force]
-#                      [--targets=cursor,vscode,opencode,pi]
-#                      [--purge-git-config]
+# Usage:
+#   ./uninstall.sh                 # dry run
+#   ./uninstall.sh --check         # report global installation state
+#   ./uninstall.sh --apply         # remove global Rosey payload
+#   ./uninstall.sh --apply --force # also remove edited Rosey guidance files
 
 set -euo pipefail
 
-INSTALL_ROOT="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_ROOT="${ROSEY_AGENTIC_ENV:-$SCRIPT_DIR}"
 VERSION_FILE="$SOURCE_ROOT/VERSION"
@@ -29,12 +22,15 @@ if [ -f "$VERSION_FILE" ]; then
     UNINSTALL_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
 fi
 
-APPLY=false
 CHECK_ONLY=false
-YES=false
+APPLY=false
 FORCE=false
-PURGE_GIT_CONFIG=false
-TARGETS="cursor,vscode,opencode,pi"
+
+ROSEY_CONFIG_DIR="${HOME}/.config/rosey"
+CURSOR_HOME="${HOME}/.cursor"
+PI_HOME="${HOME}/.pi/agent"
+OPENCODE_HOME="${HOME}/.config/opencode"
+PI_SHARED_MCP="${HOME}/.config/mcp/mcp.json"
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -51,7 +47,6 @@ while [ "$#" -gt 0 ]; do
             shift
             ;;
         --yes)
-            YES=true
             shift
             ;;
         --force)
@@ -59,15 +54,15 @@ while [ "$#" -gt 0 ]; do
             shift
             ;;
         --targets=*)
-            TARGETS="${1#*=}"
+            echo "warning: --targets is obsolete; global uninstall covers Cursor, OpenCode, and Pi" >&2
             shift
             ;;
         --purge-git-config)
-            PURGE_GIT_CONFIG=true
+            echo "warning: --purge-git-config is obsolete; global Git excludes are handled by this uninstall" >&2
             shift
             ;;
         -h | --help)
-            sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+            sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
@@ -77,411 +72,275 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-want_target() {
-    case ",$TARGETS," in
-        *",$1,"*) return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
-# install.sh refuses to install into its own source tree; same guard here.
-if [ "$INSTALL_ROOT" = "$SOURCE_ROOT" ]; then
-    echo "Error: refusing to uninstall the Rosey Agentic Environment from its own source repository." >&2
-    echo "   Run this script from the target project directory, or set ROSEY_AGENTIC_ENV." >&2
-    exit 1
-fi
-
-# --- Reporting helpers ------------------------------------------------------
-
-removed=0
-edited=0
-kept=0
-
 note() { printf '%s\n' "$*"; }
-
 warn() { printf '   ! %s\n' "$*"; }
 
-# Print a python edit result and count it only when it actually changed something.
-report_edit() {
-    if [ -n "$1" ]; then
-        printf '%s\n' "$1"
-        edited=$((edited + 1))
-    fi
-}
+path_exists() { [ -e "$1" ] || [ -L "$1" ]; }
 
-# remove_tree <path> [label]
-remove_tree() {
+remove_path() {
     local path="$1" label="${2:-$1}"
-    if [ ! -e "$path" ] && [ ! -L "$path" ]; then
-        return 0
-    fi
+    path_exists "$path" || return 0
     if [ "$APPLY" = true ]; then
         rm -rf -- "$path"
         note "   removed       $label"
     else
         note "   would remove  $label"
     fi
-    removed=$((removed + 1))
 }
 
-# remove_file_if_marker <path> <marker> [label] [expected-tail]
-# Removes a generated file only when it still carries the Rosey marker AND, when
-# an expected tail is given, still ends with that exact generated line. This
-# preserves a file the user has appended to (unless --force).
-remove_file_if_marker() {
-    local path="$1" marker="$2" label="${3:-$1}" tail="${4:-}"
-    [ -e "$path" ] || return 0
+remove_marked_file() {
+    local path="$1" marker="$2" label="${3:-$1}"
+    [ -f "$path" ] || return 0
     if [ "$FORCE" = true ]; then
-        remove_tree "$path" "$label (forced)"
+        remove_path "$path" "$label (forced)"
         return 0
     fi
     if ! grep -qF -- "$marker" "$path" 2>/dev/null; then
         warn "$label looks user-owned; keeping it (use --force to remove)"
-        kept=$((kept + 1))
         return 0
     fi
-    if [ -n "$tail" ]; then
-        local last
-        last="$(grep -v '^[[:space:]]*$' "$path" | tail -n 1)"
-        if [ "$last" != "$tail" ]; then
-            warn "$label has user content after the Rosey block; keeping it (use --force to remove)"
-            kept=$((kept + 1))
-            return 0
-        fi
-    fi
-    remove_tree "$path" "$label"
+    remove_path "$path" "$label"
 }
 
-# prune_empty_dir <dir>  — rmdir only if empty, and only the Rosey-owned dirs.
-prune_empty_dir() {
-    local dir="$1"
-    [ -d "$dir" ] || return 0
-    if [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
-        return 0
-    fi
+remove_empty_dir() {
+    local path="$1"
+    [ -d "$path" ] || return 0
+    [ -z "$(ls -A "$path" 2>/dev/null)" ] || return 0
     if [ "$APPLY" = true ]; then
-        rmdir -- "$dir" 2>/dev/null || true
+        rmdir "$path" 2>/dev/null || true
     fi
 }
 
-# --- Installed detection ----------------------------------------------------
-
-INSTALLED_MARKERS=(
-    rosey/agentic-env.json
-    .cursor/rules
-    .github/copilot-instructions.md
-    .opencode/skills
-    .pi/APPEND_SYSTEM.md
-)
-
-# Rosey residue from older installs that current install.sh no longer writes:
-# a stale Cursor pin file, an OpenCode MCP seed, and a Pi settings MCP block.
-# These outlive a normal uninstall, so they count as work to do as well.
-RESIDUE_MARKERS=(
-    .cursor/hindsight-pin
-    .opencode/mcp.json
-)
-
-is_installed() {
-    local marker
-    for marker in "${INSTALLED_MARKERS[@]}"; do
-        [ -e "$marker" ] && return 0
-    done
-    return 1
+rosey_global_gitignore_path() {
+    local p
+    if command -v git >/dev/null 2>&1 && p="$(git config --global --get core.excludesFile 2>/dev/null)" && [ -n "$p" ]; then
+        case "$p" in
+            /*) ;;
+            "~"/*) p="${HOME}${p#\~}" ;;
+            *) p="${HOME}/${p#/}" ;;
+        esac
+        printf '%s\n' "$p"
+        return 0
+    fi
+    printf '%s\n' "${HOME}/.gitignore-global"
 }
 
-has_pi_mcp_settings() {
-    [ -f .pi/settings.json ] && grep -q '"mcp"' .pi/settings.json 2>/dev/null
+remove_global_gitignore_block() {
+    local gf
+    gf="$(rosey_global_gitignore_path)"
+    [ -f "$gf" ] || return 0
+    if ! grep -q '^# Rosey Agentic Environment$' "$gf"; then
+        return 0
+    fi
+    if [ "$APPLY" = false ]; then
+        note "   would edit     $gf (remove Rosey ignore block)"
+        return 0
+    fi
+    python3 - "$gf" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+start = text.find("# Rosey Agentic Environment\n")
+if start < 0:
+    raise SystemExit(0)
+end_marker = text.find("# End Rosey Agentic Environment", start)
+if end_marker >= 0:
+    end = text.find("\n", end_marker)
+    end = len(text) if end < 0 else end + 1
+    text = text[:start] + text[end:]
+else:
+    # Legacy block was terminal. Remove only its known lines and marker.
+    old = {
+        "# Rosey Agentic Environment",
+        "# Added by rosey-agentic-env/install.sh. Remove this block to stop ignoring.",
+        "rosey/brainstorms/", "rosey/plans/", "rosey/designs/", "rosey/solutions/",
+        "rosey/insights/", "rosey/design-system/", "rosey/qa/", "rosey/parallel/",
+        "rosey/deepening/", "rosey/loops/", "rosey/ideation/", "rosey/maintainer-manifest.json",
+        "rosey/agentic-env.json", "rosey/hindsight-pin", "AGENTS.md", ".cursorrules",
+        "DESIGN.md", ".cursor/", ".github/copilot-instructions.md", ".github/instructions/",
+        ".github/skills/", ".github/agents/", ".github/hooks/", ".vscode/mcp.json",
+        "opencode.json", ".opencode/", ".pi/", ".agents/",
+    }
+    lines = []
+    for line in text.splitlines(keepends=True):
+        if line.rstrip("\n") in old:
+            continue
+        lines.append(line)
+    text = "".join(lines)
+path.write_text(text.rstrip() + "\n")
+PY
+    note "   edited        $gf (removed Rosey ignore block)"
 }
 
-has_residue() {
-    local marker
-    for marker in "${RESIDUE_MARKERS[@]}"; do
-        [ -e "$marker" ] && return 0
-    done
-    has_pi_mcp_settings && return 0
-    return 1
+has_global_install() {
+    [ -f "$ROSEY_CONFIG_DIR/install-manifest.json" ] || \
+        [ -f "$ROSEY_CONFIG_DIR/agentic-env.json" ] || \
+        [ -f "$CURSOR_HOME/hooks/ensure-hindsight-daemon.sh" ] || \
+        [ -f "$PI_HOME/extensions/rosey-hindsight-daemon.ts" ] || \
+        [ -f "$OPENCODE_HOME/plugin/rosey-hindsight-daemon.ts" ]
 }
 
 if [ "$CHECK_ONLY" = true ]; then
-    if is_installed || has_residue; then
-        note "Rosey Agentic Environment is installed in $INSTALL_ROOT"
-        [ -f rosey/agentic-env.json ] && cat rosey/agentic-env.json
+    if has_global_install; then
+        note "Rosey global environment is installed"
+        [ -f "$ROSEY_CONFIG_DIR/install-manifest.json" ] && cat "$ROSEY_CONFIG_DIR/install-manifest.json"
         exit 0
     fi
-    note "Rosey Agentic Environment is not installed in $INSTALL_ROOT"
+    note "Rosey global environment is not installed"
     exit 1
 fi
 
-if ! is_installed && ! has_residue; then
-    note "Nothing to uninstall: no Rosey artifacts found in $INSTALL_ROOT"
+if ! has_global_install; then
+    note "Nothing to uninstall: no Rosey global artifacts found"
     exit 0
 fi
 
 if [ "$APPLY" = false ]; then
-    note "Rosey Agentic Environment — DRY RUN (pass --apply to make changes)"
+    note "Rosey global environment — DRY RUN (pass --apply to make changes)"
 else
-    note "Rosey Agentic Environment — uninstalling from $INSTALL_ROOT"
+    note "Rosey global environment — uninstalling"
 fi
-note "-> Version $UNINSTALL_VERSION, source $SOURCE_ROOT"
+note "-> Version $UNINSTALL_VERSION"
 note ""
 
-# --- Repo-local artifact trees ---------------------------------------------
-
-CURSOR_PATHS=(
-    .cursor/rules
-    .cursor/skills
-    .cursor/agents
-    .cursor/hooks
-    .cursor/hooks.json
-    .cursor/mcp.json
-    .cursor/hindsight-pin
-)
-VSCODE_PATHS=(
-    .github/copilot-instructions.md
-    .github/instructions
-    .github/skills
-    .github/agents
-    .github/hooks
-)
-OPENCODE_PATHS=(
-    .opencode/skills
-    .opencode/agents
-    .opencode/rules
-    .opencode/hooks
-    .opencode/hooks.json
-    .opencode/mcp.json
-)
-PI_PATHS=(
-    .pi/skills
-    .pi/agents
-    .pi/APPEND_SYSTEM.md
-    .pi/scripts
-    .pi/extensions
-    .pi/mcp.json
-)
-SHARED_PATHS=(
-    .agents/shared
-    rosey/agentic-env.json
-    rosey/hindsight-pin
-)
-
-remove_all() {
-    local path
-    for path in "$@"; do
-        remove_tree "$path"
+# Remove the Rosey skill names currently present in the source tree. These are
+# Rosey-owned global copies; unrelated user skills remain untouched.
+if [ -d "$SOURCE_ROOT/.cursor/skills" ]; then
+    for src in "$SOURCE_ROOT"/.cursor/skills/*/; do
+        [ -d "$src" ] || continue
+        name="$(basename "$src")"
+        remove_path "$CURSOR_HOME/skills/$name" "Cursor skill $name"
+        remove_path "$OPENCODE_HOME/skills/$name" "OpenCode skill $name"
+        remove_path "$PI_HOME/skills/$name" "Pi skill $name"
     done
-}
-
-note "-> IDE trees"
-if want_target cursor; then
-    remove_all "${CURSOR_PATHS[@]}"
-fi
-if want_target vscode; then
-    remove_all "${VSCODE_PATHS[@]}"
-    # .vscode/mcp.json is seeded by install; the folderOpen task is edited below.
-    remove_tree .vscode/mcp.json
-fi
-if want_target opencode; then
-    remove_all "${OPENCODE_PATHS[@]}"
-fi
-if want_target pi; then
-    remove_all "${PI_PATHS[@]}"
 fi
 
-note "-> Shared artifacts"
-remove_all "${SHARED_PATHS[@]}"
-
-# Generated agent guidance files only if they still match what install wrote.
-if want_target cursor || want_target vscode; then
-    remove_file_if_marker AGENTS.md \
-        "Rosey Agent Guidance" \
-        "AGENTS.md" \
-        'Hindsight version pin: `rosey/hindsight-pin`.'
-    remove_file_if_marker .cursorrules \
-        "Rosey Agent Guidance" \
-        ".cursorrules" \
-        'Hindsight version pin: `rosey/hindsight-pin`.'
+if [ -d "$SOURCE_ROOT/.cursor/rules" ]; then
+    for src in "$SOURCE_ROOT"/.cursor/rules/*.mdc; do
+        [ -f "$src" ] || continue
+        name="$(basename "$src")"
+        remove_path "$CURSOR_HOME/rules/$name" "Cursor rule $name"
+        remove_path "$ROSEY_CONFIG_DIR/rules/$name" "Rosey shared rule $name"
+    done
 fi
 
-# --- Shared file surgery (python3 for JSON) --------------------------------
+if [ -d "$SOURCE_ROOT/.cursor/agents" ]; then
+    for src in "$SOURCE_ROOT"/.cursor/agents/*; do
+        [ -e "$src" ] || continue
+        name="$(basename "$src")"
+        remove_path "$CURSOR_HOME/agents/$name" "Cursor agent $name"
+        remove_path "$OPENCODE_HOME/agents/$name" "OpenCode agent $name"
+        remove_path "$HOME/.agents/$name" "Pi agent $name"
+    done
+fi
 
-note "-> Shared config files"
+remove_path "$CURSOR_HOME/hooks/ensure-hindsight-daemon.sh" "Cursor Hindsight hook"
+remove_path "$OPENCODE_HOME/plugin/rosey-hindsight-daemon.ts" "OpenCode Hindsight plugin"
+remove_path "$PI_HOME/scripts/ensure-hindsight-daemon.sh" "Pi Hindsight script"
+remove_path "$PI_HOME/extensions/rosey-hindsight-daemon.ts" "Pi Hindsight extension"
 
-# .vscode/tasks.json: drop only the Rosey folderOpen task, keep user tasks.
-if want_target vscode && [ -f .vscode/tasks.json ]; then
-    out="$(python3 - .vscode/tasks.json "$APPLY" <<'PY'
-import json, sys
+remove_marked_file "$ROSEY_CONFIG_DIR/AGENTS.md" "Rosey Agent Guidance" "Rosey global guidance"
+remove_marked_file "$PI_HOME/AGENTS.md" "Rosey Agent Guidance" "Pi global guidance"
+remove_path "$ROSEY_CONFIG_DIR/references/model-tiers.md" "Rosey model-tiers contract"
+remove_path "$ROSEY_CONFIG_DIR/references/scoping-synthesis.md" "Rosey scoping-synthesis contract"
+remove_path "$ROSEY_CONFIG_DIR/references/markdown-rendering.md" "Rosey markdown-rendering contract"
+remove_path "$ROSEY_CONFIG_DIR/agentic-env.json" "Rosey agentic-env pin"
+remove_path "$ROSEY_CONFIG_DIR/hindsight-pin" "Rosey Hindsight pin"
+remove_path "$ROSEY_CONFIG_DIR/install-manifest.json" "Rosey install manifest"
+
+# Remove only Rosey's known MCP entries and instruction path; preserve all other
+# machine-owned configuration. Rosey entries win on install by owner decision.
+python3 - "$APPLY" "$FORCE" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$CURSOR_HOME/hooks.json" "$ROSEY_CONFIG_DIR/AGENTS.md" <<'PY'
+import json
+import sys
 from pathlib import Path
 
-path = Path(sys.argv[1])
-apply = sys.argv[2] == "true"
-label = "Rosey: ensure Hindsight daemon"
-try:
-    data = json.loads(path.read_text())
-except Exception:
-    print("   ! .vscode/tasks.json is not valid JSON; leaving it untouched")
-    raise SystemExit(0)
-if not isinstance(data, dict) or not isinstance(data.get("tasks"), list):
-    raise SystemExit(0)
+apply = sys.argv[1] == "true"
+force = sys.argv[2] == "true"
+paths = [Path(p) for p in sys.argv[3:]]
+mcp_names = {"github", "context7", "sentrux"}
+pi_guidance = paths[-1]
 
-before = len(data["tasks"])
-tasks = [t for t in data["tasks"] if not (isinstance(t, dict) and t.get("label") == label)]
-if len(tasks) == before:
-    raise SystemExit(0)
 
-verb_rm = "removed      " if apply else "would remove "
-verb_ed = "edited       " if apply else "would edit   "
-if not tasks and set(data.keys()) <= {"version", "tasks"}:
-    print(f"   {verb_rm} .vscode/tasks.json (only held the Rosey task)")
-    if apply:
-        path.unlink()
-    raise SystemExit(0)
+def load(path):
+    try:
+        value = json.loads(path.read_text()) if path.exists() else None
+    except Exception:
+        return None
+    return value if isinstance(value, dict) else None
 
-data["tasks"] = tasks
-print(f"   {verb_ed} .vscode/tasks.json (Rosey folderOpen task)")
-if apply:
+
+def save(path, data):
+    if not apply:
+        print(f"   would edit     {path}")
+        return
     path.write_text(json.dumps(data, indent=2) + "\n")
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+    print(f"   edited        {path}")
+
+# Cursor mcpServers, OpenCode mcp, and Pi configs.
+for index, key in ((0, "mcpServers"), (1, "mcp"), (2, "mcpServers"), (3, "mcpServers")):
+    path = paths[index]
+    data = load(path)
+    if data is None or not isinstance(data.get(key), dict):
+        continue
+    changed = False
+    for name in list(data[key]):
+        if name in mcp_names:
+            del data[key][name]
+            changed = True
+    if changed:
+        if not data[key]:
+            data.pop(key, None)
+        save(path, data)
+
+# OpenCode instructions.
+opencode = load(paths[1])
+if opencode is not None and isinstance(opencode.get("instructions"), list):
+    instructions = [item for item in opencode["instructions"] if item != str(pi_guidance)]
+    if instructions != opencode["instructions"]:
+        if instructions:
+            opencode["instructions"] = instructions
+        else:
+            opencode.pop("instructions", None)
+        save(paths[1], opencode)
+
+# Cursor user hook registration.
+hooks_path = paths[4]
+hooks = load(hooks_path)
+if hooks is not None and isinstance(hooks.get("hooks"), dict):
+    entries = hooks["hooks"].get("sessionStart")
+    if isinstance(entries, list):
+        command = str(Path.home() / ".cursor" / "hooks" / "ensure-hindsight-daemon.sh")
+        kept = [entry for entry in entries if not (isinstance(entry, dict) and entry.get("command") == command)]
+        if kept != entries:
+            if kept:
+                hooks["hooks"]["sessionStart"] = kept
+            else:
+                hooks["hooks"].pop("sessionStart", None)
+            save(hooks_path, hooks)
 PY
-)"
-    report_edit "$out"
-fi
 
-# opencode.json: drop the seeded mcp block, plugin, and added $schema.
-if want_target opencode && [ -f opencode.json ]; then
-    out="$(python3 - opencode.json "$APPLY" <<'PY'
-import json, sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-apply = sys.argv[2] == "true"
-PLUGIN = "@monks1975/opencode-agent-hooks@1.0.1"
-try:
-    data = json.loads(path.read_text())
-except Exception:
-    print("   ! opencode.json is not valid JSON; leaving it untouched")
-    raise SystemExit(0)
-if not isinstance(data, dict):
-    raise SystemExit(0)
-
-changed = False
-if data.pop("mcp", None) is not None:
-    changed = True
-plugins = data.get("plugin")
-if isinstance(plugins, list):
-    kept = [p for p in plugins if p != PLUGIN]
-    if kept != plugins:
-        changed = True
-    if kept:
-        data["plugin"] = kept
-    else:
-        data.pop("plugin", None)
-if data.get("$schema") == "https://opencode.ai/config.json":
-    data.pop("$schema", None)
-    changed = True
-if not changed:
-    raise SystemExit(0)
-
-verb_rm = "removed      " if apply else "would remove "
-verb_ed = "edited       " if apply else "would edit   "
-if not data:
-    print(f"   {verb_rm} opencode.json (only held Rosey config)")
-    if apply:
-        path.unlink()
-else:
-    print(f"   {verb_ed} opencode.json (mcp/plugin entries)")
-    if apply:
-        path.write_text(json.dumps(data, indent=2) + "\n")
-PY
-)"
-    report_edit "$out"
-fi
-
-# .pi/settings.json: older installs seeded an "mcp" block here (with secrets).
-# Remove only that key; drop the file when mcp was all it held.
-if want_target pi && [ -f .pi/settings.json ]; then
-    out="$(python3 - .pi/settings.json "$APPLY" <<'PY'
-import json, sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-apply = sys.argv[2] == "true"
-try:
-    data = json.loads(path.read_text())
-except Exception:
-    print("   ! .pi/settings.json is not valid JSON; leaving it untouched")
-    raise SystemExit(0)
-if not isinstance(data, dict) or "mcp" not in data:
-    raise SystemExit(0)
-
-data.pop("mcp")
-verb_rm = "removed      " if apply else "would remove "
-verb_ed = "edited       " if apply else "would edit   "
-if not data:
-    print(f"   {verb_rm} .pi/settings.json (only held the Rosey mcp block)")
-    if apply:
-        path.unlink()
-else:
-    print(f"   {verb_ed} .pi/settings.json (Rosey mcp block)")
-    if apply:
-        path.write_text(json.dumps(data, indent=2) + "\n")
-PY
-)"
-    report_edit "$out"
-fi
-
-# Orphaned OpenCode plugin artifacts: once the Rosey-only opencode.json is gone,
-# .opencode/ holds nothing but opencode's own dependency install.
-if want_target opencode && [ ! -e opencode.json ]; then
-    remove_tree .opencode/node_modules
-    remove_tree .opencode/package.json
-    remove_tree .opencode/package-lock.json
-    remove_tree .opencode/.gitignore
-fi
-
-# Per-repo .gitignore is no longer touched: install.sh writes Rosey ignores to
-# the user's global excludes file, which uninstall never modifies.
-
-# --- Empty-dir cleanup ------------------------------------------------------
-
-note "-> Empty directories"
-if want_target cursor; then prune_empty_dir .cursor; fi
-if want_target opencode; then prune_empty_dir .opencode; fi
-if want_target pi; then prune_empty_dir .pi; fi
-if want_target vscode; then
-    prune_empty_dir .github/hooks
-    prune_empty_dir .github/instructions
-    prune_empty_dir .github/skills
-    prune_empty_dir .github/agents
-    prune_empty_dir .vscode
-fi
-prune_empty_dir .agents
-prune_empty_dir rosey
-
-# --- Optional: repo-local git config ---------------------------------------
-
-if [ "$PURGE_GIT_CONFIG" = true ]; then
-    note "-> Repo-local git config (--purge-git-config)"
-    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        warn "not a git repository; skipping"
-    elif [ "$APPLY" = true ] && [ "$YES" = true ]; then
-        git config --local --unset user.signingkey 2>/dev/null \
-            && note "   removed local user.signingkey" \
-            || warn "no local user.signingkey set"
-        note "   note: git-flow branches/config are NOT touched (never delete branches automatically)"
-    else
-        warn "would unset local user.signingkey (needs --apply --yes)"
-    fi
-fi
-
-# --- Summary ----------------------------------------------------------------
+remove_empty_dir "$CURSOR_HOME/hooks"
+remove_empty_dir "$CURSOR_HOME/rules"
+remove_empty_dir "$CURSOR_HOME/agents"
+remove_empty_dir "$OPENCODE_HOME/plugin"
+remove_empty_dir "$OPENCODE_HOME/agents"
+remove_empty_dir "$PI_HOME/scripts"
+remove_empty_dir "$PI_HOME/extensions"
+remove_empty_dir "$ROSEY_CONFIG_DIR/references"
+remove_empty_dir "$ROSEY_CONFIG_DIR/rules"
+remove_empty_dir "$ROSEY_CONFIG_DIR"
+remove_global_gitignore_block
 
 note ""
 if [ "$APPLY" = true ]; then
-    note "Rosey Environment uninstalled from $INSTALL_ROOT"
+    note "Rosey global environment removed. Machine tools, Hindsight memory, and repositories were not changed."
 else
-    note "Dry run complete. Re-run with --apply to remove the items above."
+    note "Dry run complete. No files changed."
 fi
-note "   removed: $removed   edited: $edited   kept (user-modified): $kept"
-note "   Never touched: machine-wide tools, rosey/ user data, ~/.hindsight."
-note "   If this repo had a pre-existing AGENTS.md, review it for leftover Rosey lines."

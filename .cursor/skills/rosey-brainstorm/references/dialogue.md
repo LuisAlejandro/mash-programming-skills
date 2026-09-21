@@ -10,7 +10,7 @@ Scan the repo before substantive brainstorming, in two passes:
 
 *Topic Scan (grounding scout)* — Dispatch a sub-agent to do the topic scan in its own context, so the quoted material never enters this conversation.
 
-Read `.agents/shared/references/model-tiers/model-tiers.md` before dispatching. Then, **only at this point** — the directory is created lazily, so a run that never dispatches a scout leaves no scratch behind — create the per-run scratch directory and capture its **repo-relative** path:
+Read `~/.config/rosey/references/model-tiers.md` before dispatching. Then, **only at this point** — the directory is created lazily, so a run that never dispatches a scout leaves no scratch behind — create the per-run scratch directory and capture its **repo-relative** path:
 
 ```bash
 REPO="$(git rev-parse --show-toplevel)";
@@ -24,7 +24,7 @@ Use the echoed repo-relative path as `<scratch-dir>` for the rest of the run; th
 
 Dispatch `rosey-grounding-scout` with the topic and the repo-relative dossier path. Carry only the returned gist into the dialogue; read the dossier on demand when the conversation needs specifics the gist cannot answer.
 
-The non-software route skips the scout. When no sub-agent primitive is available, do the scan inline and still write the dossier to `<scratch-dir>`, per the degradation rule in `.agents/shared/references/model-tiers/model-tiers.md`.
+The non-software route skips the scout. When no sub-agent primitive is available, do the scan inline and still write the dossier to `<scratch-dir>`, per the degradation rule in `~/.config/rosey/references/model-tiers.md`.
 
 If nothing obvious appears after a short scan, say so and continue. Two rules govern technical depth during the scan:
 

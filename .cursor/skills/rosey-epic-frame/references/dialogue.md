@@ -10,7 +10,7 @@ Scan the repo before substantive dialogue, in two passes.
 
 *Topic Scan (grounding scout)* — Dispatch a sub-agent to scan the repo in its own context, so quoted material never enters this conversation.
 
-Read `.agents/shared/references/model-tiers/model-tiers.md` before dispatching. Then, **only at this point** — the directory is created lazily, so a run that never dispatches leaves no scratch behind — create the per-run scratch directory and capture its absolute path:
+Read `~/.config/rosey/references/model-tiers.md` before dispatching. Then, **only at this point** — the directory is created lazily, so a run that never dispatches leaves no scratch behind — create the per-run scratch directory and capture its absolute path:
 
 ```bash
 ROOT="$(git rev-parse --show-toplevel)/rosey/brainstorms/scratch";
@@ -24,7 +24,7 @@ Use the echoed absolute path as `<scratch-dir>`; the dossier is `<scratch-dir>/g
 
 **Dispatch one scout for the epic, not one per candidate area.** The areas are still provisional at this point, and a per-area fan-out would scan overlapping ground several times. Ask the scout for the shape of each surface the ambition names — where the existing equivalents live, what patterns are established, what already exists that this would extend. Carry only the returned gist into the dialogue; read the dossier on demand.
 
-When no sub-agent primitive is available, do the scan inline and still write the dossier, per the degradation rule in `.agents/shared/references/model-tiers/model-tiers.md`.
+When no sub-agent primitive is available, do the scan inline and still write the dossier, per the degradation rule in `~/.config/rosey/references/model-tiers.md`.
 
 Two rules govern depth during the scan:
 
