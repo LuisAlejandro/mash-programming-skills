@@ -1,29 +1,43 @@
 ---
-description: Run apps only through Docker — prefer make targets, never host npm/pip/node/python installs
+description: Use Docker Compose + Make when the repo has a working container setup; otherwise use host commands
 alwaysApply: true
 ---
 
-# Docker via Make (no host runtimes)
+# Docker via Make (with host fallback)
 
-All Rosey product repos ship Docker Compose + Makefile targets. Agents must run apps and tooling **inside containers**, not on the host.
+Run apps and tooling through **Docker Compose + Make only when the repository has a working container setup**. When it does not, fall back to host commands — do not force containers that aren't there.
 
-## Order of preference
+## Decide once per repository
+
+Check, in order, whether the repo is in **container mode**:
+
+1. `docker` and `docker compose` are on PATH, and `docker info` succeeds (daemon running).
+2. A Compose file exists at the repo root: `compose.yaml`, `compose.yml`, `docker-compose.yaml`, or `docker-compose.yml`.
+3. `make` is on PATH and a `Makefile` (or `GNUmakefile`) exists.
+4. `docker compose config -q` succeeds against the repo's Compose file.
+
+- **All four pass → container mode.** Run everything inside containers; host app runtimes are off-limits (see below).
+- **Any check fails → host mode.** Use host commands normally. A host-only `Makefile` may still be used for its targets.
+
+Re-evaluate when the situation changes (Docker started, Compose added, Makefile removed). When ambiguous, state the chosen mode in one line before running commands.
+
+## Container mode (all four checks pass)
+
+Order of preference:
 
 1. **`make <target>`** — preferred for every supported operation
 2. **`docker compose …`** — only when no Make target covers the need
-3. **Never** run app/runtime commands directly on the host
+3. **Never** run app/runtime commands directly on the host while in container mode
 
-## Forbidden on the host
+Forbidden on the host while in container mode:
 
 - `npm` / `yarn` / `pnpm` / `npx` (install, run, test, lint, build)
 - `pip` / `pip3` / `uv pip` / `python -m pip` / host `virtualenv` for project deps
 - `node`, `python`, `python3`, `go run`, `cargo` for project app code
 - Editing or creating host site-packages / global tool installs for project work
-- “Host-only” shortcuts that bypass Compose when Docker is available
+- “Host-only” shortcuts that bypass Compose while Docker is available
 
-## Use Make equivalents
-
-Check the repo `Makefile` first. Common mappings:
+Use Make equivalents — check the repo `Makefile` first:
 
 | Intent | Prefer |
 | ------ | ------ |
@@ -36,20 +50,22 @@ Check the repo `Makefile` first. Common mappings:
 | Test | `make test` |
 | Shell in container | `make console` (when defined) |
 
-If a target name differs, use the repo’s Makefile — do not invent host commands.
+If a target name differs, use the repo's Makefile — do not invent host commands.
 
-## When Make has no target
-
-Use Compose against the repo’s compose file(s), e.g.:
+When Make has no target, use Compose against the repo's compose file(s):
 
 ```bash
 docker compose run --rm <service> <command>
 docker compose exec <service> <command>
 ```
 
-Still never install Node/Python deps on the host; install/run inside the service container.
+Still never install Node/Python deps on the host in container mode; install/run inside the service container.
 
-## Exceptions
+## Host mode (any check fails)
+
+Use the host toolchain directly, exactly as the repo documents: `npm install` / `npm test`, `pip install` / `pytest`, `node`, `python`, `go`, etc. Prefer the project's own scripts and lockfiles. If the repo has a `Makefile` whose targets are host-based, use them. Do not manufacture Docker/Compose usage when the setup is missing or the daemon is down.
+
+## Exceptions (both modes)
 
 - Git, `gh`, editor/IDE, and Hindsight (`hindsight-embed`) stay on the host.
 - `brew install` (and other Homebrew commands) are allowed on the host for machine tooling, but **confirm with the user before running** any `brew` install/upgrade/uninstall.
