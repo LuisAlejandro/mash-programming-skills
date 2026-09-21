@@ -1571,9 +1571,6 @@ if [ "${ROSEY_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then
     install_pi_subagents || true
     install_pi_mcp_adapter || true
     install_pi_ask_user || true
-fi
-
-if [ "${ROSEY_SKIP_HINDSIGHT:-0}" != 1 ]; then
     check_hindsight_embed || true
 fi
 
