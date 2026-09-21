@@ -40,7 +40,7 @@ Emit a `run-inputs.json` matching `rosey-parallel`'s schema:
 - `base_branch`: default `develop` unless the user says otherwise.
 - `max_parallel` / `timeout_budget` / `harness`: optional; only set when the user specifies or the epic scale demands it.
 
-Write it to `rosey/parallel/<run-slug>/run-inputs.json` (create the dir), then invoke `rosey-parallel` with that file.
+Write it to `rosey/parallel/epics/<run-slug>/run-inputs.json` (create the dir), then invoke `rosey-parallel` with that file.
 
 ## Decomposition rules (the core)
 
@@ -85,7 +85,7 @@ Bias toward **asking, not guessing**. Under-asking silently produces a bad sched
    - **Always include the escape** — every question ends with an option like "I don't know — I want to discuss it further." When the user picks it, discuss the decision with them until it resolves, then re-ask. Do not guess.
 4. **Check disjointness** — walk the confirmed footprints. Any overlap → merge, split, or promote to a contract task. Confirm the resolution with the user if it changes a footprint.
 5. **Validate** — unique ids, no self/unknown/cyclic deps, every task independently verifiable, granularity matches scale.
-6. **Emit** `run-inputs.json` to `rosey/parallel/<run-slug>/`.
+6. **Emit** `run-inputs.json` to `rosey/parallel/epics/<run-slug>/`.
 7. **Hand off** — invoke `rosey-parallel` with the file. Report the task list, the expected track count, and any contract tasks.
 
 ### Divergence detector
