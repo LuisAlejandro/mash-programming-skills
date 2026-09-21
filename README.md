@@ -87,9 +87,6 @@ files and directories lazily as needed.
 `--agents`/`--guidance` explicitly enable global guidance. They no longer mean
 "write a repository AGENTS.md".
 
-The compatibility `bulk-install.sh` wrapper invokes the same global installer;
-it no longer loops through `install.list`.
-
 ## Uninstallation
 
 Uninstallation is global-only and dry-run by default:
@@ -104,8 +101,7 @@ Uninstallation is global-only and dry-run by default:
 It removes Rosey-owned global skills, agents, rules, hooks, plugins, guidance,
 pins, contract references, manifest, and MCP entries. It preserves unrelated
 user entries in shared JSON files, machine tools, Hindsight memory, and all
-repositories. `bulk-uninstall.sh` is a compatibility wrapper and no longer
-mutates a fleet.
+repositories.
 
 ## Optional Hindsight local memory
 
