@@ -28,12 +28,12 @@ ROSEY_AGENTIC_ENV=/Users/luisalejandro/Development/rosey-agentic-env \
 4. Creates `rosey/agentic-env.json` so orchestrators can detect the installed version.
 5. Always writes agent guidance (overwrites on each install unless `--no-agents`):
    - Default: minimal `AGENTS.md` with IDE-conditional paths for Cursor (`.cursor/…`), VS Code / Copilot (`.github/…`, `.vscode/…`), OpenCode (`.opencode/…`), and Pi (`.pi/…`).
-   - Agent-home targets (folder basename `.hermes`, `.openclaw`, `rudi-hermes`, or `winston-openclaw`): writes `.cursorrules` instead of `AGENTS.md` (does not delete an existing `AGENTS.md`).
+   - If the target already has a non-Rosey `AGENTS.md` (e.g. an OpenClaw/Hermes agent that owns that file for its core instructions), the installer leaves it untouched and writes the same guidance to `.cursorrules` instead. If `.cursorrules` is also non-Rosey, it warns and writes neither.
    - Always-on Cursor rules (`alwaysApply: true`) are distributed per IDE: `.github/copilot-instructions.md` (VS Code/Copilot), `.opencode/rules/*.mdc` (OpenCode, via the `opencode-cursor-rules` plugin), and `.pi/APPEND_SYSTEM.md` (Pi, project-local). Cursor paths inside each are rewritten to that IDE's native paths.
    Neither file stores preferences.
 6. Seeds `rosey-design-candidates` skill `.env` from `.env.example` using `CURSOR_API_KEY` in `rosey-agentic-env/.env` (never overwrites an existing skill `.env`).
 7. Seeds MCP configs from `.cursor/mcp.json.example`, substituting `GITHUB_TOKEN` and `OBSIDIAN_API_KEY` from `rosey-agentic-env/.env`: `.cursor/mcp.json` (Cursor), `.vscode/mcp.json` (VS Code), `.opencode/mcp.json` (OpenCode, `mcp.servers` with `type: local|remote`), and `.pi/settings.json` (Pi, `mcp.servers` merged into existing settings). The example is tracked; seeded files stay local (gitignored).
-8. Installs machine-once host CLIs when missing (macOS, Debian/Ubuntu, Windows WSL): git, make, curl, rsync, jq, rg, gh, uv, gitchangelog, bumpversion, git-flow, Sentrux, and Hindsight. Skips any command already on PATH. Linux/WSL uses apt only (not Homebrew). jq, rg, and gh are GitHub release binaries, not distro packages. In each target git repo: `git flow init -d` when git-flow is not initialized (skipped on live-homes), and local `user.signingkey` from global config or the sole GPG secret key. Prints an inventory of tools it does not install (Docker, GPG, …).
+8. Installs machine-once host CLIs when missing (macOS, Debian/Ubuntu, Windows WSL): git, make, curl, rsync, jq, rg, gh, uv, gitchangelog, bumpversion, git-flow, Sentrux, and Hindsight. Skips any command already on PATH. Linux/WSL uses apt only (not Homebrew). jq, rg, and gh are GitHub release binaries, not distro packages. In each target git repo: local `user.signingkey` from global config or the sole GPG secret key (`git flow` is initialized lazily by `rosey-pr` when first needed). Prints an inventory of tools it does not install (Docker, GPG, …).
 9. Installs the Pi extensions once when the `pi` CLI is present: `pi-subagents` (`pi install npm:pi-subagents`), `pi-mcp-adapter` (`pi install npm:pi-mcp-adapter`), and `pi-ask-user` (`pi install npm:pi-ask-user`). Skipped if `pi` is absent or each extension is already installed. `pi-subagents` enables the `.pi/agents/` tree.
 
 ## Updating the environment
@@ -42,9 +42,9 @@ To update the rules and skills in a target repository, simply run the install co
 ## Orchestration flags
 
 - `--version`: print the agentic environment version.
-- `--check`: verify `.cursor/`, `.opencode/`, `.pi/`, `rosey/agentic-env.json`, and `AGENTS.md` (or `.cursorrules` on agent-home targets) exist in the target.
+- `--check`: verify `.cursor/`, `.opencode/`, `.pi/`, `rosey/agentic-env.json`, and the agent guidance (`AGENTS.md`, or `.cursorrules` when `AGENTS.md` is foreign) exist in the target.
 - `--write-pin` / `--no-write-pin`: enable or disable writing `rosey/agentic-env.json`.
-- `--agents` / `--no-agents`: enable or disable writing `AGENTS.md` / `.cursorrules` (default: always overwrite).
+- `--agents` / `--no-agents`: enable or disable writing the agent guidance (`AGENTS.md`, or `.cursorrules` when `AGENTS.md` is foreign) (default: always overwrite).
 
 ## Uninstalling
 
@@ -56,7 +56,7 @@ To update the rules and skills in a target repository, simply run the install co
 ./uninstall.sh --check         # exit 0 if installed, 1 if not
 ```
 
-It removes the Rosey-owned trees (`.cursor/rules|skills|agents|hooks`, `.github/copilot-instructions.md`, `.github/{instructions,skills,agents,hooks}`, `.opencode/…`, `.pi/…`, `.agents/shared`, `rosey/agentic-env.json`, `rosey/hindsight-pin`) and surgically edits the shared files it touched: only the Rosey task is dropped from `.vscode/tasks.json` and only the seeded `mcp`/plugin entries from `opencode.json`. Per-repo `.gitignore` and the global excludes file are left untouched. `AGENTS.md` / `.cursorrules` are removed only when they still match what the installer wrote; appended user content makes them be kept (with a warning).
+It removes the Rosey-owned trees (`.cursor/rules|skills|agents|hooks`, `.github/copilot-instructions.md`, `.github/{instructions,skills,agents,hooks}`, `.opencode/…`, `.pi/…`, `.agents/shared`, `rosey/agentic-env.json`, `rosey/hindsight-pin`) and surgically edits the shared files it touched: only the Rosey task is dropped from `.vscode/tasks.json` and only the seeded `mcp`/plugin entries from `opencode.json`. Per-repo `.gitignore` and the global excludes file are left untouched. `AGENTS.md` / `.cursorrules` are removed only when they are Rosey-generated; a foreign `AGENTS.md` (owned by another agent) is always left in place, and appended user content makes them be kept (with a warning).
 
 Machine-wide tools (`uv`, `bun`, `jq`, `rg`, `gh`, git-flow, Sentrux, uv tools, Pi extensions, `hindsight-embed`), user data under `rosey/` (plans, insights, solutions, …), and `~/.hindsight` are **never touched** — uninstall is repo-local by design. Remaining flags:
 

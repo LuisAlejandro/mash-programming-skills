@@ -51,7 +51,7 @@ Remind the user to apply GitHub rulesets once the repo is on GitHub Pro (or publ
 bash scripts/rosey-maintain.sh protect-github --apply --repo <name>
 ```
 
-Use `--owner <org>` when the registry entry overrides `github_owner` (e.g. Dockershelf). Rulesets must match **actual `pr.yml` job names** (named **Code Quality**, or **Repository Checks** when Semgrep lives there). No `code_scanning` / CodeQL merge rule. Do not invent a Code Quality required check for tetra CollageLabs apps.
+Registry `github_owner` is used automatically (CollageLabs tetra apps, Dockershelf). `--owner` only sets the default for repos with no override. Rulesets must match **actual `pr.yml` job names** (named **Code Quality**, or **Repository Checks** when Semgrep lives there). No `code_scanning` / CodeQL merge rule. Do not invent a Code Quality required check for tetra CollageLabs apps.
 
 ## Workflow
 

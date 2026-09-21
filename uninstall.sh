@@ -295,13 +295,13 @@ remove_all "${SHARED_PATHS[@]}"
 # Generated agent guidance files only if they still match what install wrote.
 if want_target cursor || want_target vscode; then
     remove_file_if_marker AGENTS.md \
-        "This repository uses the Rosey Agentic Environment." \
+        "Rosey Agent Guidance" \
         "AGENTS.md" \
         'Hindsight version pin: `rosey/hindsight-pin`.'
     remove_file_if_marker .cursorrules \
-        "This workspace uses the Rosey Agentic Environment." \
+        "Rosey Agent Guidance" \
         ".cursorrules" \
-        'This workspace is a live-home. Work on master (or main). No PRs, no stashes. Git is backup and sync between two machines. Slash skills `rosey-brainstorm`, `rosey-plan`, `rosey-work`, `rosey-qa`, and `rosey-lint` use the live-home overlays. Host tooling is allowed; Docker-via-Make does not apply.'
+        'Hindsight version pin: `rosey/hindsight-pin`.'
 fi
 
 # --- Shared file surgery (python3 for JSON) --------------------------------

@@ -52,21 +52,6 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-# Agent homes: sole-user homes that write .cursorrules instead of AGENTS.md and
-# skip `git flow init`. This is now the ONLY remaining live-home distinction —
-# skills and rules are shared (see gap #7 for the .cursorrules decision).
-is_livehome_install() {
-    case "$INSTALL_ROOT_BASENAME" in
-        .hermes | .openclaw | rudi-hermes | winston-openclaw | \
-        rosey-maintainer-tools | tetra-actions-runner)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-}
-
 # Write the always-apply Cursor rules into a per-IDE destination, rewriting Cursor
 # paths to that IDE's native paths. Used by OpenCode (.opencode/rules/*.mdc) and Pi
 # (.pi/APPEND_SYSTEM.md). The rewrite function is passed as $2.
@@ -156,13 +141,12 @@ if [ "$CHECK_ONLY" = true ]; then
         if [ ! -e "$path" ]; then echo "missing: $path"; missing=$((missing + 1)); fi
     done
     if [ "$CREATE_AGENTS" = true ]; then
-        if is_livehome_install; then
-            if [ ! -f .cursorrules ]; then
-                echo "missing: .cursorrules (re-run install.sh to write it)"
-                missing=$((missing + 1))
-            fi
-        elif [ ! -f AGENTS.md ]; then
-            echo "missing: AGENTS.md (re-run install.sh to write it)"
+        if [ -f AGENTS.md ] && grep -q "Rosey Agent Guidance" AGENTS.md 2>/dev/null; then
+            :
+        elif [ -f .cursorrules ] && grep -q "Rosey Agent Guidance" .cursorrules 2>/dev/null; then
+            :
+        else
+            echo "missing: Rosey agent guidance (AGENTS.md or .cursorrules) — re-run install.sh to write it"
             missing=$((missing + 1))
         fi
     fi
@@ -1103,74 +1087,9 @@ rosey_global_gitignore_ensure
 
 # --- AGENTS.md / .cursorrules ---
 
-write_agents_file() {
-    if [ "$CREATE_AGENTS" != true ]; then
-        return 0
-    fi
-
-    if is_livehome_install; then
-        echo "-> Writing .cursorrules (agent-home target; skipping AGENTS.md)..."
-        cat > .cursorrules <<'EOF'
-# Rosey Agent Guidance
-
-This workspace uses the Rosey Agentic Environment.
-This file intentionally does not store user preferences inline.
-
-Before non-trivial planning, implementation, or review work, follow the installed
-Rosey rules and skills:
-
-- `.cursor/rules/caveman.mdc`
-- `.cursor/rules/ponytail.mdc`
-- `.cursor/rules/rosey-workflow-gates.mdc`
-- `.cursor/rules/hindsight-memory.mdc`
-- `.cursor/rules/docker-via-make.mdc`
-- `.cursor/rules/gitchangelog-commits.mdc`
-
-Use `.cursor/skills/` for Rosey workflows and `.cursor/agents/` for specialist
-reviews. Full Hindsight CLI contract: `.cursor/skills/rosey-hindsight/SKILL.md`.
-
-## Preferences, insights, and memory
-
-User preferences and durable project context live **outside** this file:
-
-| Store | Path / tool | What it holds |
-| ----- | ----------- | ------------- |
-| Curated insights | `rosey/insights/*.md` | Durable repo lessons (architecture rules, workflow gotchas, “do not do this”) |
-| Curated solutions | `rosey/solutions/` | Institutional how-tos / past fixes |
-| Cross-session memory | Hindsight (`hindsight-embed`) | Preferences, procedure outcomes, task discoveries |
-
-**Consult insights:** read `rosey/insights/` (and use `rosey-learnings-researcher` when available) before non-trivial planning or implementation in a documented area.
-
-**Consult Hindsight memory** (only when `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa` is active — not for generic planning, implementation, or diff review):
-
-```bash
-export PATH="${HOME}/.local/bin:${PATH}"
-hindsight-embed daemon status
-bank="${HINDSIGHT_EMBED_BANK_ID:-$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9][^a-z0-9]*/-/g; s/^-//; s/-$//')}"
-hindsight-embed memory recall "$bank" "Task summary, modules, preferences, and risks"
-```
-
-If the daemon is unavailable, continue the workflow and record `Hindsight: unavailable`.
-Do not store secrets in Hindsight or insight files.
-
-## Shared
-
-Hindsight version pin: `rosey/hindsight-pin`.
-EOF
-        if is_livehome_install; then
-            grep -v 'docker-via-make' .cursorrules > .cursorrules.tmp && mv .cursorrules.tmp .cursorrules
-            cat >> .cursorrules <<'EOF'
-
-## Live-home git
-
-This workspace is a live-home. Work on master (or main). No PRs, no stashes. Git is backup and sync between two machines. Slash skills `rosey-brainstorm`, `rosey-plan`, `rosey-work`, `rosey-qa`, and `rosey-lint` follow the shared Rosey git rules. Host tooling is allowed; Docker-via-Make does not apply.
-EOF
-        fi
-        return 0
-    fi
-
-    echo "-> Writing AGENTS.md..."
-    cat > AGENTS.md <<'EOF'
+rosey_agents_guidance() {
+    # Write the shared Rosey guidance to $1 (AGENTS.md or .cursorrules).
+    cat > "$1" <<'EOF'
 # Rosey Agent Guidance
 
 This repository uses the Rosey Agentic Environment.
@@ -1272,6 +1191,25 @@ Do not store secrets in Hindsight or insight files.
 
 Hindsight version pin: `rosey/hindsight-pin`.
 EOF
+}
+
+write_agents_file() {
+    if [ "$CREATE_AGENTS" != true ]; then
+        return 0
+    fi
+
+    if [ -f AGENTS.md ] && ! grep -q "Rosey Agent Guidance" AGENTS.md 2>/dev/null; then
+        if [ -f .cursorrules ] && ! grep -q "Rosey Agent Guidance" .cursorrules 2>/dev/null; then
+            echo "   ⚠️  AGENTS.md and .cursorrules are both foreign; skipping agent guidance."
+            return 0
+        fi
+        echo "-> AGENTS.md is foreign (not Rosey); writing .cursorrules instead..."
+        rosey_agents_guidance .cursorrules
+        return 0
+    fi
+
+    echo "-> Writing AGENTS.md..."
+    rosey_agents_guidance AGENTS.md
 }
 
 # --- agentic-env.json pin ---
@@ -1874,31 +1812,6 @@ install_git_flow() {
     fi
 }
 
-init_repo_git_flow() {
-    if is_livehome_install; then
-        echo "-> Skipping git flow init (live-home does not use git-flow)"
-        return 0
-    fi
-    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        echo "-> Skipping git flow init (not a git repository)"
-        return 0
-    fi
-    if git config --get gitflow.branch.master >/dev/null 2>&1; then
-        echo "-> git flow already initialized in this repo; skipping"
-        return 0
-    fi
-    if ! git_flow_available; then
-        echo "   ⚠️  git-flow not available; cannot run git flow init -d"
-        return 1
-    fi
-
-    echo "-> Initializing git flow in this repo (git flow init -d)..."
-    git flow init -d || {
-        echo "   ⚠️  git flow init -d failed"
-        return 1
-    }
-}
-
 configure_repo_signing_key() {
     local existing global keys count key
 
@@ -2164,7 +2077,6 @@ check_hindsight_embed() {
 install_bumpversion || true
 install_gitchangelog || true
 install_git_flow || true
-init_repo_git_flow || true
 configure_repo_signing_key || true
 install_sentrux || true
 install_pi_subagents || true
