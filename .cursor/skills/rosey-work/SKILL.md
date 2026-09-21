@@ -17,9 +17,8 @@ Execute implementation work efficiently while maintaining quality.
 Always-on rules; full procedures live in those guidelines — do not duplicate them here.
 
 1. **Hindsight** before research or implementation — always-on Hindsight guideline; CLI in [`rosey-hindsight`](../rosey-hindsight/SKILL.md)
-2. **Karpathy brief** before the first code edit
-3. **Ponytail ladder** before adding abstractions or dependencies
-4. **Docker-via-Make** for app commands and tooling
+2. **Ponytail ladder** before adding abstractions or dependencies
+3. **Docker-via-Make** for app commands and tooling
 
 See also the always-on Rosey workflow-gates guideline.
 

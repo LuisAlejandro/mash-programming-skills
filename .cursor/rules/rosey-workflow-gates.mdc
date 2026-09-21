@@ -1,5 +1,5 @@
 ---
-description: Hard gates for Rosey skills — Hindsight and Karpathy only on the four pipeline slash commands; Ponytail, Caveman, and Docker-via-Make stay as scoped
+description: Hard gates for Rosey skills — Hindsight only on the four pipeline slash commands; Ponytail, Caveman, and Docker-via-Make stay as scoped
 alwaysApply: true
 ---
 
@@ -7,27 +7,25 @@ alwaysApply: true
 
 ## Trigger
 
-**Hindsight + Karpathy** only when the user invokes `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa`, or that skill is already active in this conversation.
+**Hindsight** only when the user invokes `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa`, or that skill is already active in this conversation.
 
-Generic planning, implementation, code review, or "implement this" / "review this diff" does **not** trigger Hindsight or the Karpathy brief.
+Generic planning, implementation, code review, or "implement this" / "review this diff" does **not** trigger Hindsight.
 
 Ponytail and Docker-via-Make stay always-on. Caveman lite applies while those Rosey skills (and `rosey-hindsight`) are active — see `caveman.mdc`.
 
 ## Before code, plans, or review reports (those four skills only)
 
 1. **Hindsight gate** — see `hindsight-memory.mdc`
-2. **Karpathy brief** — see `karpathy-guidelines.mdc` (assumptions + `step → verify`; proof line or `Karpathy: trivial, skipped`)
-3. **Ponytail ladder** — see `ponytail.mdc` (YAGNI → codebase reuse → stdlib → platform native → existing dep → one-line → minimum code)
-4. **Caveman lite** for status prose — see `caveman.mdc`
-5. **Docker via Make** — see `docker-via-make.mdc` (run apps/tooling in containers; never host npm/pip/node/python)
+2. **Ponytail ladder** — see `ponytail.mdc` (YAGNI → codebase reuse → stdlib → platform native → existing dep → one-line → minimum code)
+3. **Caveman lite** for status prose — see `caveman.mdc`
+4. **Docker via Make** — see `docker-via-make.mdc` (run apps/tooling in containers; never host npm/pip/node/python)
 
-Order during those four skills: Hindsight → Karpathy brief → Ponytail ladder → caveman-lite status → edits (with Docker-via-Make for any run/install/test).
+Order during those four skills: Hindsight → Ponytail ladder → caveman-lite status → edits (with Docker-via-Make for any run/install/test).
 
 ## Forbidden
 
 - Running `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa` without the Hindsight gate
 - Treating "Memory (optional)" as permission to skip recall during those four skills
-- First file edit during those four skills without Karpathy proof line (unless `Karpathy: trivial, skipped`)
 - Adding unrequested abstractions, extra dependencies, or skipping the Ponytail ladder
 - Silent speculative extras beyond the stated request
 - Long-form essay-style status updates during Rosey skills
@@ -39,4 +37,3 @@ Order during those four skills: Hindsight → Karpathy brief → Ponytail ladder
 `rosey-work` handoff envelope must include:
 
 - `HINDSIGHT: available|unavailable` — never omit
-- `ASSUMPTIONS:` and `VERIFY:` when Karpathy tier was Standard or Deep

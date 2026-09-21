@@ -1177,7 +1177,6 @@ Rosey rules and skills:
 - `.cursor/rules/ponytail.mdc`
 - `.cursor/rules/rosey-workflow-gates.mdc`
 - `.cursor/rules/hindsight-memory.mdc`
-- `.cursor/rules/karpathy-guidelines.mdc`
 - `.cursor/rules/docker-via-make.mdc`
 - `.cursor/rules/gitchangelog-commits.mdc`
 
@@ -1245,7 +1244,6 @@ Rosey rules and skills:
 - `.cursor/rules/ponytail.mdc`
 - `.cursor/rules/rosey-workflow-gates.mdc`
 - `.cursor/rules/hindsight-memory.mdc`
-- `.cursor/rules/karpathy-guidelines.mdc`
 - `.cursor/rules/docker-via-make.mdc`
 - `.cursor/rules/gitchangelog-commits.mdc`
 
@@ -1258,7 +1256,7 @@ Before non-trivial planning, implementation, or review work, follow the installe
 Rosey guidelines and skills:
 
 - Always-on guidelines: `.github/copilot-instructions.md`
-  (includes workflow gates, Hindsight, Karpathy, and save-insights)
+  (includes workflow gates, Hindsight, and save-insights)
 - On-demand rules: `.github/instructions/`
 - Skills: `.github/skills/`
 - Agents: `.github/agents/`
