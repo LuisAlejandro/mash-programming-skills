@@ -184,6 +184,14 @@ INSTALLED_MARKERS=(
     .pi/APPEND_SYSTEM.md
 )
 
+# Rosey residue from older installs that current install.sh no longer writes:
+# a stale Cursor pin file, an OpenCode MCP seed, and a Pi settings MCP block.
+# These outlive a normal uninstall, so they count as work to do as well.
+RESIDUE_MARKERS=(
+    .cursor/hindsight-pin
+    .opencode/mcp.json
+)
+
 is_installed() {
     local marker
     for marker in "${INSTALLED_MARKERS[@]}"; do
@@ -192,8 +200,21 @@ is_installed() {
     return 1
 }
 
+has_pi_mcp_settings() {
+    [ -f .pi/settings.json ] && grep -q '"mcp"' .pi/settings.json 2>/dev/null
+}
+
+has_residue() {
+    local marker
+    for marker in "${RESIDUE_MARKERS[@]}"; do
+        [ -e "$marker" ] && return 0
+    done
+    has_pi_mcp_settings && return 0
+    return 1
+}
+
 if [ "$CHECK_ONLY" = true ]; then
-    if is_installed; then
+    if is_installed || has_residue; then
         note "Rosey Agentic Environment is installed in $INSTALL_ROOT"
         [ -f rosey/agentic-env.json ] && cat rosey/agentic-env.json
         exit 0
@@ -202,7 +223,7 @@ if [ "$CHECK_ONLY" = true ]; then
     exit 1
 fi
 
-if ! is_installed; then
+if ! is_installed && ! has_residue; then
     note "Nothing to uninstall: no Rosey artifacts found in $INSTALL_ROOT"
     exit 0
 fi
@@ -224,6 +245,7 @@ CURSOR_PATHS=(
     .cursor/hooks
     .cursor/hooks.json
     .cursor/mcp.json
+    .cursor/hindsight-pin
 )
 VSCODE_PATHS=(
     .github/copilot-instructions.md
@@ -238,6 +260,7 @@ OPENCODE_PATHS=(
     .opencode/rules
     .opencode/hooks
     .opencode/hooks.json
+    .opencode/mcp.json
 )
 PI_PATHS=(
     .pi/skills
@@ -382,6 +405,48 @@ else:
 PY
 )"
     report_edit "$out"
+fi
+
+# .pi/settings.json: older installs seeded an "mcp" block here (with secrets).
+# Remove only that key; drop the file when mcp was all it held.
+if want_target pi && [ -f .pi/settings.json ]; then
+    out="$(python3 - .pi/settings.json "$APPLY" <<'PY'
+import json, sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+apply = sys.argv[2] == "true"
+try:
+    data = json.loads(path.read_text())
+except Exception:
+    print("   ! .pi/settings.json is not valid JSON; leaving it untouched")
+    raise SystemExit(0)
+if not isinstance(data, dict) or "mcp" not in data:
+    raise SystemExit(0)
+
+data.pop("mcp")
+verb_rm = "removed      " if apply else "would remove "
+verb_ed = "edited       " if apply else "would edit   "
+if not data:
+    print(f"   {verb_rm} .pi/settings.json (only held the Rosey mcp block)")
+    if apply:
+        path.unlink()
+else:
+    print(f"   {verb_ed} .pi/settings.json (Rosey mcp block)")
+    if apply:
+        path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+)"
+    report_edit "$out"
+fi
+
+# Orphaned OpenCode plugin artifacts: once the Rosey-only opencode.json is gone,
+# .opencode/ holds nothing but opencode's own dependency install.
+if want_target opencode && [ ! -e opencode.json ]; then
+    remove_tree .opencode/node_modules
+    remove_tree .opencode/package.json
+    remove_tree .opencode/package-lock.json
+    remove_tree .opencode/.gitignore
 fi
 
 # .gitignore: strip the exact block install.sh appended, preserve user edits.
