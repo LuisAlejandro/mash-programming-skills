@@ -1,6 +1,6 @@
 ---
 name: rosey-lint
-description: "Runs lint, format, type-check, and build commands for the current repository by intelligently discovering the project's tooling (for example package.json scripts, Makefiles, pyproject.toml). Use when the user asks to lint or format the codebase, fix linter errors, or invokes rosey-lint."
+description: "Runs lint, format, type-check, and build commands scoped to this session's changed files by default (whole repo with --all), discovering the project's tooling (package.json scripts, Makefiles, pyproject.toml). Use when the user asks to lint or format, or invokes rosey-lint."
 ---
 
 ## Communication while using this skill
@@ -22,9 +22,17 @@ Strip the interaction mode token before interpreting any remaining arguments. If
 
 If multiple interaction mode tokens appear, stop and report the conflict.
 
+## Scope
+
+**Default: this session's files.** Run formatting/linting on the files this session created or modified (`FILES_CHANGED`, or the working-tree diff vs `HEAD`). Type-check and build are skipped by default (whole-repo steps churn unrelated WIP); note `skipped` with a reason. If there are no session files, emit `LINT_STATUS: skipped` and stop.
+
+**Whole repo:** pass `--all` (or the user asks for a full pass) to run the repo's standard scripts (`npm run format/lint`, `make lint`, etc.) over everything.
+
+Prefer commands that accept a file list over whole-repo scripts; whole-repo scripts are for `--all`.
+
 ## Purpose
 
-Intelligently discover and run the formatting, linting, type-checking, and build pipelines for the current repository. This skill is language and framework agnostic. Instead of assuming commands, it inventories the repository's configuration files to determine the correct way to verify the code.
+Intelligently discover and run the formatting, linting, type-checking, and build pipelines for this session's changed files (whole repo only with `--all`). This skill is language and framework agnostic. Instead of assuming commands, it inventories the repository's configuration files to determine the correct way to verify the code.
 
 ## Execution Steps
 
@@ -52,12 +60,14 @@ Before running any commands, inspect the repository to determine what tools are 
 
 ### 2. Execution Pipeline
 
-Always execute the discovered commands in the following order. Stop and report if any step fails, unless the step automatically fixes the issues (like `eslint --fix`).
+If there are no session files, skip all steps and emit `LINT_STATUS: skipped`.
 
-1. **Format** (e.g., `npm run format`, `black .`, `go fmt`)
-2. **Lint** (e.g., `npm run lint`, `ruff check .`, `go vet`)
-3. **Typecheck** (e.g., `npm run typecheck`, `mypy .`)
-4. **Build** (e.g., `npm run build`, `go build`) - Run this *after* all previous steps succeed to catch bundler/framework errors.
+Otherwise execute in order, scoped to `FILES_CHANGED` (or whole-repo when `--all`). Stop and report if any step fails, unless the step automatically fixes the issues (like `eslint --fix`).
+
+1. **Format** session files (e.g., `prettier --write <files>`, `ruff format <files>`, `gofmt -w <files>`)
+2. **Lint** session files (e.g., `eslint <files>`, `ruff check <files>`, `go vet` on the touched packages)
+3. **Typecheck** — session-scoped: skip unless it can be limited to the touched packages; whole-repo `tsc` / `mypy .` is skipped by default and noted
+4. **Build** — skipped by default in session scope; run only on `--all` or explicit user request
 
 ### 3. Missing Tools
 
@@ -83,7 +93,7 @@ STEPS:
 - lint: pass|failed|skipped
 - typecheck: pass|failed|skipped
 - build: pass|failed|skipped
-LINT_STATUS: pass|failed
+LINT_STATUS: pass|failed|skipped
 BLOCKERS: <none | one-line>
 END_LINT_HANDOFF
 ```
@@ -97,12 +107,12 @@ User: Run rosey-lint
 
 → Discovering tooling...
   Found package.json. Package manager: npm.
-  Found scripts: "format", "lint", "build". No "typecheck" script found.
+  Session files: src/foo.ts
 
-→ Running npm run format... OK
-→ Running npm run lint... OK
-→ Typecheck skipped (no script defined)
-→ Running npm run build... OK
+→ prettier --write src/foo.ts... OK
+→ eslint src/foo.ts... OK
+→ Typecheck skipped (whole-repo tsc)
+→ Build skipped (session scope)
 
-All checks passed!
+All session checks passed!
 ```

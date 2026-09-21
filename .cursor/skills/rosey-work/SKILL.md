@@ -43,8 +43,8 @@ In non-interactive mode, resolve implementation-time unknowns conservatively fro
 
 This skill follows the Rosey-native work workflow with Rosey Sentrux and handoff boundaries:
 
-- For app repos, implement on a git-flow `feature/<slug>` branch. **Default:** new plan → new branch from `develop`. Continue on the current branch only when the plan slug matches, the plan explicitly extends that branch, or the user confirms carryover in interactive mode.
-- `rosey-work` does **not** own QA, PR creation, merge, or release. Those belong downstream to `rosey-qa`, `rosey-pr`, auto-merge workflows, and `rosey-release`.
+- Implement **in place on the current branch**. Do not create or switch branches — branching and PRs belong to `rosey-pr`, which the user must invoke explicitly after work completes.
+- `rosey-work` does **not** own QA, PR creation, merge, or release. `rosey-qa`, `rosey-pr`, and `rosey-release` are explicit user invocations — never auto-called from this skill.
 - If Sentrux MCP is available, run the work session for every plan. If a topology baseline exists, compare against it. If none exists, still use session start/end when available and record that no baseline comparison occurred. If Sentrux is unavailable, do not block. If `session_end` fails, follow the remediation and override procedure in [`rosey-sentrux`](../rosey-sentrux/SKILL.md).
 - Read [`rosey-hindsight`](../rosey-hindsight/SKILL.md) before substantive implementation so cross-session memory can inform the work.
 - Phase 0.0 is the one required Hindsight recall. Fold that result into Phase 1; do not recall again unless plan resolution was deferred (see `references/work-intake.md`). Retain durable discoveries during work and a session summary at handoff.
@@ -89,7 +89,7 @@ Phases run in order. Phase 0.0 above gates everything.
 
 | Phase | Read first | What only those files carry |
 |---|---|---|
-| 0 — triage; 1 — plan read, branch, tasks, strategy | `references/work-intake.md` | plan resolution and the no-plan stop; how to size the plan read and which contract sections to carry; the branch hard gate, slug derivation, and plan↔branch alignment; the pre-work WIP inventory and the dirty-file collision rule; task derivation and naming; inline vs serial dispatch and the subagent receipt contract |
+| 0 — triage; 1 — plan read, tasks, strategy | `references/work-intake.md` | plan resolution and the no-plan stop; how to size the plan read and which contract sections to carry; the pre-work WIP inventory and the dirty-file collision rule; task derivation and naming; inline vs serial dispatch and the subagent receipt contract |
 | 2 — execute | `references/implementation-loop.md` | the task loop and idempotency check; out-of-repo completion signals; evidence strategy and execution-posture guardrails; test discovery, the runner prerequisite, scenario completeness, and the system-wide test check; incremental commits and path-limiting; simplify-as-you-go |
 | 3 — handoff | `references/handoff.md` | the `rosey-lint` gate and `LINT_HANDOFF` parsing; the plan's Verification Contract; the Sentrux gate and review brief; Hindsight retain; the Definition of Done final check; the `ROSEY_WORK_HANDOFF` envelope and the `ROSEY_EVIDENCE` artifact |
 
@@ -137,6 +137,6 @@ Phases run in order. Phase 0.0 above gates everything.
 - **Forgetting to track progress** - Update task status as you go or lose track of what's done
 - **80% done syndrome** - Finish the feature, don't move on early
 - **Skipping handoff context** - `rosey-qa` needs the plan, changed files, implementation summary, and Sentrux context
-- **Branch carryover** - A meaningful branch name for a prior plan (e.g. `feature/seo-phase-1`) is not permission to implement a new plan on it. Match plan slug or get explicit carryover confirmation before editing
+- **Reaching for git isolation** - A dirty tree or a large change is not a reason to branch, stash, or open a worktree. Work in place; path-limited commits keep this run's files separate
 - **Implementing without a plan** - A prose description of work is not an input. Resolve a plan from the argument, a blank-input latest software plan, the handoff, or the session, or stop per Phase 0
-- **Re-scoping the plan into human-time phases** - The plan's Implementation Units define the scope of execution. Do not estimate human-hours per unit, propose multi-day breakdowns, or ask the user to pick a subset of units for "this session". Agents execute at agent speed, and context-window pressure is addressed by serial subagent dispatch, not by phased sessions. If a plan is genuinely too large for a single execution, say so plainly and suggest the user return to `/rosey-plan` to reduce scope, or hand the epic to `rosey-parallel` — don't invent session phases as a workaround
+- **Re-scoping the plan into human-time phases** - The plan's Implementation Units define the scope of execution. Do not estimate human-hours per unit, propose multi-day breakdowns, or ask the user to pick a subset of units for "this session". Agents execute at agent speed, and context-window pressure is addressed by serial subagent dispatch, not by phased sessions. If a plan is genuinely too large for a single execution, say so plainly and suggest the user return to `/rosey-plan` to reduce scope, or invoke `rosey-parallel` explicitly — don't invent session phases as a workaround

@@ -12,7 +12,7 @@ Read this before the first implementation write. It owns the task execution loop
    while (tasks remain):
      - Mark task as in-progress
      - Read any referenced files from the plan or discovered during Phase 0
-     - **If the unit's completion signal is repository-derived and that work is already present** (files exist with the expected capability, or the unit's `Verification` criteria are already satisfied by the current code), the work has likely shipped on a prior branch or session. Verify it matches, mark the task complete, and move on. Do not silently reimplement.
+     - **If the unit's completion signal is repository-derived and that work is already present** (files exist with the expected capability, or the unit's `Verification` criteria are already satisfied by the current code), the work has likely shipped in a prior session. Verify it matches, mark the task complete, and move on. Do not silently reimplement.
      - **If any part of the unit depends on out-of-repo state, that part has no git-derived completion signal** (see below)
      - Look for similar patterns in codebase
      - Find existing test files for implementation files being changed (Test Discovery — see below)
@@ -116,7 +116,7 @@ Read this before the first implementation write. It owns the task execution loop
 
    **Path-limit every commit.** A bare `git commit` absorbs whatever the user already had staged before this run started. Pass the same file list to `git commit -- <paths>` so only this unit's files land.
 
-   **Handling merge conflicts:** If conflicts arise during rebasing or merging, resolve them immediately. Incremental commits make conflict resolution easier since each commit is small and focused.
+   **Handling conflicts:** If conflicts arise, resolve them immediately. Incremental commits make conflict resolution easier since each commit is small and focused.
 
    **Note:** Commit subjects follow [`rosey-pr`](../../rosey-pr/SKILL.md) Step 2 (gitchangelog tags when `.gitchangelog.rc` exists; otherwise Conventional Commits). No attribution footers, at any stage — `rosey-pr` does not add them either.
 

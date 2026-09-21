@@ -1,7 +1,7 @@
 ---
 name: rosey-qa
-description: "Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. Use when reviewing code changes before creating a PR."
-argument-hint: "[blank to review current branch, or provide PR link]"
+description: "Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. Use when reviewing this session's changes, a branch, or a PR."
+argument-hint: "[blank to review this session's uncommitted changes, or provide a PR link / base:<ref>]"
 ---
 
 # Code Review
@@ -260,7 +260,7 @@ Use GitHub MCP `pull_request_read` with `method: "get"` and `method: "get_files"
 Apply skip rules in order:
 
 - `state` is `CLOSED` or `MERGED` -> stop with message `PR is closed/merged; not reviewing.`
-- **Trivial-PR judgment**: spawn a lightweight sub-agent with the PR title, body, and changed file paths. Follow `.agents/shared/references/model-tiers/model-tiers.md` — use the platform's cheapest capable model where a per-dispatch override exists, otherwise omit the override and inherit. The agent's task: "Is this an automated or trivial PR that does not warrant a code review? Consider: dependency lock-file or manifest-only bumps, automated release commits, chore version increments with no substantive code changes. When in doubt, answer no — false negatives (skipped reviews that should have run) are more costly than false positives (unnecessary reviews)." If the judgment returns yes: stop with message `PR appears to be a trivial automated PR; not reviewing. Run without a PR argument to review the current branch, or pass base:<ref> if review is intended.`
+- **Trivial-PR judgment**: spawn a lightweight sub-agent with the PR title, body, and changed file paths. Follow `.agents/shared/references/model-tiers/model-tiers.md` — use the platform's cheapest capable model where a per-dispatch override exists, otherwise omit the override and inherit. The agent's task: "Is this an automated or trivial PR that does not warrant a code review? Consider: dependency lock-file or manifest-only bumps, automated release commits, chore version increments with no substantive code changes. When in doubt, answer no — false negatives (skipped reviews that should have run) are more costly than false positives (unnecessary reviews)." If the judgment returns yes: stop with message `PR appears to be a trivial automated PR; not reviewing. Run without a PR argument to review this session's changes, or pass base:<ref> if review is intended.`
 
 When any skip rule fires, emit the message and stop without dispatching reviewers, switching the checkout, or running scope detection. **Standalone branch mode and `base:` mode are unaffected** -- they always run the full review. **Draft PRs are reviewed normally** -- draft status is not a skip condition; early feedback on in-progress work is valuable.
 
@@ -272,7 +272,7 @@ First, verify the worktree is clean before switching branches:
 git status --porcelain
 ```
 
-If the output is non-empty, inform the user: "You have uncommitted changes on the current branch. Stash or commit them before reviewing a PR, or use standalone mode (no argument) to review the current branch as-is." Do not proceed with checkout until the worktree is clean.
+If the output is non-empty, inform the user: "You have uncommitted changes on the current branch. Stash or commit them before reviewing a PR, or use standalone mode (no argument) to review this session's changes." Do not proceed with checkout until the worktree is clean.
 
 Then check out the PR branch with local git after resolving the head branch from GitHub MCP metadata so persona agents can read the actual code (not the current checkout).
 
@@ -345,16 +345,14 @@ echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:"
 
 You may still fetch additional PR metadata with GitHub MCP for title, body, linked issues, and a projected `hasPriorComments` boolean. Do not fail if no PR exists -- leave `hasPriorComments=false`.
 
-**If no argument (standalone on current branch):**
+**If no argument (standalone — this session's changes):**
 
-Apply the same base-detection logic as branch mode above, using the current branch and GitHub MCP PR search for any associated PR.
-
-If no base can be resolved, **stop**. Do not fall back to `git diff HEAD` — a standalone review without the base would only show uncommitted changes and silently miss all committed work on the branch.
+Review the working tree as-is. Diff `HEAD` (staged + unstaged) — this is the default and covers exactly this session's changes. To review a branch or PR instead, pass a PR link or `base:<ref>`.
 
 On success, produce the diff:
 
 ```
-echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:" && git diff -U10 $BASE && echo "UNTRACKED:" && git ls-files --others --exclude-standard
+echo "BASE:HEAD" && echo "FILES:" && git diff --name-only HEAD && echo "DIFF:" && git diff -U10 HEAD && echo "UNTRACKED:" && git ls-files --others --exclude-standard
 ```
 
 Using `git diff $BASE` (without `..HEAD`) diffs the merge-base against the working tree, which includes committed, staged, and unstaged changes together.

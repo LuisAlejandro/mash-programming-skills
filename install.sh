@@ -52,10 +52,9 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-# Live-homes: sole-user agent homes that are also live working directories.
-# Nothing may change branches or merge state, so they write .cursorrules instead
-# of AGENTS.md, skip docker-via-make / rosey-pr / rosey-parallel /
-# rosey-epic-decompose, and get live-home skill + rule overlays.
+# Agent homes: sole-user homes that write .cursorrules instead of AGENTS.md and
+# skip `git flow init`. This is now the ONLY remaining live-home distinction —
+# skills and rules are shared (see gap #7 for the .cursorrules decision).
 is_livehome_install() {
     case "$INSTALL_ROOT_BASENAME" in
         .hermes | .openclaw | rudi-hermes | winston-openclaw | \
@@ -66,32 +65,6 @@ is_livehome_install() {
             return 1
             ;;
     esac
-}
-
-apply_livehome_skill_overlay() {
-    local dest="$1"
-    local sname="$2"
-    local overlay
-    is_livehome_install || return 0
-    overlay="$SOURCE_ROOT/.cursor/skills-livehome/$sname"
-    [ -d "$overlay" ] || return 0
-    mkdir -p "$dest/references"
-    # Full forks. Overlay replaces dest SKILL.md in place.
-    if [ -f "$SOURCE_ROOT/.cursor/skills-livehome/LIVEHOME.md" ]; then
-        cp "$SOURCE_ROOT/.cursor/skills-livehome/LIVEHOME.md" "$dest/references/livehome.md"
-    fi
-    cp -R "$overlay/." "$dest/"
-    echo "   Live-home skill overlay: $sname"
-}
-
-apply_livehome_rules() {
-    is_livehome_install || return 0
-    rm -f .cursor/rules/docker-via-make.mdc
-    if [ -f "$SOURCE_ROOT/.cursor/rules-livehome/rosey-workflow-gates.mdc" ]; then
-        mkdir -p .cursor/rules
-        cp "$SOURCE_ROOT/.cursor/rules-livehome/rosey-workflow-gates.mdc" .cursor/rules/rosey-workflow-gates.mdc
-        echo "   Live-home rule overlay: rosey-workflow-gates (docker-via-make skipped)"
-    fi
 }
 
 # Write the always-apply Cursor rules into a per-IDE destination, rewriting Cursor
@@ -107,12 +80,6 @@ write_always_apply_rules() {
         [ -f "$mdc" ] || continue
         local rname
         rname="$(basename "$mdc" .mdc)"
-        if is_livehome_install && [ "$rname" = "docker-via-make" ]; then
-            continue
-        fi
-        if is_livehome_install && [ -f "$SOURCE_ROOT/.cursor/rules-livehome/${rname}.mdc" ]; then
-            mdc="$SOURCE_ROOT/.cursor/rules-livehome/${rname}.mdc"
-        fi
         if fm_always_apply "$mdc"; then
             cp "$mdc" "$dest_dir/$rname.mdc"
             "$rewrite_fn" "$dest_dir/$rname.mdc"
@@ -138,12 +105,6 @@ write_always_apply_rules_to_file() {
         [ -f "$mdc" ] || continue
         local rname
         rname="$(basename "$mdc" .mdc)"
-        if is_livehome_install && [ "$rname" = "docker-via-make" ]; then
-            continue
-        fi
-        if is_livehome_install && [ -f "$SOURCE_ROOT/.cursor/rules-livehome/${rname}.mdc" ]; then
-            mdc="$SOURCE_ROOT/.cursor/rules-livehome/${rname}.mdc"
-        fi
         if fm_always_apply "$mdc"; then
             local rdesc rbody
             rdesc="$(fm_field "$mdc" description)"
@@ -258,9 +219,6 @@ skill_should_install() {
             ;;
         tailor-cv)
             [ "$INSTALL_ROOT_BASENAME" = "curriculum-vitae" ]
-            ;;
-        rosey-pr | rosey-parallel | rosey-epic-decompose | rosey-epic-frame | rosey-dogfood)
-            ! is_livehome_install
             ;;
         *)
             return 0
@@ -607,10 +565,8 @@ install_cursor_tree() {
                 continue
             fi
             cp -R "$skill_dir" ".cursor/skills/$sname"
-            apply_livehome_skill_overlay ".cursor/skills/$sname" "$sname"
         done
     fi
-    apply_livehome_rules
     [ -d "$SOURCE_ROOT/.cursor/agents" ] && cp -R "$SOURCE_ROOT/.cursor/agents" .cursor/
     # mcp.json is seeded from mcp.json.example + SOURCE_ROOT/.env (see seed_mcp_json_configs).
     [ -f "$SOURCE_ROOT/.cursor/hooks.json" ] && cp "$SOURCE_ROOT/.cursor/hooks.json" .cursor/
@@ -668,13 +624,6 @@ install_vscode_tree() {
         [ -f "$mdc" ] || continue
         local name desc body
         name="$(basename "$mdc" .mdc)"
-        if is_livehome_install && [ "$name" = "docker-via-make" ]; then
-            echo "   Skipping rule $name (live-home host tooling)"
-            continue
-        fi
-        if is_livehome_install && [ -f "$SOURCE_ROOT/.cursor/rules-livehome/${name}.mdc" ]; then
-            mdc="$SOURCE_ROOT/.cursor/rules-livehome/${name}.mdc"
-        fi
         desc="$(fm_field "$mdc" description)"
         body="$(fm_body "$mdc")"
         if fm_always_apply "$mdc"; then
@@ -718,7 +667,6 @@ install_vscode_tree() {
         fi
         mkdir -p ".github/skills/$sname"
         cp -R "$skill_dir/." ".github/skills/$sname/"
-        apply_livehome_skill_overlay ".github/skills/$sname" "$sname"
         # Rewrite .cursor refs in all markdown files of the skill
         find ".github/skills/$sname" -name '*.md' -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
             rewrite_cursor_refs "$f"
@@ -789,7 +737,6 @@ install_opencode_tree() {
         fi
         mkdir -p ".opencode/skills/$sname"
         cp -R "$skill_dir/." ".opencode/skills/$sname/"
-        apply_livehome_skill_overlay ".opencode/skills/$sname" "$sname"
         find ".opencode/skills/$sname" -name '*.md' -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
             rewrite_cursor_refs_opencode "$f"
         done
@@ -871,7 +818,6 @@ install_pi_tree() {
         fi
         mkdir -p ".pi/skills/$sname"
         cp -R "$skill_dir/." ".pi/skills/$sname/"
-        apply_livehome_skill_overlay ".pi/skills/$sname" "$sname"
         find ".pi/skills/$sname" -name '*.md' -type f -print0 2>/dev/null | while IFS= read -r -d '' f; do
             rewrite_cursor_refs_pi "$f"
         done
@@ -1217,7 +1163,7 @@ EOF
 
 ## Live-home git
 
-This workspace is a live-home. Work on master (or main). No PRs, no stashes. Git is backup and sync between two machines. Slash skills `rosey-brainstorm`, `rosey-plan`, `rosey-work`, `rosey-qa`, and `rosey-lint` use the live-home overlays. Host tooling is allowed; Docker-via-Make does not apply.
+This workspace is a live-home. Work on master (or main). No PRs, no stashes. Git is backup and sync between two machines. Slash skills `rosey-brainstorm`, `rosey-plan`, `rosey-work`, `rosey-qa`, and `rosey-lint` follow the shared Rosey git rules. Host tooling is allowed; Docker-via-Make does not apply.
 EOF
         fi
         return 0

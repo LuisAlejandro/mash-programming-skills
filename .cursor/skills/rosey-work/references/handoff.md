@@ -27,13 +27,11 @@ Entered when all Phase 2 tasks are complete.
    - Use [`rosey-hindsight`](../../rosey-hindsight/SKILL.md) to retain a concise but rich summary with plan path, changed files, completed work, verification commands, blockers, and important decisions.
    - If Hindsight is unavailable or not configured, skip retain and record the status in the handoff envelope.
 6. **Prepare handoff context**:
-   - Emit a compact, stable envelope. Keep the field names below so downstream skills (`rosey-qa`, `rosey-pr`) can consume the handoff without parsing prose:
+   - Emit a compact, stable envelope. Keep the field names below so later skills (`rosey-qa`, `rosey-pr` — both invoked explicitly) can consume the handoff without parsing prose:
 
      ```text
      ROSEY_WORK_HANDOFF
-     BRANCH: <feature/slug>
-     BRANCH_DECISION: <new-from-develop | continued | renamed>
-     BRANCH_NOTE: <none | one-line reason when continued on mismatched or open-PR branch>
+     BRANCH: <current branch — work happens in place; no branch setup>
      FILES_CHANGED:
      - <repo-relative path>
      DONE:
@@ -51,7 +49,7 @@ Entered when all Phase 2 tasks are complete.
      END_ROSEY_WORK_HANDOFF
      ```
 
-   - `BRANCH`, `BRANCH_DECISION`, `FILES_CHANGED`, `WHAT_WAS_IMPLEMENTED`, `PLAN_OR_REQUIREMENTS`, and `SENTRUX_REVIEW_CONTEXT` are required for downstream compatibility.
+   - `BRANCH`, `FILES_CHANGED`, `WHAT_WAS_IMPLEMENTED`, `PLAN_OR_REQUIREMENTS`, and `SENTRUX_REVIEW_CONTEXT` are required for downstream compatibility.
    - `DONE`, `VERIFY`, `BLOCKERS`, `HINDSIGHT`, and `SENTRUX` are compact machine-to-machine fields. Keep each line short; put full detail in artifacts or blocker reports only when needed.
 
 7. **Run the final checks before the envelope goes out:**

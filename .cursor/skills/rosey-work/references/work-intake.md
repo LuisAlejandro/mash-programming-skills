@@ -1,12 +1,12 @@
 # Work Intake
 
-Read this on entering Phase 0. It owns input triage and complexity routing, plan reading, branch setup, task-list construction, and dispatch strategy. Return to the kernel with the resolved branch, task list, and execution strategy.
+Read this on entering Phase 0. It owns input triage and complexity routing, plan reading, task-list construction, and dispatch strategy. Return to the kernel with the resolved plan, task list, and execution strategy.
 
 ## Phase 0: Input Triage
 
 `rosey-work` executes a plan. Resolve one from `<input_document>` or from the session, in this order:
 
-**Branch-setup bypass.** After stripping `mode:`, if the remaining input contains the exact phrase `do not run branch setup`, strip that phrase and set `BRANCH_SETUP_BYPASS`. When that flag is set: skip branch setup entirely and record `BRANCH_DECISION: continued`. Do not infer the bypass from being inside a worktree. Then resolve the plan path from whatever remains.
+Branch setup no longer exists in this skill — work happens in place on the current branch; branching and PRs belong to `rosey-pr` (invoked explicitly by the user). The legacy `do not run branch setup` phrase is accepted and ignored for compatibility with `rosey-parallel` workers.
 
 0. **Blank input — latest software plan.** After stripping `mode:` (and the bypass phrase if present), if the remaining input is empty:
    1. Glob `rosey/plans/*-plan.md`.
@@ -77,100 +77,25 @@ END_ROSEY_WORK_HANDOFF
 
 2. **Setup Environment**
 
-   App repos use `develop` as the fixed integration branch.
-   **Hard gate:** complete branch setup and record `BRANCH` / `BRANCH_DECISION` in the handoff envelope before the first file edit. Do not skip because the current branch "looks fine."
-
-   First, check the current branch and verify `origin/develop` exists:
-
-   ```bash
-   current_branch=$(git branch --show-current)
-   git rev-parse --verify origin/develop >/dev/null
-   ```
+   **Work in place on the current branch.** No branch setup, no git-flow, no checkout, no stash. Record `BRANCH: <current branch>` (from `git branch --show-current`) in the handoff envelope before the first edit. Branching and PRs belong to `rosey-pr` — the user invokes it explicitly after work completes.
 
    **Pre-work inventory — record this before the first edit:**
 
    ```bash
+   git branch --show-current
    git status --short --untracked-files=all    # the user's in-progress files
-   git log origin/develop..HEAD --oneline      # commits not yet on the remote
+   git log @{u}..HEAD --oneline                # local commits not yet pushed
    ```
 
-   **Nothing in that set is this run's to commit or publish.** It rides along a branch move untouched — no stash, no question, no effect on branch naming. Path-limited commits (Phase 2) keep untouched WIP out of every commit automatically, so this inventory exists for the one case they cannot separate: a unit that must edit a file that was _already dirty_.
+   **Nothing in that set is this run's to commit or publish.** Path-limited commits (Phase 2) keep untouched WIP out of every commit automatically, so this inventory exists for the one case they cannot separate: a unit that must edit a file that was _already dirty_.
 
-   When that happens, ask _once_, at the first commit that would include such a file, covering every file in that situation: commit those files with the user's edits included, or leave them uncommitted for the rest of the run and name them as unshipped in the final summary. In non-interactive mode, do not ask and do not edit them — stop with a blocker naming the files, so "commit or stash, then re-run" is a clean recovery. List any file this run deliberately left uncommitted in the handoff envelope so `rosey-pr` does not publish it silently.
-
-   **Derive the plan slug.** This rule is canonical and is duplicated verbatim in [`rosey-pr`](../../rosey-pr/SKILL.md) and [`../rosey-pr/references/branch-creation.md`](../../rosey-pr/references/branch-creation.md). All three must agree — `rosey-pr`'s plan ↔ branch guard stops before commit when they diverge.
-
-   - From a plan path: take the basename without extension, strip the leading date and sequence/type tokens (`YYYY-MM-DD-NNN-<type>-`) and any trailing `-plan` suffix, kebab-case, max ~50 characters.
-     Example: `rosey/plans/2026-05-29-001-feat-seo-phase-2-content-plan.md` → `seo-phase-2-content`.
-   - Expected branch: `feature/<slug>`.
-
-   **Plan ↔ branch alignment**:
-
-   | Signal                                                                                             | Action                                                                                                        |
-   | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-   | `current_branch` is `feature/<slug>` and slug matches plan slug                                    | Continue (record `BRANCH_DECISION: continued`)                                                                |
-   | Plan explicitly says it extends or continues `<branch>`                                            | Continue on that branch                                                                                       |
-   | Slug mismatch (e.g. plan `seo-phase-2-content`, branch `feature/seo-phase-1`)                      | **Recommend new branch from `develop`** — a meaningful but wrong-phase name is still a mismatch               |
-   | Branch name opaque or auto-generated (e.g. `worktree-jolly-beaming-raven`)                         | Rename or create new `feature/<slug>`                                                                         |
-   | Open PR on current branch (GitHub MCP `search_pull_requests` when available) **and** slug mismatch | Require new branch or explicit "add to existing PR" confirmation — do not silently stack unrelated plan scope |
-
-   **If already on a feature branch** (not `develop`):
-
-   Apply the alignment table above first. When slug mismatches or an open PR stacks unrelated scope, ask (interactive):
-
-   > "Plan expects `feature/<plan-slug>` but current branch is `[current_branch]`. Create a new branch from `develop`, or continue on the current branch?"
-   - **New branch** → follow **Create feature branch from `develop`** below. Preserve uncommitted work via stash when needed.
-   - **Continue** → only after explicit confirmation when slug mismatched or open PR stacks scope. Record `BRANCH_DECISION: continued` and a one-line `BRANCH_NOTE` explaining why.
-   - **Rename only** (opaque name, slug otherwise matches intent):
-
-     ```bash
-     git branch -m feature/<slug>
-     ```
-
-   In non-interactive mode: create `feature/<plan-slug>` from `develop` when slug mismatches and movement is safe; stop if uncommitted work or unpushed commits would be lost. Never silently continue on a mismatched branch.
-
-   **If on `develop`**, choose how to proceed:
-
-   **Option A: Create feature branch from `develop`** (default for new plan work)
-
-   Read [`../rosey-pr/references/branch-creation.md`](../../rosey-pr/references/branch-creation.md) when local `develop` may be stale or has unpushed commits. Then:
-
-   ```bash
-   git fetch --no-tags origin develop
-   git pull origin develop
-   git config --get gitflow.branch.master >/dev/null 2>&1 || git flow init -d
-   git flow feature start <slug>
-   ```
-
-   Record `BRANCH_DECISION: new-from-develop`.
-
-   **Leaving an existing feature branch to create new** (slug mismatch, user chose new branch):
-
-   ```bash
-   git stash push -u -m "rosey-work: pre-branch feature/<slug>"   # when uncommitted changes exist
-   git fetch --no-tags origin develop
-   git config --get gitflow.branch.master >/dev/null 2>&1 || git flow init -d
-   git flow feature start <slug> origin/develop
-   git stash pop                 # when stashed; stop on conflicts — do not auto-resolve
-   ```
-
-   Pass `origin/develop` as the explicit base. Without it `git flow feature start` branches from the local `develop` ref, which this path never pulled. Follow [`../rosey-pr/references/branch-creation.md`](../../rosey-pr/references/branch-creation.md) instead when local `develop` carries unpushed commits that must be preserved.
-
-   **Option B: Continue on `develop`**
-   - Requires explicit user confirmation
-   - Only proceed after user explicitly says "yes, commit to develop"
-   - Never commit directly to `develop` without explicit permission
-   - In non-interactive mode, never continue on `develop`; create a new feature branch.
-
-   Use a meaningful slug based on the plan or work (e.g. `user-authentication`). `git flow feature start <slug>` creates and checks out `feature/<slug>`. Keep branch names on `feature/<slug>` for `pr-auto-merge.yml` head filter compatibility.
-
-   **Running under `rosey-parallel`?** The orchestrator pre-creates the worktree and the track branch and passes `do not run branch setup`. Honor `BRANCH_SETUP_BYPASS`: skip this step entirely and record `BRANCH_DECISION: continued`. Never create a worktree from inside one. Do not infer the bypass from cwd or worktree layout.
+   When that happens, ask _once_, at the first commit that would include such a file, covering every file in that situation: commit those files with the user's edits included, or leave them uncommitted for the rest of the run and name them as unshipped in the final summary. In non-interactive mode, do not ask and do not edit them — stop with a blocker naming the files, so "commit, then re-run" is a clean recovery. List any file this run deliberately left uncommitted in the handoff envelope so `rosey-pr` does not publish it silently.
 
    **Resolve verification commands** (reuse in the Phase 2 loop; still run full `rosey-lint` at Phase 3):
    1. Use the plan's `## Verification Contract` when present.
    2. Otherwise inspect Makefile targets (`make test`, `make lint`) and Compose services.
    3. Otherwise resolve through [`rosey-lint`](../../rosey-lint/SKILL.md) discovery and the Docker-via-Make always-on guideline.
-   4. Never run project `npm`, `pytest`, `node`, or `python` on the host.
+   4. Prefer Docker-via-Make (containers when a working Compose + Make setup exists); otherwise use host commands per the always-on guideline.
 
 3. **Create Task List**
    - Use the harness's task-tracking tool (`manage_todo_list` in VS Code, the todo/plan primitive elsewhere — match by capability) to break the plan into actionable tasks. When the harness exposes none, keep the task list in your own working context rather than simulating one in chat
@@ -211,7 +136,7 @@ END_ROSEY_WORK_HANDOFF
    | **Inline**           | 1-2 small tasks, or tasks needing user interaction mid-flight. Also the whole run when the harness exposes no subagent primitive: execute every unit inline under the same unit packet and verification contract |
    | **Serial subagents** | 3+ tasks. Each subagent gets a fresh context window focused on one unit — prevents context degradation across many tasks. Requires plan-unit metadata (Goal, Files, Approach, Test scenarios) |
 
-   **`rosey-work` does not dispatch parallel subagents.** Concurrent implementation belongs to [`rosey-parallel`](../../rosey-parallel/SKILL.md), which owns real per-task worktrees, deterministic file-disjoint sequencing, a batched human gate, and bounded integration. Serial dispatch already buys the thing that matters here — a fresh context window per unit — and parallelism is a latency optimization, not a quality one. When a plan is large enough to want concurrency, hand the epic to `rosey-parallel` rather than improvising it here.
+   **`rosey-work` does not dispatch parallel subagents.** Concurrent implementation belongs to [`rosey-parallel`](../../rosey-parallel/SKILL.md), which owns real per-task worktrees, deterministic file-disjoint sequencing, a batched human gate, and bounded integration. Serial dispatch already buys the thing that matters here — a fresh context window per unit — and parallelism is a latency optimization, not a quality one. When a plan is large enough to want concurrency, invoke `rosey-parallel` explicitly rather than improvising it here.
 
    Dispatch tiering and the degradation ladder (no per-dispatch model override → inherit and keep the read budgets; no subagent primitive → run inline; how to classify a rejected dispatch) follow `.agents/shared/references/model-tiers/model-tiers.md`.
 

@@ -30,7 +30,7 @@ Ask the user only when the answer materially affects architecture, scope, sequen
 - Build the filename following the repository convention: `rosey/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md`
   - Create `rosey/plans/` if it does not exist
   - Check existing files for today's date to determine the next sequence number (zero-padded to 3 digits, starting at 001)
-  - **Reserve the path with exclusive creation.** If the chosen name already exists, take the next available `NNN` rather than overwriting — two plan runs on the same day must never collide. The token shape is fixed: `rosey-work` and `rosey-pr` both derive branch slugs by stripping `YYYY-MM-DD-NNN-<type>-` (generic `<type>`, not only feat/fix/refactor), and `rosey-pr` stops before commit when the plan and branch slugs diverge
+  - **Reserve the path with exclusive creation.** If the chosen name already exists, take the next available `NNN` rather than overwriting — two plan runs on the same day must never collide. The token shape is fixed: `rosey-pr` derives the branch slug by stripping `YYYY-MM-DD-NNN-<type>-` (generic `<type>`, not only feat/fix/refactor), and it stops before commit when the plan and branch slugs diverge
   - Keep the descriptive name concise (3-5 words) and kebab-cased
   - Examples: `2026-01-15-001-feat-user-authentication-flow-plan.md`, `2026-02-03-002-fix-checkout-race-condition-plan.md`, `2026-03-10-001-docs-api-error-catalog-plan.md`, `2026-04-01-001-chore-release-script-plan.md`
   - Avoid: missing sequence numbers, vague names like "new-feature", invalid characters (colons, spaces)

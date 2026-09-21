@@ -97,9 +97,9 @@ Invoke agent `rosey-design-iterator` with `mode:non-interactive`, `PAGE_SLUG`, `
 
 Invoke **`rosey-lint`** with `mode:non-interactive`. Require `LINT_HANDOFF` with `LINT_STATUS: pass`.
 
-### Stage G — PR
+### Stage G — PR (explicit)
 
-Unless `skipPr` is set, invoke **`rosey-pr`** with `mode:non-interactive`. Treat this as approval to branch/commit/push/PR. Include `rosey/designs/<page-slug>/` artifacts in the commit.
+The pipeline stops after lint. The user invokes **`rosey-pr`** explicitly to branch, commit, push, and open a PR. Include `rosey/designs/<page-slug>/` artifacts in the commit when they do.
 
 ## Final handoff
 
