@@ -46,6 +46,40 @@ To update the rules and skills in a target repository, simply run the install co
 - `--write-pin` / `--no-write-pin`: enable or disable writing `rosey/agentic-env.json`.
 - `--agents` / `--no-agents`: enable or disable writing `AGENTS.md` / `.cursorrules` (default: always overwrite).
 
+## Uninstalling
+
+`uninstall.sh` reverses `install.sh` for a single repository. It is a **dry run by default**:
+
+```bash
+./uninstall.sh                 # print the plan, change nothing
+./uninstall.sh --apply         # remove repo-local Rosey artifacts
+./uninstall.sh --check         # exit 0 if installed, 1 if not
+```
+
+It removes the Rosey-owned trees (`.cursor/rules|skills|agents|hooks`, `.github/copilot-instructions.md`, `.github/{instructions,skills,agents,hooks}`, `.opencode/…`, `.pi/…`, `.agents/shared`, `rosey/agentic-env.json`, `rosey/hindsight-pin`) and surgically edits the shared files it touched: only the Rosey task is dropped from `.vscode/tasks.json`, only the seeded `mcp`/plugin entries from `opencode.json`, and only the exact block it appended to `.gitignore`. `AGENTS.md` / `.cursorrules` are removed only when they still match what the installer wrote; appended user content makes them be kept (with a warning).
+
+Machine-wide tools (`uv`, `bun`, `jq`, `rg`, `gh`, git-flow, Sentrux, uv tools, Pi extensions, `hindsight-embed`), user data under `rosey/` (plans, insights, solutions, …), and `~/.hindsight` are **never touched** — uninstall is repo-local by design. Remaining flags:
+
+- `--targets=cursor,vscode,opencode,pi` — limit to some IDE trees.
+- `--purge-git-config` — unset the repo-local `user.signingkey` set by the installer (branches are never deleted; requires `--apply --yes`).
+- `--force` — remove generated files even when user-modified.
+- `--keep-gitignore` — leave `.gitignore` untouched.
+- `--yes` — confirm repo-local git-config changes.
+
+## Bulk operations (`install.list`)
+
+`install.list` holds one repository path per line (`#` comments and blank lines allowed). `bulk-install.sh` and `bulk-uninstall.sh` loop over it, forwarding every argument to `install.sh` / `uninstall.sh` and skipping entries whose directory is missing (unmounted volume, deleted folder):
+
+```bash
+./bulk-install.sh --check
+./bulk-install.sh --write-pin --agents
+./bulk-uninstall.sh                 # dry run across every repo
+./bulk-uninstall.sh --check         # installed / not-installed report
+./bulk-uninstall.sh --apply --yes   # bulk --apply refuses to run without --yes
+```
+
+Set `INSTALL_LIST` to use a different list file.
+
 ## Optional: Hindsight local memory
 
 Rosey can use [Hindsight](https://github.com/hindsight/hindsight) for cross-session memory via the `hindsight-embed` CLI (not MCP). This is optional.
@@ -59,7 +93,7 @@ Rosey can use [Hindsight](https://github.com/hindsight/hindsight) for cross-sess
    uv tool install "hindsight-embed==${pin}" --with "hindsight-api==${pin}"
    ```
 
-   The first install may take 30–60+ minutes while large dependencies download. Later `install.sh` / `autoinstall.sh` runs skip the tool install when the CLI already responds. Daemon warm-start is left to IDE hooks after the first install.
+   The first install may take 30–60+ minutes while large dependencies download. Later `install.sh` / `bulk-install.sh` runs skip the tool install when the CLI already responds. Daemon warm-start is left to IDE hooks after the first install.
 
    Fallback without a key: interactive `uvx "hindsight-embed@${pin}" configure`, then re-run `install.sh`.
 

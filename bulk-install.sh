@@ -1,9 +1,30 @@
 #!/usr/bin/env bash
+# Bulk installer: run install.sh across every repository in install.list.
+#
+# All arguments are forwarded to install.sh, e.g.:
+#   ./bulk-install.sh --check
+#   ./bulk-install.sh --write-pin --agents
+#   ./bulk-install.sh --no-agents
+#
+# Entries that are missing (unmounted volume, deleted folder) are skipped.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LIST_FILE="$SCRIPT_DIR/autoinstall.list"
+LIST_FILE="${INSTALL_LIST:-$SCRIPT_DIR/install.list}"
 INSTALL_SH="$SCRIPT_DIR/install.sh"
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -h | --help)
+            sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 if [ ! -f "$LIST_FILE" ]; then
     echo "Error: list file not found: $LIST_FILE" >&2
