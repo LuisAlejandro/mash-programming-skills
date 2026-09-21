@@ -48,6 +48,22 @@ export PATH="${HOME}/.local/bin:${PATH}"
 hindsight-embed daemon status
 ```
 
+`daemon status` alone is not proof of availability. It is a bare `GET /health == 200`
+on the configured port, so any unrelated service squatting on that port is
+reported as a running daemon. Confirm the fingerprint before trusting it:
+
+```bash
+export PATH="${HOME}/.local/bin:${PATH}"
+port="$(sed -n 's/^HINDSIGHT_API_PORT=\([0-9][0-9]*\).*/\1/p' "${HOME}/.hindsight/embed" | tail -1)"
+port="${port:-8888}"
+curl -fsS -m 2 "http://127.0.0.1:${port}/version"   # must return a Hindsight api_version
+```
+
+A 200 with HTML, or a body without `api_version`, means the daemon is not
+answering and the port is held by something else. Record that as
+`Hindsight: unavailable (port N held by a non-Hindsight service)` — do not treat
+it as availability, and do not attempt to free the port yourself.
+
 If status fails (CLI missing, not configured, or daemon down):
 
 1. Record `Hindsight: unavailable (<reason>)` in the first status message.
@@ -64,6 +80,10 @@ Daemon warm-restart (installed globally by Rosey):
 VS Code / Copilot warm-start is not supported.
 
 Do not run `daemon start` manually during Rosey workflows; use `daemon status` only.
+
+`hindsight-embed` forwards memory commands to a standalone `hindsight` CLI binary.
+It is versioned separately from the embed and API, so `hindsight --version` should
+match the pin in `~/.config/rosey/hindsight-pin`; `install.sh` enforces that.
 
 If status still fails after the hook runs, check `~/.hindsight/hook-last-run.log` for clues. Record `Hindsight: unavailable (<reason>)` and continue.
 

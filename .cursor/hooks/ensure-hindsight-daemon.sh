@@ -43,6 +43,30 @@ fi
 # Cursor hook env may omit ~/.local/bin (uv tool install shims).
 PATH="${HOME}/.local/bin:${PATH}"
 
+# Port of the default profile's daemon (mirrors profile_manager._resolve_ports).
+daemon_port() {
+    local cfg port=""
+    for cfg in "${HOME}/.hindsight/embed" "${HOME}/.hindsight/config.env"; do
+        [ -f "$cfg" ] || continue
+        port="$(sed -n 's/^HINDSIGHT_API_PORT=\([0-9][0-9]*\).*/\1/p' "$cfg" | tail -1)"
+        [ -n "$port" ] && break
+    done
+    printf '%s' "${port:-8888}"
+}
+
+# `hindsight-embed daemon status` is a bare `GET /health == 200`, so any service
+# squatting on the daemon port is mistaken for Hindsight. Require the /version
+# fingerprint instead.
+daemon_healthy() {
+    local port
+    if ! command -v curl >/dev/null 2>&1; then
+        hindsight-embed daemon status >/dev/null 2>&1
+        return $?
+    fi
+    port="$(daemon_port)"
+    curl -fsS -m 2 "http://127.0.0.1:${port}/version" 2>/dev/null | grep -q '"api_version"'
+}
+
 HINDSIGHT_PIN="$(read_hindsight_pin)"
 
 if ! command -v hindsight-embed >/dev/null 2>&1; then
@@ -50,8 +74,15 @@ if ! command -v hindsight-embed >/dev/null 2>&1; then
     exit 0
 fi
 
-if hindsight-embed daemon status >/dev/null 2>&1; then
+if daemon_healthy; then
     hindsight_hook_log "daemon already up (pin ${HINDSIGHT_PIN})"
+    exit 0
+fi
+
+if hindsight-embed daemon status >/dev/null 2>&1; then
+    # Not Hindsight, but the port answers /health: a foreign service holds it.
+    # `daemon start` would refuse to act, so report instead of pretending.
+    hindsight_hook_log "port $(daemon_port) answers /health but is not Hindsight; daemon not started (pin ${HINDSIGHT_PIN})"
     exit 0
 fi
 

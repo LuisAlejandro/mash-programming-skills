@@ -20,6 +20,7 @@ CURSOR_HOME="${HOME}/.cursor"
 PI_HOME="${HOME}/.pi/agent"
 OPENCODE_HOME="${HOME}/.config/opencode"
 PI_SHARED_MCP="${HOME}/.config/mcp/mcp.json"
+HINDSIGHT_CLI_INSTALLER_URL="https://hindsight.vectorize.io/get-cli"
 
 if [ -f "$VERSION_FILE" ]; then
     INSTALL_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
@@ -131,7 +132,15 @@ seed_dotenv_from_example() {
             if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
                 key="${BASH_REMATCH[1]}"
                 val="$(rosey_resolve_env_value "$key")"
-                printf '%s=%s\n' "$key" "$val"
+                if [ -n "$val" ]; then
+                    printf '%s=%s\n' "$key" "$val"
+                else
+                    # Never emit an active empty assignment. Hindsight reads integer
+                    # settings with a bare int(os.getenv(KEY, default)), and the embed
+                    # propagates every HINDSIGHT_* profile key into the daemon env, so
+                    # `KEY=` (set but empty) raises ValueError at daemon start.
+                    printf '# %s=\n' "$key"
+                fi
                 if [ -n "$required_key" ] && [ "$key" = "$required_key" ] && [ -z "$val" ]; then
                     missing=1
                 fi
@@ -1454,6 +1463,62 @@ hindsight_cli() {
     hindsight-embed "$@"
 }
 
+# The standalone `hindsight` CLI binary the embed forwards memory commands to.
+hindsight_cli_version() {
+    hindsight_path
+    command -v hindsight >/dev/null 2>&1 || return 1
+    hindsight --version 2>/dev/null | awk '{print $NF}'
+}
+
+# Port of the default profile's daemon. Mirrors profile_manager._resolve_ports:
+# an explicit HINDSIGHT_API_PORT in the profile file wins, else 8888.
+hindsight_daemon_port() {
+    local cfg port=""
+    for cfg in "${HOME}/.hindsight/embed" "${HOME}/.hindsight/config.env"; do
+        [ -f "$cfg" ] || continue
+        port="$(sed -n 's/^HINDSIGHT_API_PORT=\([0-9][0-9]*\).*/\1/p' "$cfg" | tail -1)"
+        [ -n "$port" ] && break
+    done
+    printf '%s' "${port:-8888}"
+}
+
+# `hindsight-embed daemon status` is a bare `GET /health == 200`, so any service
+# squatting on the daemon port is mistaken for Hindsight. Require a Hindsight
+# fingerprint (/version, present since 0.7.1) instead. Falls back to the CLI
+# check when curl is unavailable.
+hindsight_daemon_healthy() {
+    local port
+    if ! command -v curl >/dev/null 2>&1; then
+        hindsight_cli daemon status >/dev/null 2>&1
+        return $?
+    fi
+    port="$(hindsight_daemon_port)"
+    curl -fsS -m 2 "http://127.0.0.1:${port}/version" 2>/dev/null | grep -q '"api_version"'
+}
+
+# The embed installs the `hindsight` CLI binary from a vendor installer outside
+# the uv pin, and only when the binary is missing. A stale binary therefore never
+# upgrades on its own, leaving the client behind the pinned daemon.
+ensure_hindsight_cli() {
+    local pin="$1" current
+    current="$(hindsight_cli_version || true)"
+    if [ "$current" = "$pin" ]; then
+        echo "   hindsight CLI already at the pinned ${pin}."
+        return 0
+    fi
+
+    echo "   hindsight CLI is ${current:-not installed}; installing pinned ${pin}..."
+    if HINDSIGHT_CLI_VERSION="$pin" bash -c "curl -fsSL ${HINDSIGHT_CLI_INSTALLER_URL} | bash" >/dev/null 2>&1 \
+        && [ "$(hindsight_cli_version || true)" = "$pin" ]; then
+        echo "   hindsight CLI installed at ${pin}."
+        return 0
+    fi
+
+    echo "   ⚠️  hindsight CLI install failed (memory commands still work, but the client version may drift)."
+    echo "      Retry: HINDSIGHT_CLI_VERSION=${pin} curl -fsSL ${HINDSIGHT_CLI_INSTALLER_URL} | bash"
+    return 1
+}
+
 # True when hindsight-embed is on PATH and responds (installed on this machine).
 hindsight_cli_available() {
     hindsight_path
@@ -1519,9 +1584,11 @@ check_hindsight_embed() {
         return 0
     fi
 
+    ensure_hindsight_cli "$pin" || true
+
     # Daemon start only on fresh tool install; later repo installs rely on IDE hooks.
     if [ "${HINDSIGHT_TOOL_ACTION}" = "skipped" ]; then
-        if hindsight_cli daemon status >/dev/null 2>&1; then
+        if hindsight_daemon_healthy; then
             echo "   Hindsight embed daemon is running."
         else
             echo "   Hindsight tool present; daemon start left to IDE session hooks."
@@ -1529,7 +1596,7 @@ check_hindsight_embed() {
         return 0
     fi
 
-    if hindsight_cli daemon status >/dev/null 2>&1; then
+    if hindsight_daemon_healthy; then
         echo "   Hindsight embed daemon is running."
         return 0
     fi
@@ -1537,11 +1604,12 @@ check_hindsight_embed() {
     echo "   Hindsight embed is configured but daemon is stopped; starting..."
     if HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT="${HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT:-600}" \
         hindsight_cli daemon start >/dev/null 2>&1 \
-        && hindsight_cli daemon status >/dev/null 2>&1; then
+        && hindsight_daemon_healthy; then
         echo "   Hindsight embed daemon started."
     else
         echo "   ⚠️  Hindsight daemon failed to start (cold boot can take several minutes)."
         echo "      Retry: HINDSIGHT_EMBED_DAEMON_STARTUP_TIMEOUT=600 hindsight-embed daemon start"
+        echo "      If port $(hindsight_daemon_port) is held by another service, set HINDSIGHT_API_PORT to a free port."
         echo "      Logs: hindsight-embed daemon logs -n 50"
         echo "      Hook log: ~/.hindsight/hook-last-run.log"
     fi

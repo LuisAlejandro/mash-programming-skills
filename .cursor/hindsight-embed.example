@@ -14,3 +14,8 @@ HINDSIGHT_API_LLM_PROVIDER=
 HINDSIGHT_API_LLM_MODEL=
 HINDSIGHT_API_LLM_API_KEY=
 HINDSIGHT_API_LLM_BASE_URL=
+
+# Daemon API port for the default profile. Leave empty for the default 8888.
+# Set it when another service already owns 8888 (for example a Stream Deck
+# install). The control center UI uses this port + 10000.
+HINDSIGHT_API_PORT=

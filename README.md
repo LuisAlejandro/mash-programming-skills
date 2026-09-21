@@ -140,6 +140,23 @@ memory and needs stable behavior.
 Embeddings stay on the local provider by default; switching them to a gateway
 changes the vector dimensions and invalidates existing memories.
 
+### Ports, client version, and health checks
+
+- `HINDSIGHT_API_PORT` in `.env` seeds the daemon port (default `8888`). Set it
+  when another service already owns `8888`, for example a Stream Deck install.
+- `install.sh` also aligns the standalone `hindsight` CLI binary with
+  `~/.config/rosey/hindsight-pin`. The embed installs that binary from a vendor
+  installer outside the `uv` pin and only when it is missing, so a stale binary
+  would otherwise never upgrade.
+- Health checks must not rely on `hindsight-embed daemon status` alone: it is a
+  bare `GET /health == 200`, so any service on the port looks like a running
+  daemon. The Rosey hook and `install.sh` require the `/version` fingerprint
+  (`api_version`) instead.
+- Seeding never writes an active empty assignment. Hindsight parses integer
+  settings with `int(os.getenv(KEY, default))` and the embed forwards every
+  `HINDSIGHT_*` profile key into the daemon environment, so `KEY=` (set but
+  empty) would abort daemon startup with `ValueError`.
+
 Warm-start locations are:
 
 - Cursor: `~/.cursor/hooks/ensure-hindsight-daemon.sh` via user `hooks.json`
