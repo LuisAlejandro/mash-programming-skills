@@ -115,7 +115,31 @@ uv tool install "hindsight-embed@$(tr -d '[:space:]' < ~/.config/rosey/hindsight
 
 The installer seeds `~/.hindsight/embed` from
 `.cursor/hindsight-embed.example` when configured and starts the daemon when
-possible. Warm-start locations are:
+possible. Every active `KEY=` line in that template is filled from this
+checkout's `.env`, so a fresh machine inherits the configured provider.
+
+### Pointing Hindsight at an OpenAI-compatible gateway
+
+Hindsight has no generic gateway provider. Use `openai` plus a base URL, for
+example OmniRoute:
+
+```dotenv
+HINDSIGHT_API_LLM_PROVIDER=openai
+HINDSIGHT_API_LLM_MODEL=openrouter/google/gemini-3.1-flash-lite
+HINDSIGHT_API_LLM_API_KEY=<gateway key>
+HINDSIGHT_API_LLM_BASE_URL=https://assistant.fundere.app/v1
+```
+
+Set those four keys in `.env` and re-run `install.sh` on an unconfigured
+machine. Existing `~/.hindsight/embed` files are never overwritten, so a machine
+already configured for another provider must be updated by hand (or removed) and
+the daemon restarted with `hindsight-embed daemon restart`. Pin a concrete model
+rather than a routing alias such as `auto/*`, because Hindsight runs repeated
+structured extraction over the same memory and needs a stable model.
+Embeddings stay on the local provider by default; switching them to a gateway
+changes the vector dimensions and invalidates existing memories.
+
+Warm-start locations are:
 
 - Cursor: `~/.cursor/hooks/ensure-hindsight-daemon.sh` via user `hooks.json`
 - OpenCode: native plugin under `~/.config/opencode/plugin/`
