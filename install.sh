@@ -180,12 +180,6 @@ fm_body() {
 skill_should_install() {
     local skill_name="$1"
     case "$skill_name" in
-        rosey-dockershelf-maintainer)
-            [ "$INSTALL_ROOT_BASENAME" = "dockershelf" ]
-            ;;
-        add-debian-suite | add-go-version | add-node-version | add-python-version | discover-new-versions | retire-version)
-            [ "$INSTALL_ROOT_BASENAME" = "dockershelf-pipeline" ]
-            ;;
         rosey-design-catalog | rosey-design-system | rosey-implement-design | rosey-design-candidates | rosey-design-pipeline | rosey-token-resolution)
             case "$INSTALL_ROOT_BASENAME" in
                 morphile | wholmaster | luisalejandro.org | landing-template | helpmarket | \
@@ -197,12 +191,6 @@ skill_should_install() {
                     return 1
                     ;;
             esac
-            ;;
-        rosey-maintainer-add | rosey-maintainer-sync | rosey-maintainer-automations)
-            [ "$INSTALL_ROOT_BASENAME" = "rosey-maintainer-tools" ]
-            ;;
-        tailor-cv)
-            [ "$INSTALL_ROOT_BASENAME" = "curriculum-vitae" ]
             ;;
         *)
             return 0
@@ -515,13 +503,10 @@ mkdir -p rosey
 [ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ] && cp "$SOURCE_ROOT/.cursor/hindsight-pin" rosey/hindsight-pin
 
 # Install the root-relative shared reference tree (.agents/shared/references) once at
-# the install root. It is IDE-agnostic: skills reference it as a single root-relative
-# path (.agents/shared/references/...) that resolves identically in every tree.
+# the install root.
+# Neutralized: references are no longer installed per-repo (see 2026-09-21-scoped-skills-repo-ownership.md).
 install_shared_refs() {
-    [ -d "$SOURCE_ROOT/.agents/shared/references" ] || return 0
-    rm -rf .agents/shared
-    mkdir -p .agents/shared
-    cp -R "$SOURCE_ROOT/.agents/shared/references/." .agents/shared/references/
+    return 0
 }
 
 # --- Cursor target ---
