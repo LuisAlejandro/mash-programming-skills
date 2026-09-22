@@ -61,8 +61,7 @@ Chat summary is required. Write a requirements file only when the user saves or 
 - Described exact expected behavior
 - Constrained, well-defined scope
 
-**If requirements are already clear:**
-Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Skip Phase 1.1 and 1.2 entirely — still classify tier in Phase 0.3, then go straight to Phase 1.3 or Phase 2.5 and compose the full scoping synthesis per `references/synthesis-summary.md`. A pre-loaded prompt does not earn a thinner checkpoint: the synthesis and its confirmation gate fire on every interactive run.
+**If requirements are already clear:** Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Skip Phase 1.1 and 1.2 entirely — still classify tier in Phase 0.3, then go straight to Phase 1.3 or Phase 2.5 and compose the full scoping synthesis per `references/synthesis-summary.md`. A pre-loaded prompt does not earn a thinner checkpoint: the synthesis and its confirmation gate fire on every interactive run.
 
 ### 0.3 Assess Scope
 

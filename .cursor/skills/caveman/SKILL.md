@@ -66,9 +66,7 @@ Example - destructive op:
 
 > **Warning:** This will permanently delete all rows in the `users` table and cannot be undone.
 >
-> ```sql
-> DROP TABLE users;
-> ```
+> ```sql DROP TABLE users; ```
 >
 > Caveman resume. Verify backup exist first.
 

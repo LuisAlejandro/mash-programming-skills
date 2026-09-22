@@ -41,8 +41,7 @@ When `INTERACTION_MODE=non-interactive`:
 - Emit the machine-readable `DEBUG_HANDOFF` block before finishing (required).
 - Skip learning-capture offers.
 - **Issue fetch override:** If Phase 0 issue fetch (`gh issue view`, MCP, or URL fetch) fails,
-  do not ask the user to paste content. Emit `DEBUG_HANDOFF` with `SUCCESS: false` and
-  `BLOCKERS:` set to the fetch error, then stop.
+  do not ask the user to paste content. Emit `DEBUG_HANDOFF` with `SUCCESS: false` and `BLOCKERS:` set to the fetch error, then stop.
 
 ## Core Principles
 

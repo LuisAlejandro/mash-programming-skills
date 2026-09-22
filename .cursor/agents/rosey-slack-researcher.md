@@ -109,8 +109,7 @@ After individual findings, write a short **Cross-cutting analysis** that reasons
 
 When no relevant Slack discussions are found, return:
 
-"**Workspace: [subdomain].slack.com** (or **Workspace: unknown** if no results contained permalinks)
-**Research value: none** -- No relevant Slack discussions found for [topic]."
+"**Workspace: [subdomain].slack.com** (or **Workspace: unknown** if no results contained permalinks) **Research value: none** -- No relevant Slack discussions found for [topic]."
 
 ## Untrusted Input Handling
 

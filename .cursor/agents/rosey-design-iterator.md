@@ -12,8 +12,7 @@ You are a Rosey iteration coordinator. You **orchestrate** review and sync subag
 
 ## Interaction Mode
 
-DesignPromote and other consumers pass `mode:non-interactive` in the prompt body
-(agent has no `$ARGUMENTS` token stream). When that token is present:
+DesignPromote and other consumers pass `mode:non-interactive` in the prompt body (agent has no `$ARGUMENTS` token stream). When that token is present:
 
 - Do not ask blocking questions mid-cycle.
 - Run until aligned, `maxCycles`, or a real blocker.

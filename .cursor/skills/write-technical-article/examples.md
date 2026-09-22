@@ -21,8 +21,7 @@ Nunca, pero nunca, escribas tu contraseña directamente en el código.
 
 ```python
 # NO HAGAS ESTO. ¡NUNCA!
-user = "tu_correo@ejemplo.com"
-password = "tu_contraseña_super_secreta"
+user = "tu_correo@ejemplo.com" password = "tu_contraseña_super_secreta"
 ```
 ````
 
@@ -40,10 +39,7 @@ git clone https://gist.github.com/<id>.git
 ```
 
 ```typescript
-// extract.ts
-export async function extractAuthor(authorId: string): Promise<void> {
-  // … contiguous excerpt from the gist file, not a rewrite
-}
+// extract.ts export async function extractAuthor(authorId: string): Promise<void> { // … contiguous excerpt from the gist file, not a rewrite }
 ```
 ````
 
