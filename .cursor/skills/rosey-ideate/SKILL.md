@@ -30,7 +30,7 @@ The **focus hint** is any optional context this run was invoked with, from the u
 
 Artifacts go under `<repo-root>/rosey/ideation/`, and learnings are read from `<repo-root>/rosey/solutions/`. Resolve `<repo-root>` only when you are about to compose one of those paths, and never before the mode is classified — an elsewhere or no-repo run writes to a temp directory and never needs it. Pass a subagent the resolved path, not the config.
 
-**Resolve the CE artifact root before composing any artifact path.**
+**Resolve the artifact root before composing any artifact path.**
 
 - **Hardcode** the artifact root to `<repo-root>/rosey/ideation/` (`<repo-root>` = `git rev-parse --show-toplevel`). Do not read any config file. This is fixed and not configurable.
 - **Use** `<repo-root>/rosey/ideation/` as the sole artifact location: create it if absent, compose each path as `<repo-root>/rosey/ideation/<subdir>` with this skill's own subdirectory, and never also read `docs`.
@@ -43,7 +43,7 @@ Both reads this phase names are required, even when the subject, mode, and forma
 
 Read `references/output-mode.md` whenever a format is resolved. The read is required. It owns each step of the decision, and the 30-day recent-work check that decides whether this run updates an existing doc instead of writing a new one.
 
-**No CE yaml config is read.** `rosey-ideate` reads no config file. The artifact root is hardcoded to `<repo-root>/rosey/ideation/` and `OUTPUT_FORMAT` is hardcoded to `html` (pipeline mode still forces `md`).
+**No yaml config is read.** `rosey-ideate` reads no config file. The artifact root is hardcoded to `<repo-root>/rosey/ideation/` and `OUTPUT_FORMAT` is hardcoded to `html` (pipeline mode still forces `md`).
 
 **Non-software routing.** A topic with no software surface runs elsewhere-mode grounding rather than the repo scan. It then follows `references/universal-ideation.md` in place of Phase 2's frames and the Phase 5 menu. The deliverable is still written automatically.
 

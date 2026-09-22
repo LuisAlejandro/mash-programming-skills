@@ -13,7 +13,7 @@ These hold regardless of which skill produced the artifact.
 - **YAML frontmatter at the top of the file.** Standard `---` delimited block containing the artifact's stable metadata (title, date, type, etc. — exact fields are per-skill, defined in the section contract).
 - **ASCII identifiers in anchors.** Markdown headings auto-generate anchors from the heading text. Keep headings ASCII so anchors are predictable (`#implementation-units`, not `#implementación-units`).
 - **Repo-relative paths for file references.** Always. Never absolute paths — they break portability across machines, worktrees, teammates.
-- **No HTML mixed in.** Keep the markdown pure. No `<div>`, no `<details>`, no inline `<style>`. Use tables, lists, and mermaid instead of HTML layout. The one exception is an invisible semantic marker that a section contract explicitly defines (for example `<!-- ce-section: work-relationships -->`) — it carries section meaning for downstream agents without creating layout. If a layout idea only works as HTML, defer it to the HTML rendering; markdown stays markdown.
+- **No HTML mixed in.** Keep the markdown pure. No `<div>`, no `<details>`, no inline `<style>`. Use tables, lists, and mermaid instead of HTML layout. If a layout idea only works as HTML, defer it to the HTML rendering; markdown stays markdown.
 - **No fixed-width line wrapping.** Do not hard-wrap prose to a column (e.g. 80 chars). Write one sentence per line, or let each paragraph flow as a single line. The artifact is read rendered and shared, where fixed wraps add nothing and only produce noisy mid-sentence diffs; markdown joins soft line breaks within a paragraph, so wrapping never changes the rendered output.
 - **No box-drawing characters.** Never compose tables, rules, or diagrams from ASCII/Unicode box-drawing glyphs (`┌ ┬ ┐ ├ ┼ ┤ └ ┴ ┘ │ ─`). Use pipe-delimited markdown tables and `---` rules. Box-drawing renders correctly in some harnesses and breaks in others, so it is never the safe choice.
 
@@ -135,7 +135,7 @@ Per-skill frontmatter fields are defined in each skill's section contract (`plan
 Before declaring the markdown file written, scan it for these common slips:
 
 - All stable IDs are plain-prefix format, not bolded.
-- No HTML elements mixed in, apart from a contract-defined invisible marker.
+- No HTML elements mixed in.
 - No fixed-width wrapping — no paragraph hard-wrapped to a column.
 - No box-drawing characters; tables are pipe-delimited.
 - All file paths are repo-relative.

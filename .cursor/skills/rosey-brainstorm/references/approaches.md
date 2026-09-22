@@ -59,6 +59,6 @@ Read `~/.config/rosey/references/model-tiers.md` for the tier and dispatch rules
 
 Consume the verdicts at Phase 3: correct refuted claims before writing, and label unverifiable ones as explicit assumptions.
 
-**Dispatch blocking**, immediately before the Phase 3 write. CE fires this during the confirmation wait to overlap with user think-time; that needs background dispatch, which is not portable, so the cost here is latency rather than correctness.
+**Dispatch blocking**, immediately before the Phase 3 write. This fires during the confirmation wait to overlap with user think-time; that needs background dispatch, which is not portable, so the cost here is latency rather than correctness.
 
 Skip when the document will make no checkable claims, or on the non-software route. When no sub-agent primitive is available, verify the claims inline before the Phase 3 write with the same read budget.

@@ -6,7 +6,7 @@ Required read at Phase 0.0, before anything writes or resumes an ideation artifa
 
 Determine `OUTPUT_FORMAT` for the ideation artifact this run might persist. Output mode is **exclusive** — the ideation doc is written as either HTML (`.html`) OR markdown (`.md`), never both. `OUTPUT_FORMAT` is **always `html`** — it is hardcoded and not configurable. The only exception is a hard pipeline-mode override.
 
-Unlike other CE skills (which commonly default to `md`), rosey-ideate defaults to **`html`** — ideation artifacts are read mainly by humans weighing candidate directions, and a rich self-contained HTML file makes the ideas easier to approach.
+Unlike the other artifact-producing Rosey skills (which commonly default to `md`), rosey-ideate defaults to **`html`** — ideation artifacts are read mainly by humans weighing candidate directions, and a rich self-contained HTML file makes the ideas easier to approach.
 
 Resolution steps:
 

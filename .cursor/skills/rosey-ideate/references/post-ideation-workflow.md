@@ -77,7 +77,7 @@ This ranked list doubles as the index the user references when choosing an idea 
 ### 4.3 Open It
 
 - **HTML:** in an interactive session, best-effort open the file in the browser via the platform's open primitive (`open` on macOS, `xdg-open` on Linux, `start` on Windows); always print the absolute path so it can be reopened or shared. Skip auto-open in headless / pipeline runs (no interactive surface).
-- **Markdown:** print the path. Proof (the markdown share surface) is reached through the Phase 5 menu — it is a network action, not auto-invoked.
+- **Markdown:** print the absolute path.
 
 ## Phase 5: Next Steps
 
@@ -87,10 +87,9 @@ The deliverable already exists (Phase 4), so the menu is purely *what next* — 
 
 **Stem:** "Your ideation is saved to `<path>`. What next?"
 
-Offer four options (self-contained labels with the distinguishing word front-loaded so they stay distinct when truncated). Option 1 is **format-keyed** — render exactly one of its two labels per run, matching `OUTPUT_FORMAT`:
+Offer four options (self-contained labels with the distinguishing word front-loaded so they stay distinct when truncated):
 
-1. *(when `OUTPUT_FORMAT=html`)* **Open in browser** — open the saved HTML deliverable (re-open if it was already opened).
-   *(when `OUTPUT_FORMAT=md`)* **Publish to Proof** — publish the saved markdown to Proof and get a shareable link; one-way, the local file stays canonical.
+1. **Open the deliverable** — (re)open the saved file so it can be reviewed or shared.
 2. **Develop one idea further** — go deeper on a single chosen idea, working from the substance already in context. Asks which idea first. (See §5.2.)
 3. **Discuss or refine the ideas first** — stay here to think across the set before committing: adjust or interrogate one idea, compare several, or combine/merge them. Asks what you want to work on.
 4. **Done — keep the file and stop.**
@@ -99,10 +98,10 @@ Offer four options (self-contained labels with the distinguishing word front-loa
 
 If the user already named what they want to work on inline (e.g. "brainstorm the table tool", "tighten the highlighter idea", "merge the table and highlighter ideas"), skip the follow-up that asks what to work on for §5.2 / §5.3.
 
-### 5.1 Open in Browser (html) / Publish to Proof (md)
+### 5.1 Open the Deliverable
 
-- **HTML — Open in browser.** (Re)open the saved file via the platform primitive where available; otherwise print the absolute path. Return to the Phase 5 menu. No Proof — the HTML file is the canonical record.
-- **Markdown — Publish to Proof.** The local markdown file already exists (Phase 4) and stays canonical; Proof is a one-way published copy, not a sync target. Publish the saved `.md` file from Phase 4 to Proof as a shared doc (title `Ideation: <topic>` or the doc's H1; identity `ai:compound-engineering` / `Compound Engineering`), and return the share URL. Surface it to the user, then return to the Phase 5 menu — nothing syncs back to disk. If the Proof publish fails after one retry (~2s pause, narrated as "Retrying Proof... attempt 2/2"), tell the user Proof is unavailable and that the local file is intact at `<path>`, then return to the menu — the deliverable was never at risk (it was written in Phase 4). *(If the user explicitly asked for Proof during an HTML run: Proof is markdown-only and cannot ingest HTML, so render a throwaway markdown copy of the survivors as the Proof source and do not upload the `.html`.)*
+- **HTML.** (Re)open the saved file via the platform primitive where available; otherwise print the absolute path. Return to the Phase 5 menu.
+- **Markdown.** Print the absolute path. Return to the Phase 5 menu.
 
 ### 5.2 Develop One Idea Further
 
