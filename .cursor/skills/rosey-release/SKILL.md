@@ -8,16 +8,11 @@ argument-hint: "[mode:interactive|mode:non-interactive] [patch|minor|major]"
 
 Gate and publish **releases** (patch, minor, major) for Rosey app repositories.
 
-This skill owns release publishing for app repos. It does not plan
-feature work, open PRs, merge PRs, implement code, or announce releases.
+This skill owns release publishing for app repos. It does not plan feature work, open PRs, merge PRs, implement code, or announce releases.
 
 ## Communication while using this skill
 
-**Caveman lite** for workflow status prose while this skill runs: strip filler
-and hedging; keep articles and full sentences; stay professional and tight.
-Technical accuracy unchanged; commands, issue titles, GitHub output, and release
-script output unchanged. Drop lite for release confirmation, destructive or
-irreversible warnings, user confusion, or when the user asks for normal wording.
+**Caveman lite** for workflow status prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; commands, issue titles, GitHub output, and release script output unchanged. Drop lite for release confirmation, destructive or irreversible warnings, user confusion, or when the user asks for normal wording.
 
 ## Rosey Overlay
 
@@ -25,8 +20,7 @@ irreversible warnings, user confusion, or when the user asks for normal wording.
 
 - Upstream: `rosey-work`, `rosey-qa`, `rosey-pr`, then app PRs auto-merge into `develop`.
 - Owned steps: release readiness checks, retroactive milestone documentation,
-  `make release-*` execution, branch CI verification, Publish Release workflow
-  verification, PyPI/package asset verification, milestone closure, and handoff.
+  `make release-*` execution, branch CI verification, Publish Release workflow verification, PyPI/package asset verification, milestone closure, and handoff.
 - Downstream: none. This skill stops after release verification and handoff.
 
 Hard boundaries:
@@ -61,9 +55,7 @@ In `mode:non-interactive`:
 
 - **Patch only** unless a release type token (`minor` or `major`) is present in `$ARGUMENTS`.
 - If `minor` or `major` is requested in non-interactive mode, document milestone handling without
-  blocking questions. If milestone rules cannot be satisfied automatically, emit
-  `ROSEY_RELEASE_HANDOFF` with `SUCCESS: false`, `BLOCKERS:` describing the milestone gap,
-  and do not run release scripts.
+  blocking questions. If milestone rules cannot be satisfied automatically, emit `ROSEY_RELEASE_HANDOFF` with `SUCCESS: false`, `BLOCKERS:` describing the milestone gap, and do not run release scripts.
 
 ## Hindsight Gate
 
@@ -129,8 +121,7 @@ Extract `new_version=<version>`. Milestone name matches this version for patch f
 
 ### 4. Select Issues For The Milestone (patch only)
 
-For `minor` and `major`, require user confirmation of milestone handling before
-creating or changing milestones.
+For `minor` and `major`, require user confirmation of milestone handling before creating or changing milestones.
 
 For `patch`, use GitHub data for parent or standalone issues (not sub-tasks).
 
@@ -140,8 +131,7 @@ Resolve release window:
 2. Else latest GitHub release or tag date.
 3. Else stop (ask in interactive mode; blocker in non-interactive).
 
-Before selecting patch issues, close completed parent issues when all sub-issues
-are closed (`gh issue close <parent> --comment "All sub-tasks completed."`).
+Before selecting patch issues, close completed parent issues when all sub-issues are closed (`gh issue close <parent> --comment "All sub-tasks completed."`).
 
 Eligible patch issues:
 
@@ -178,31 +168,22 @@ Five gates:
 | `minor` | `make release-minor` | `NON_INTERACTIVE=true make release-minor` |
 | `major` | `make release-major` | `NON_INTERACTIVE=true make release-major` |
 
-**Gate 3 detail:** Wait on the entire Push workflow run for `push.yml` at the
-exact release-branch SHA. Do not look up or require a job named `Release Gate`.
+**Gate 3 detail:** Wait on the entire Push workflow run for `push.yml` at the exact release-branch SHA. Do not look up or require a job named `Release Gate`.
 
 ### 6b. Abort and Roll Back on Failure
 
-On any failure, **always** run `VERSION=<version> make undo-release`, halt, report
-what failed, confirm rollback, and tell the user to fix on `develop` and invoke
-`rosey-release` again.
+On any failure, **always** run `VERSION=<version> make undo-release`, halt, report what failed, confirm rollback, and tell the user to fix on `develop` and invoke `rosey-release` again.
 
-Rollback order is **cancel-before-delete**: cancel matching in-progress workflow
-runs → wait until those runs are terminal → then delete refs/metadata. Matching
-workflows: Push, Publish Release, and when applicable Wholmaster Artifacts.
+Rollback order is **cancel-before-delete**: cancel matching in-progress workflow runs → wait until those runs are terminal → then delete refs/metadata. Matching workflows: Push, Publish Release, and when applicable Wholmaster Artifacts.
 
 ### 7. Verify Branch CI And Publish Workflow
 
-Verify: branch CI passed before tag; remote tag; GitHub release; Publish Release
-workflow succeeded; `Verify release tag` before PyPI; distribution assets on
-GitHub release; PyPI verification per dispatch (see below); local branch on
-`develop` and clean.
+Verify: branch CI passed before tag; remote tag; GitHub release; Publish Release workflow succeeded; `Verify release tag` before PyPI; distribution assets on GitHub release; PyPI verification per dispatch (see below); local branch on `develop` and clean.
 
 **PyPI verification rules:**
 
 - If VersionPromote dispatch lists packages (from `publish-to-pypi` in
-  `.github/workflows/release.yml`), verify each listed package on PyPI and record
-  `pass` or `failed` per package in the handoff `PYPI:` section.
+  `.github/workflows/release.yml`), verify each listed package on PyPI and record `pass` or `failed` per package in the handoff `PYPI:` section.
 - If dispatch says PyPI is not applicable (no `publish-to-pypi` job), set
   `PYPI: not-applicable` in the handoff and skip PyPI checks.
 - Do not hardcode package names; use only the dispatch list or repo workflow discovery.
