@@ -55,6 +55,16 @@ them. Do not re-add the library to this source repo: pi-subagents scans
 everything under `<repo>/.agents/` recursively as project agent definitions, so
 non-agent documentation there is a latent phantom-agent hazard.
 
+## Why `.pi/` exists here
+
+`.pi/.gitkeep` is a deliberate project-root marker — do not delete it. Pi's
+subagent discovery treats a directory as a project root only when it contains
+`.pi/` or `.agents/`. Without it, this repo stops qualifying, so Pi walks up to
+`$HOME` (which has both), resolves the project root to `$HOME`, and loads
+`~/.agents/*.md` a second time as *project* agents while reading
+`~/.pi/agent/settings.json` as *project* settings. A bare `.pi/` directory is
+enough, and Pi's docs confirm it does not trigger the project-trust prompt.
+
 ## Hindsight
 
 Hindsight is consulted only when `/rosey-brainstorm`, `/rosey-plan`,

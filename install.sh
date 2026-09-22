@@ -76,16 +76,6 @@ if [ ! -d "$SOURCE_ROOT/.cursor" ]; then
     exit 1
 fi
 
-# Extract frontmatter fields from Cursor .mdc files.
-fm_field() {
-    local file="$1" field="$2"
-    sed -n "/^${field}:[[:space:]]*/{ s/^${field}:[[:space:]]*//; s/^[\"']//; s/[\"']$//; p; q; }" "$file" 2>/dev/null
-}
-
-fm_always_apply() {
-    grep -qE '^alwaysApply:[[:space:]]*true' "$1" 2>/dev/null
-}
-
 # Read KEY=value from a dotenv-style file (last match). Strips optional quotes.
 rosey_dotenv_get() {
     local file="$1" key="$2" line val
@@ -569,10 +559,34 @@ rosey_global_gitignore_path() {
     printf '%s\n' "${HOME}/.gitignore-global"
 }
 
+# Point core.excludesFile at the file we just wrote when it is unset. Git does
+# not read ~/.gitignore-global by default (its built-in default is
+# $XDG_CONFIG_HOME/git/ignore), so without this the block would be written to an
+# inert file and every Rosey working-directory ignore would silently not apply.
+rosey_global_gitignore_bind() {
+    local gf="$1" configured
+    command -v git >/dev/null 2>&1 || {
+        echo "   ⚠️  git not found; cannot bind core.excludesFile. Set it manually:"
+        echo "      git config --global core.excludesFile $gf"
+        return 0
+    }
+    configured="$(git config --global --get core.excludesFile 2>/dev/null || true)"
+    if [ -n "$configured" ]; then
+        return 0
+    fi
+    if git config --global core.excludesFile "$gf"; then
+        echo "   core.excludesFile was unset; set it to $gf so the block takes effect."
+    else
+        echo "   ⚠️  Could not set core.excludesFile. Git will not read $gf until you run:"
+        echo "      git config --global core.excludesFile $gf"
+    fi
+}
+
 rosey_global_gitignore_ensure() {
     local gf
     gf="$(rosey_global_gitignore_path)"
     mkdir -p "$(dirname "$gf")"
+    rosey_global_gitignore_bind "$gf"
     python3 - "$gf" <<'PY'
 from pathlib import Path
 import re
@@ -1295,54 +1309,6 @@ install_git_flow() {
     fi
 }
 
-configure_repo_signing_key() {
-    local existing global keys count key
-
-    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        echo "-> Skipping signing key (not a git repository)"
-        return 0
-    fi
-
-    existing="$(git config --local --get user.signingkey 2>/dev/null || true)"
-    if [ -n "$existing" ]; then
-        echo "-> user.signingkey already set locally ($existing); skipping"
-        return 0
-    fi
-
-    global="$(git config --global --get user.signingkey 2>/dev/null || true)"
-    if [ -n "$global" ]; then
-        git config --local user.signingkey "$global"
-        echo "-> Set local user.signingkey from global ($global)"
-        return 0
-    fi
-
-    if ! host_has gpg; then
-        echo "   ⚠️  gpg not found; cannot set user.signingkey. Install gnupg and add a secret key."
-        return 1
-    fi
-
-    keys="$(gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '/^sec:/ { want=1; next } want && /^fpr:/ { print $10; want=0 }')"
-    count=0
-    if [ -n "$keys" ]; then
-        count="$(printf '%s\n' "$keys" | grep -c .)"
-    fi
-
-    if [ "$count" -eq 0 ]; then
-        echo "   ⚠️  No GPG secret keys. Create one, then re-run to set user.signingkey."
-        return 1
-    fi
-    if [ "$count" -gt 1 ]; then
-        echo "   ⚠️  Multiple GPG secret keys; not picking one."
-        echo "      Set: git config --local user.signingkey <fingerprint>"
-        printf '%s\n' "$keys" | sed 's/^/      /'
-        return 1
-    fi
-
-    key="$keys"
-    git config --local user.signingkey "$key"
-    echo "-> Set local user.signingkey to $key"
-}
-
 # --- bumpversion (rosey-release / scripts/release.sh) ---
 # Classic CLI (`bumpversion --dry-run --list`) from bump2version. Do not install
 # Homebrew bump-my-version — that binary is a different command.
@@ -1658,7 +1624,7 @@ inventory_cli() {
 echo ""
 echo "-> Host tools this script does not install:"
 inventory_cli "docker (Engine; daemon must be running for release)" docker
-inventory_cli "gpg (needed to set user.signingkey when no global key is set)" gpg
+inventory_cli "gpg (only needed if you sign commits yourself)" gpg
 echo "   not packages: gh auth login, GPG secret keys (not generated), Docker daemon up"
 
 echo ""

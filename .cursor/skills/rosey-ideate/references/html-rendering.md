@@ -3,8 +3,11 @@
 This is a format-rendering reference — it describes how to render any
 artifact in HTML, independent of which skill is producing it.
 
-It is paired with a section contract (`plan-sections.md`,
-`brainstorm-sections.md`, etc.) that describes *what* the artifact contains.
+It is paired with a section contract that describes *what* the artifact
+contains — `references/ideation-sections.md` for this skill's own artifacts,
+or the producing skill's contract
+([`plan-sections.md`](../../rosey-plan/references/plan-sections.md),
+[`brainstorm-sections.md`](../../rosey-brainstorm/references/brainstorm-sections.md)).
 This reference describes *how* HTML specifically presents it. The same
 content rendered by different skills shares the same HTML principles.
 
