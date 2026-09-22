@@ -30,6 +30,8 @@ configuration entries without touching project files.
 |---|---|
 | Rosey state, pins, guidance, contracts | `~/.config/rosey/` |
 | Always-on rules (IDE-neutral) | `~/.config/rosey/always-on-rules.md` |
+| Skill npm dependencies | `~/.config/rosey/node_modules/<skill>/` |
+| Skill Python virtualenvs | `~/.config/rosey/venvs/<skill>/` |
 | Cursor rules | `~/.cursor/rules/` |
 | Cursor skills | `~/.cursor/skills/` |
 | Cursor agents | `~/.cursor/agents/` |
@@ -43,6 +45,27 @@ configuration entries without touching project files.
 | Pi agents | `~/.agents/` |
 | Pi warm-start | `~/.pi/agent/extensions/`, `~/.pi/agent/scripts/` |
 | Pi shared MCP config | `~/.config/mcp/mcp.json` (plus the accepted `mcpServers` mirror in Pi settings) |
+
+### Skill runtime dependencies
+
+Each skill is copied into all three IDE homes, so dependencies are installed
+**once** under `~/.config/rosey/` and symlinked into each copy:
+
+```text
+~/.config/rosey/node_modules/<skill>/   npm install, from the skill's package.json
+~/.config/rosey/venvs/<skill>/          Python venv, from the skill's requirements.txt
+
+~/.cursor/skills/<skill>/node_modules   -> shared store
+~/.cursor/skills/<skill>/.venv          -> shared venv
+```
+
+Both Node and Python resolve through a symlinked directory, so a skill's
+documented `node_modules/...` and `.venv/bin/python` paths work unchanged in
+every IDE home. Per-skill isolation is preserved (no shared package set) while
+nothing is installed three times. Uninstall removes the shared stores.
+
+A skill that pulls in Playwright also gets the Chromium build it needs;
+Playwright caches browsers machine-wide, so that download happens once.
 
 OpenCode uses `config.instructions[]` rather than
 `~/.config/opencode/AGENTS.md`; this preserves repository-local `AGENTS.md`
@@ -62,8 +85,7 @@ one frontmatter-stripped Markdown bundle:
 | Pi | `~/.pi/agent/APPEND_SYSTEM.md` (appends to the system prompt) |
 
 The bundle is generated from `.cursor/rules/*.mdc`; the `.mdc` sources remain the
-single source of truth. Shared `.mdc` copies in `~/.config/rosey/rules/` are kept
-for skill scripts that inspect rule contracts.
+single source of truth. Shared `.mdc` copies in `~/.config/rosey/rules/` are keptfor skill scripts that inspect rule contracts.
 
 ## What installation does
 
@@ -85,9 +107,12 @@ for skill scripts that inspect rule contracts.
    risk has no backup or rollback.
 8. Seeds the design-candidates `.env` in global skill homes from
    `.env.example` and `CURSOR_API_KEY` when available.
-9. Installs optional machine tools and Pi extensions only when enabled and
-   missing. Existing commands are not reinstalled.
-10. Updates the machine-global Git excludes file so only Rosey working-output
+9. Installs skill runtime dependencies once under `~/.config/rosey/` (npm for
+   skills with `package.json`, a virtualenv for skills with `requirements.txt`)
+   and symlinks them into each IDE copy.
+10. Installs optional machine tools and Pi extensions only when enabled and
+    missing. Existing commands are not reinstalled.
+11. Updates the machine-global Git excludes file so only Rosey working-output
     directories and the maintainer manifest remain ignored. `AGENTS.md` and
     `DESIGN.md` are not ignored.
 

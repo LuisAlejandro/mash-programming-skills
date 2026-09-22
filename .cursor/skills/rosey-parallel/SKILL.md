@@ -39,6 +39,8 @@ All state transitions, validation, footprint parsing, sequencing, worktree ops, 
 
 **Working directory:** cwd is this skill's directory (the folder that contains this `SKILL.md`).
 
+`.venv/` is a symlink to the machine-global skill virtualenv at `~/.config/rosey/venvs/rosey-parallel`, created by `install.sh` from this skill's `requirements.txt`. It carries `pytest` so the skill's own suite can run; the orchestrator itself is stdlib-only and also runs under a plain `python3`.
+
 ```bash
 # self-check / smoke
 .venv/bin/python scripts/rosey_parallel.py --self-check

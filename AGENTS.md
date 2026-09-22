@@ -41,6 +41,7 @@ supported targets; do not add install paths for others.
 | Curated insights | `rosey/insights/*.md` | Durable repository lessons |
 | Curated solutions | `rosey/solutions/` | Institutional how-tos |
 | Global Rosey state | `~/.config/rosey/` | Guidance, pins, and contract references |
+| Skill runtime deps | `~/.config/rosey/node_modules/`, `~/.config/rosey/venvs/` | Per-skill npm store and virtualenv, symlinked into each IDE home |
 | Hindsight memory | Hindsight (`hindsight-embed`) | Cross-session memory |
 
 The three contract references (`model-tiers.md`, `scoping-synthesis.md`,
@@ -55,6 +56,14 @@ frontmatter-stripped bundle at `~/.config/rosey/always-on-rules.md`, referenced 
 OpenCode `config.instructions[]` and copied to Pi as
 `~/.pi/agent/APPEND_SYSTEM.md`. Do not hand-edit the bundle — regenerate it by
 re-running `install.sh`.
+
+Skill dependencies are installed once and shared. A skill's `package.json` drives
+an npm install into `~/.config/rosey/node_modules/<skill>/`; its
+`requirements.txt` drives a virtualenv at `~/.config/rosey/venvs/<skill>/`. Each
+IDE's copy of the skill gets a symlink to the shared store, so the documented
+`node_modules/` and `.venv/bin/python` paths keep working without installing
+dependencies three times. Never commit a real `.venv/` or `node_modules/` under
+`.cursor/skills/`.
 
 The shared *library* references (domain, strategy, and engineering library) are
 not hosted here. They live only in the repository whose skills consume them —

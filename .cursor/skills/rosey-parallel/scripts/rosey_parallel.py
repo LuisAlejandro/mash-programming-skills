@@ -383,18 +383,33 @@ MAX_FIX_UP_ROUNDS = 2
 
 
 def _default_integration_gate(integration_worktree):
-    """Default gate: run the skill's test suite in the integration worktree.
+    """Default gate: run a skill test suite present in the integration worktree.
+
+    The suite is looked up inside ``integration_worktree`` because the gate
+    validates the merged tree, not the installed skill. Under a global install
+    the skill lives in the user's IDE home, so no suite is present in the tree
+    and the gate reports a visible skip rather than passing silently.
+
+    The skill's own suite is deliberately NOT run here: it exercises this
+    orchestrator, so invoking it from inside a gate recurses.
 
     Returns (ok, failures). A failing gate blocks the base-ref move (R17/R26).
     """
     import subprocess as _sp
+    import sys as _sys
 
-    venv_python = Path(integration_worktree) / ".cursor" / "skills" / "rosey-parallel" / ".venv" / "bin" / "python"
-    tests_dir = Path(integration_worktree) / ".cursor" / "skills" / "rosey-parallel" / "tests"
-    if not venv_python.exists() or not tests_dir.exists():
-        return True, []  # no skill test suite in this tree -> nothing to gate
+    skill_rel = Path(".cursor") / "skills" / "rosey-parallel"
+    tests_dir = Path(integration_worktree) / skill_rel / "tests"
+    if not tests_dir.is_dir():
+        print(
+            f"[rosey-parallel] integration gate skipped: no test suite at {tests_dir}",
+            file=_sys.stderr,
+        )
+        return True, []
+    venv_python = Path(integration_worktree) / skill_rel / ".venv" / "bin" / "python"
+    interpreter = str(venv_python) if venv_python.exists() else _sys.executable
     res = _sp.run(
-        [str(venv_python), "-m", "pytest", str(tests_dir), "-q"],
+        [interpreter, "-m", "pytest", str(tests_dir), "-q"],
         capture_output=True, text=True,
     )
     if res.returncode == 0:

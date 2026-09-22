@@ -43,6 +43,8 @@ Strip the mode token before resolving inputs. If no mode token is present, set `
 
 **Working directory:** cwd is this skill's directory (the folder that contains this `SKILL.md`).
 
+`install.sh` already provides `.venv/` as a symlink to the machine-global skill virtualenv at `~/.config/rosey/venvs/rosey-design-candidates`, built from `requirements.txt` with the Chromium build Playwright needs. Re-run `install.sh` to refresh it; the commands below are only needed when the symlink is absent.
+
 ```bash
 # OpenDesign CLI + daemon (start outside the git repo)
 (cd "${TMPDIR:-/tmp}" && opendesign --no-open &)

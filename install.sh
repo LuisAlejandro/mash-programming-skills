@@ -721,6 +721,19 @@ run_global_check() {
     if [ "$WRITE_PIN" = true ]; then
         required+=("$ROSEY_CONFIG_DIR/agentic-env.json" "$ROSEY_CONFIG_DIR/hindsight-pin")
     fi
+    if [ "${ROSEY_SKIP_SKILL_DEPS:-0}" != 1 ]; then
+        local dep_src dep_name
+        for dep_src in "$SOURCE_ROOT"/.cursor/skills/*/; do
+            [ -d "$dep_src" ] || continue
+            dep_name="$(basename "$dep_src")"
+            if [ -f "$dep_src/package.json" ]; then
+                required+=("$ROSEY_CONFIG_DIR/node_modules/$dep_name/node_modules")
+            fi
+            if [ -f "$dep_src/requirements.txt" ]; then
+                required+=("$ROSEY_CONFIG_DIR/venvs/$dep_name/bin/python")
+            fi
+        done
+    fi
     for path in "${required[@]}"; do
         if [ ! -e "$path" ]; then
             echo "missing: $path"
@@ -795,7 +808,80 @@ install_npm_deps() {
     ) || echo "   ⚠️  npm install failed in $label (continuing)"
 }
 
-# Global skill dependencies are installed after the global payload is copied.
+# Global skill dependencies are installed once under ~/.config/rosey and symlinked
+# into each IDE's copy, so a skill's deps are not triplicated across three homes.
+
+link_shared_skill_dep() {
+    local target="$1" link="$2"
+    [ -e "$target" ] || return 0
+    mkdir -p "$(dirname "$link")"
+    # Replace a previous real directory or stale symlink. `rm -rf` on a symlink
+    # removes the link itself, never the shared target.
+    if [ -e "$link" ] || [ -L "$link" ]; then
+        rm -rf -- "$link"
+    fi
+    ln -s "$target" "$link"
+}
+
+install_global_skill_deps() {
+    local src sname store venv ide_root link
+
+    for src in "$SOURCE_ROOT"/.cursor/skills/*/; do
+        [ -d "$src" ] || continue
+        sname="$(basename "$src")"
+
+        # npm: one install per skill, shared by all three IDE copies.
+        if [ -f "$src/package.json" ]; then
+            store="$ROSEY_CONFIG_DIR/node_modules/$sname"
+            mkdir -p "$store"
+            cp "$src/package.json" "$store/package.json"
+            if [ -f "$src/package-lock.json" ]; then
+                cp "$src/package-lock.json" "$store/package-lock.json"
+            fi
+            install_npm_deps "$store" "global skill $sname"
+            for ide_root in "$CURSOR_HOME/skills" "$OPENCODE_HOME/skills" "$PI_HOME/skills"; do
+                [ -d "$ide_root/$sname" ] || continue
+                link_shared_skill_dep "$store/node_modules" "$ide_root/$sname/node_modules"
+            done
+        fi
+
+        # Python: one venv per skill, shared by all three IDE copies.
+        if [ -f "$src/requirements.txt" ]; then
+            venv="$ROSEY_CONFIG_DIR/venvs/$sname"
+            if [ ! -x "$venv/bin/python" ]; then
+                mkdir -p "$ROSEY_CONFIG_DIR/venvs"
+                if command -v uv >/dev/null 2>&1; then
+                    uv venv "$venv" >/dev/null 2>&1 || true
+                fi
+                if [ ! -x "$venv/bin/python" ]; then
+                    python3 -m venv "$venv" || {
+                        echo "   ⚠️  could not create a virtualenv for $sname (continuing)"
+                        continue
+                    }
+                fi
+            fi
+            echo "-> pip install: global skill $sname"
+            if command -v uv >/dev/null 2>&1; then
+                uv pip install --python "$venv/bin/python" -q -r "$src/requirements.txt" ||
+                    echo "   ⚠️  pip install failed for $sname (continuing)"
+            else
+                "$venv/bin/python" -m pip install -q -r "$src/requirements.txt" ||
+                    echo "   ⚠️  pip install failed for $sname (continuing)"
+            fi
+            # Convention: a skill that pulls in Playwright gets the Chromium build
+            # it needs. Playwright caches browsers machine-wide, so this downloads
+            # once regardless of how many skills use it.
+            if [ -x "$venv/bin/playwright" ]; then
+                "$venv/bin/playwright" install chromium >/dev/null 2>&1 ||
+                    echo "   ⚠️  playwright chromium install failed for $sname (continuing)"
+            fi
+            for ide_root in "$CURSOR_HOME/skills" "$OPENCODE_HOME/skills" "$PI_HOME/skills"; do
+                [ -d "$ide_root/$sname" ] || continue
+                link_shared_skill_dep "$venv" "$ide_root/$sname/.venv"
+            done
+        fi
+    done
+}
 
 # --- Machine-once tool installs ---
 # Per-user/machine, not per target repo. Probe the CLI; never reinstall if it exists.
@@ -1613,14 +1699,7 @@ install_global_payload
 # enters or modifies a repository workspace. Set ROSEY_SKIP_SKILL_DEPS=1 for a
 # filesystem-only install/test.
 if [ "${ROSEY_SKIP_SKILL_DEPS:-0}" != 1 ]; then
-    for skills_root in "$CURSOR_HOME/skills" "$OPENCODE_HOME/skills" "$PI_HOME/skills"; do
-        if [ -d "$skills_root" ]; then
-            while IFS= read -r -d '' pkg; do
-                skill_dir="$(dirname "$pkg")"
-                install_npm_deps "$skill_dir" "global skill $(basename "$skill_dir")"
-            done < <(find "$skills_root" -name package.json -not -path '*/node_modules/*' -print0 2>/dev/null)
-        fi
-    done
+    install_global_skill_deps
 fi
 
 if [ "${ROSEY_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then

@@ -251,6 +251,8 @@ remove_path "$ROSEY_CONFIG_DIR/references/markdown-rendering.md" "Rosey markdown
 remove_path "$ROSEY_CONFIG_DIR/agentic-env.json" "Rosey agentic-env pin"
 remove_path "$ROSEY_CONFIG_DIR/hindsight-pin" "Rosey Hindsight pin"
 remove_path "$ROSEY_CONFIG_DIR/install-manifest.json" "Rosey install manifest"
+remove_path "$ROSEY_CONFIG_DIR/node_modules" "Rosey shared skill node_modules"
+remove_path "$ROSEY_CONFIG_DIR/venvs" "Rosey shared skill virtualenvs"
 
 # Remove only Rosey's known MCP entries and instruction path; preserve all other
 # machine-owned configuration. Rosey entries win on install by owner decision.
@@ -337,6 +339,8 @@ remove_empty_dir "$PI_HOME/scripts"
 remove_empty_dir "$PI_HOME/extensions"
 remove_empty_dir "$ROSEY_CONFIG_DIR/references"
 remove_empty_dir "$ROSEY_CONFIG_DIR/rules"
+remove_empty_dir "$ROSEY_CONFIG_DIR/node_modules"
+remove_empty_dir "$ROSEY_CONFIG_DIR/venvs"
 remove_empty_dir "$ROSEY_CONFIG_DIR"
 remove_global_gitignore_block
 
