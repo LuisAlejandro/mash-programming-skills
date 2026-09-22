@@ -29,6 +29,7 @@ configuration entries without touching project files.
 | Surface | Destination |
 |---|---|
 | Rosey state, pins, guidance, contracts | `~/.config/rosey/` |
+| Always-on rules (IDE-neutral) | `~/.config/rosey/always-on-rules.md` |
 | Cursor rules | `~/.cursor/rules/` |
 | Cursor skills | `~/.cursor/skills/` |
 | Cursor agents | `~/.cursor/agents/` |
@@ -38,6 +39,7 @@ configuration entries without touching project files.
 | OpenCode global guidance | `config.instructions[]` in `~/.config/opencode/opencode.json` |
 | OpenCode warm-start | `~/.config/opencode/plugin/rosey-hindsight-daemon.ts` |
 | Pi skills and context | `~/.pi/agent/skills/`, `~/.pi/agent/AGENTS.md` |
+| Pi always-on rules | `~/.pi/agent/APPEND_SYSTEM.md` |
 | Pi agents | `~/.agents/` |
 | Pi warm-start | `~/.pi/agent/extensions/`, `~/.pi/agent/scripts/` |
 | Pi shared MCP config | `~/.config/mcp/mcp.json` (plus the accepted `mcpServers` mirror in Pi settings) |
@@ -47,13 +49,31 @@ OpenCode uses `config.instructions[]` rather than
 loading. Cursor receives global guidance through `~/.cursor/rules/*.mdc`, not a
 home-level `~/.cursor/AGENTS.md`.
 
+### Always-on rules in each IDE
+
+Cursor applies `.mdc` rules natively through `alwaysApply: true`. OpenCode and Pi
+have no rule frontmatter, so the installer also emits the same always-on subset as
+one frontmatter-stripped Markdown bundle:
+
+| IDE | Transport |
+|---|---|
+| Cursor | `~/.cursor/rules/*.mdc` (`alwaysApply: true`) |
+| OpenCode | `~/.config/rosey/always-on-rules.md` via `config.instructions[]` |
+| Pi | `~/.pi/agent/APPEND_SYSTEM.md` (appends to the system prompt) |
+
+The bundle is generated from `.cursor/rules/*.mdc`; the `.mdc` sources remain the
+single source of truth. Shared `.mdc` copies in `~/.config/rosey/rules/` are kept
+for skill scripts that inspect rule contracts.
+
 ## What installation does
 
 1. Copies every remaining Rosey skill into the Cursor, OpenCode, and Pi global
    skill homes. The 27 repository-scoped skills are absent from Rosey's source
    and remain local untracked files in their owning repositories.
 2. Copies specialist agents to Cursor, OpenCode, and the Pi-subagents home.
-3. Copies Cursor's always-apply rules to `~/.cursor/rules/`.
+3. Copies Cursor's always-apply rules to `~/.cursor/rules/`, then generates
+   `~/.config/rosey/always-on-rules.md` and `~/.pi/agent/APPEND_SYSTEM.md` so
+   OpenCode and Pi receive the same always-on rules.
 4. Installs global Hindsight warm-start hooks for all three supported IDEs.
 5. Writes `~/.config/rosey/AGENTS.md` and the Pi global context file. Rosey never
    creates or edits a repository-root `AGENTS.md`.

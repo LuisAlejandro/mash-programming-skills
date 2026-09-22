@@ -243,6 +243,8 @@ remove_path "$PI_HOME/extensions/rosey-hindsight-daemon.ts" "Pi Hindsight extens
 
 remove_marked_file "$ROSEY_CONFIG_DIR/AGENTS.md" "Rosey Agent Guidance" "Rosey global guidance"
 remove_marked_file "$PI_HOME/AGENTS.md" "Rosey Agent Guidance" "Pi global guidance"
+remove_path "$ROSEY_CONFIG_DIR/always-on-rules.md" "Rosey always-on rules bundle"
+remove_marked_file "$PI_HOME/APPEND_SYSTEM.md" "# Rosey Agentic Environment — always-on rules" "Pi always-on rules"
 remove_path "$ROSEY_CONFIG_DIR/references/model-tiers.md" "Rosey model-tiers contract"
 remove_path "$ROSEY_CONFIG_DIR/references/scoping-synthesis.md" "Rosey scoping-synthesis contract"
 remove_path "$ROSEY_CONFIG_DIR/references/markdown-rendering.md" "Rosey markdown-rendering contract"
@@ -252,7 +254,7 @@ remove_path "$ROSEY_CONFIG_DIR/install-manifest.json" "Rosey install manifest"
 
 # Remove only Rosey's known MCP entries and instruction path; preserve all other
 # machine-owned configuration. Rosey entries win on install by owner decision.
-python3 - "$APPLY" "$FORCE" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$CURSOR_HOME/hooks.json" "$ROSEY_CONFIG_DIR/AGENTS.md" <<'PY'
+python3 - "$APPLY" "$FORCE" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$CURSOR_HOME/hooks.json" "$ROSEY_CONFIG_DIR/AGENTS.md" "$ROSEY_CONFIG_DIR/always-on-rules.md" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -261,7 +263,7 @@ apply = sys.argv[1] == "true"
 force = sys.argv[2] == "true"
 paths = [Path(p) for p in sys.argv[3:]]
 mcp_names = {"github", "context7", "sentrux"}
-pi_guidance = paths[-1]
+rosey_instructions = {str(path) for path in paths[5:]}
 
 
 def load(path):
@@ -302,7 +304,7 @@ for index, key in ((0, "mcpServers"), (1, "mcp"), (2, "mcpServers"), (3, "mcpSer
 # OpenCode instructions.
 opencode = load(paths[1])
 if opencode is not None and isinstance(opencode.get("instructions"), list):
-    instructions = [item for item in opencode["instructions"] if item != str(pi_guidance)]
+    instructions = [item for item in opencode["instructions"] if item not in rosey_instructions]
     if instructions != opencode["instructions"]:
         if instructions:
             opencode["instructions"] = instructions

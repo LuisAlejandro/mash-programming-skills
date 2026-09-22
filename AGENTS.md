@@ -48,6 +48,13 @@ installed at `~/.config/rosey/references/`. Do not restore repo-relative
 `.agents/shared/references/` links in global skills, and do not host reference
 documentation under `.agents/` here.
 
+Always-on rules are sourced from `.cursor/rules/*.mdc` with `alwaysApply: true`.
+Cursor reads those natively; the installer also emits them as one
+frontmatter-stripped bundle at `~/.config/rosey/always-on-rules.md`, referenced by
+OpenCode `config.instructions[]` and copied to Pi as
+`~/.pi/agent/APPEND_SYSTEM.md`. Do not hand-edit the bundle — regenerate it by
+re-running `install.sh`.
+
 The shared *library* references (domain, strategy, and engineering library) are
 not hosted here. They live only in the repository whose skills consume them —
 `founders-lounge/.agents/shared/references/` — because no other scoped repo links

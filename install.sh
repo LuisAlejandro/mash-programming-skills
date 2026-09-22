@@ -211,7 +211,8 @@ project-specific instructions in a repository's own AGENTS.md.
 
 ## Global Rosey surfaces
 
-- Cursor rules: `~/.cursor/rules/*.mdc`
+- Always-on rules: `~/.config/rosey/always-on-rules.md`
+- Cursor rules (native): `~/.cursor/rules/*.mdc`
 - Cursor skills: `~/.cursor/skills/`
 - Cursor specialist agents: `~/.cursor/agents/`
 - OpenCode instructions: `~/.config/opencode/opencode.json` points to this file
@@ -255,6 +256,37 @@ copy_global_rules() {
         # same rule contracts even though those IDEs have different transports.
         cp "$src" "$ROSEY_CONFIG_DIR/rules/$name"
     done
+    write_global_always_on_rules
+}
+
+# Cursor applies .mdc rules natively through alwaysApply. OpenCode and Pi have no
+# rule frontmatter, so the always-on subset is also emitted as one plain
+# Markdown bundle: OpenCode injects it via instructions[], Pi via APPEND_SYSTEM.md.
+write_global_always_on_rules() {
+    local bundle="$ROSEY_CONFIG_DIR/always-on-rules.md"
+    local mdc name
+    mkdir -p "$ROSEY_CONFIG_DIR" "$PI_HOME"
+    {
+        echo "# Rosey Agentic Environment — always-on rules"
+        echo
+        echo "Auto-generated from .cursor/rules/*.mdc with alwaysApply: true."
+        echo "Do not edit by hand; re-run install.sh to refresh."
+    } >"$bundle"
+    for mdc in "$SOURCE_ROOT"/.cursor/rules/*.mdc; do
+        [ -f "$mdc" ] || continue
+        grep -qE '^alwaysApply:[[:space:]]*true' "$mdc" || continue
+        name="$(basename "$mdc" .mdc)"
+        {
+            echo
+            echo "---"
+            echo
+            echo "## $name"
+            echo
+            # Strip YAML frontmatter; both IDEs inject this text verbatim.
+            awk 'NR == 1 && /^---$/ { fm = 1; next } fm && /^---$/ { fm = 0; next } !fm' "$mdc"
+        } >>"$bundle"
+    done
+    cp "$bundle" "$PI_HOME/APPEND_SYSTEM.md"
 }
 
 copy_global_skills() {
@@ -490,14 +522,6 @@ if not isinstance(current, dict):
     current = {}
 current.update(opencode_servers)
 opencode["mcp"] = current
-instructions = opencode.get("instructions")
-if not isinstance(instructions, list):
-    instructions = []
-rosey_guidance = str(Path(opencode_path).parent.parent / "rosey" / "AGENTS.md")
-# The installer passes the actual path separately below; retain a placeholder
-# only if this helper is ever called outside install_global_payload.
-if rosey_guidance not in instructions:
-    pass
 write_json(opencode_path, opencode)
 
 # Standard global Pi MCP config consumed by pi-mcp-adapter.
@@ -520,13 +544,12 @@ pi_settings["mcpServers"] = current
 write_json(pi_settings_path, pi_settings)
 PY
 
-    # Add the OpenCode instructions entry in a separate pass with the exact path.
-    python3 - "$OPENCODE_HOME/opencode.json" "$ROSEY_CONFIG_DIR/AGENTS.md" <<'PY'
+    # Add the OpenCode instruction paths in a separate pass with exact paths.
+    python3 - "$OPENCODE_HOME/opencode.json" "$ROSEY_CONFIG_DIR/AGENTS.md" "$ROSEY_CONFIG_DIR/always-on-rules.md" <<'PY'
 import json
 import sys
 from pathlib import Path
 path = Path(sys.argv[1])
-guidance = sys.argv[2]
 try:
     data = json.loads(path.read_text()) if path.exists() else {}
 except Exception:
@@ -536,8 +559,9 @@ if not isinstance(data, dict):
 instructions = data.get("instructions")
 if not isinstance(instructions, list):
     instructions = []
-if guidance not in instructions:
-    instructions.append(guidance)
+for entry in sys.argv[2:]:
+    if entry not in instructions:
+        instructions.append(entry)
 data["instructions"] = instructions
 path.write_text(json.dumps(data, indent=2) + "\n")
 PY
@@ -686,6 +710,8 @@ run_global_check() {
         "$PI_HOME/scripts/ensure-hindsight-daemon.sh"
         "$PI_SHARED_MCP"
         "$ROSEY_CONFIG_DIR/AGENTS.md"
+        "$ROSEY_CONFIG_DIR/always-on-rules.md"
+        "$PI_HOME/APPEND_SYSTEM.md"
         "$ROSEY_CONFIG_DIR/rules"
         "$ROSEY_CONFIG_DIR/references/model-tiers.md"
         "$ROSEY_CONFIG_DIR/references/scoping-synthesis.md"
