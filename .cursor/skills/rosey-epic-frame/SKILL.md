@@ -59,7 +59,6 @@ Ask one question at a time. Prefer a concise single-select choice when natural o
 
 | Harness | Tool | Note |
 | --- | --- | --- |
-| VS Code / GitHub Copilot | `vscode_askQuestions` | Takes a `questions` array |
 | Cursor | `AskQuestion` | |
 | OpenCode | `question` | |
 | Claude Code | `AskUserQuestion` | Call `ToolSearch` with `select:AskUserQuestion` first if its schema is not loaded |

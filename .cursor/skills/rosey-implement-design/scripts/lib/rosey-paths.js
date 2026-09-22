@@ -11,12 +11,18 @@ const DESIGNS_DIR = path.join("rosey", "designs");
  * shared copies under ~/.config/rosey/rules because neither consumes a repo IDE
  * rules tree in the global-only installation.
  */
+/**
+ * Detect which global Rosey skill home this script is running from.
+ * Rosey installs skills machine-globally: ~/.cursor/skills, ~/.config/opencode/skills,
+ * and ~/.pi/agent/skills. Cursor keeps native rules in ~/.cursor/rules; OpenCode and
+ * Pi inspect the shared copies under ~/.config/rosey/rules because neither consumes a
+ * repo IDE rules tree in the global-only installation.
+ */
 function treeKind() {
-  const segments = __dirname.split(path.sep);
-  if (segments.includes(".cursor")) return "cursor";
-  if (segments.includes(".github")) return "vscode";
-  if (segments.includes(".opencode")) return "opencode";
-  if (segments.includes(".pi")) return "pi";
+  const normalized = __dirname.split(path.sep).join("/");
+  if (normalized.includes("/.cursor/")) return "cursor";
+  if (normalized.includes("/opencode/skills/")) return "opencode";
+  if (normalized.includes("/.pi/")) return "pi";
   return null;
 }
 

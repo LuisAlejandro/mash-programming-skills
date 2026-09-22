@@ -98,7 +98,7 @@ Announce the decision and the intent briefly before continuing. Examples:
 
 #### 1.3 External Research (Conditional)
 
-If Step 1.2 indicates external research is useful, dispatch by the **intent** classified in Stage 2, using the platform's subagent primitive (`subagent` in Pi, `default.task` in OpenCode, `runSubagent` in VS Code, the Task-equivalent in Cursor — match by capability, not by another harness's tool name). For `rosey-web-researcher`, pass a focus hint plus the planning context summary and do **not** pass codebase content — it operates externally.
+If Step 1.2 indicates external research is useful, dispatch by the **intent** classified in Stage 2, using the platform's subagent primitive (`subagent` in Pi, `default.task` in OpenCode, the Task-equivalent in Cursor — match by capability, not by another harness's tool name). For `rosey-web-researcher`, pass a focus hint plus the planning context summary and do **not** pass codebase content — it operates externally.
 
 - **Implementation-guidance** — run in parallel:
   - Task rosey-best-practices-researcher(planning context summary)

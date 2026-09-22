@@ -24,7 +24,6 @@ These rules apply to every brainstorm, including the universal (non-software) fl
 
    | Harness | Tool | Note |
    | --- | --- | --- |
-   | VS Code / GitHub Copilot | `vscode_askQuestions` | Takes a `questions` array; set `multiSelect` for Rule 3 |
    | Cursor | `AskQuestion` | |
    | OpenCode | `question` | |
    | Claude Code | `AskUserQuestion` | Call `ToolSearch` with `select:AskUserQuestion` first if its schema is not loaded |

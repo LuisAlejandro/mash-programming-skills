@@ -14,7 +14,7 @@ This matters for the degradation rule below: losing model selection costs a litt
 
 ## Dispatch
 
-Use the platform's subagent primitive (`subagent` in Pi, `default.task` in OpenCode, `runSubagent` in VS Code, the Task-equivalent in Cursor, the equivalent elsewhere). Match by capability, not by another harness's tool name. Omit the `mode` parameter so the user's configured permission settings apply.
+Use the platform's subagent primitive (`subagent` in Pi, `default.task` in OpenCode, the Task-equivalent in Cursor, the equivalent elsewhere). Match by capability, not by another harness's tool name. Omit the `mode` parameter so the user's configured permission settings apply.
 
 **Dispatch blocking.** Wait for the sub-agent to return before continuing. Background dispatch exists on some harnesses (Pi's `async: true`) and is a legitimate optimization there, but it is not portable — never write a phase so that it depends on work continuing while the sub-agent runs.
 

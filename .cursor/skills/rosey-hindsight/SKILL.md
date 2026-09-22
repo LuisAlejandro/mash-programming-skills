@@ -72,8 +72,6 @@ Daemon warm-restart (installed globally by Rosey):
 - **OpenCode:** native plugin `~/.config/opencode/plugin/rosey-hindsight-daemon.ts`, which invokes the global script
 - **Pi:** `~/.pi/agent/scripts/ensure-hindsight-daemon.sh` via `~/.pi/agent/extensions/rosey-hindsight-daemon.ts` on `session_start`
 
-VS Code / Copilot warm-start is not supported.
-
 Do not run `daemon start` manually during Rosey workflows; use `daemon status` only.
 
 `hindsight-embed` forwards memory commands to a standalone `hindsight` CLI binary. It is versioned separately from the embed and API, so `hindsight --version` should match the pin in `~/.config/rosey/hindsight-pin`; `install.sh` enforces that.

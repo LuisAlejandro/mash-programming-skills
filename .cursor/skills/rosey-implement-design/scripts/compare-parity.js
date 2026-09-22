@@ -8,14 +8,14 @@ const { parseHtml } = require("./serialize-html");
 const { compareStructuralDom } = require("./lib/structural-dom-diff");
 const { compareScreenshotPair } = require("./lib/pixel-diff");
 const { gotoReady } = require("./lib/playwright-nav");
-const { treeKind } = require("./lib/rosey-paths");
 
+/**
+ * Absolute path to this skill's own directory, wherever it was installed.
+ * The script lives at <skill-root>/scripts/, so the skill root is its parent.
+ * Rosey installs skills globally, so any repo-relative guess is wrong.
+ */
 function skillsPrefix() {
-  const kind = treeKind();
-  if (kind === "vscode") return ".github/skills/rosey-implement-design";
-  if (kind === "opencode") return ".opencode/skills/rosey-implement-design";
-  if (kind === "pi") return ".pi/skills/rosey-implement-design";
-  return ".cursor/skills/rosey-implement-design";
+  return path.resolve(__dirname, "..");
 }
 
 function parseArgs(argv) {

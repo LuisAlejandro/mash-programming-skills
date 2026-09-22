@@ -98,7 +98,7 @@ END_ROSEY_WORK_HANDOFF
    4. Prefer Docker-via-Make (containers when a working Compose + Make setup exists); otherwise use host commands per the always-on guideline.
 
 3. **Create Task List**
-   - Use the harness's task-tracking tool (`manage_todo_list` in VS Code, the todo/plan primitive elsewhere — match by capability) to break the plan into actionable tasks. When the harness exposes none, keep the task list in your own working context rather than simulating one in chat
+   - Use the harness's task-tracking tool (its todo/plan primitive — match by capability) to break the plan into actionable tasks. When the harness exposes none, keep the task list in your own working context rather than simulating one in chat
    - Derive tasks from the plan's implementation units, dependencies, files, test targets, and verification criteria
    - When the plan defines U-IDs for Implementation Units, name the task from a brief outcome-led form of the unit's Goal and **append** the U-ID (e.g., "Add parser coverage (U3)"). Never lead with the identifier — the reader should understand the work before the traceability label; aim for five words or fewer before the ID. This keeps blocker references, deferred-work notes, and final summaries anchored to the same identifier the plan uses, so progress and traceability remain unambiguous across plan edits. Skip ordinal counts ("unit 1 of 5") when the full task list is already visible
    - Carry each unit's `Execution note` into the task when present

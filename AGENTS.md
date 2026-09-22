@@ -31,7 +31,8 @@ Pi receives global Rosey context at `~/.pi/agent/AGENTS.md`, skills at
 `~/.pi/agent/skills/`, and subagents at `~/.agents/`. The local `.cursor/`
 trees remain canonical source files in this repository.
 
-VS Code / GitHub Copilot distribution is not supported.
+Rosey distributes to Cursor, OpenCode, and Pi only. These three are the
+supported targets; do not add install paths for others.
 
 ## Global state
 
