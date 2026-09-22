@@ -46,6 +46,13 @@ The shared contract references are installed at
 `~/.config/rosey/references/`. Do not restore repo-relative
 `.agents/shared/references/` links in global skills.
 
+The shared *library* references (domain, strategy, and engineering library) are
+not hosted here. They live only in the repository whose skills consume them —
+`founders-lounge/.agents/shared/references/` — because no other scoped repo links
+them. Do not re-add the library to this source repo: pi-subagents scans
+everything under `<repo>/.agents/` recursively as project agent definitions, so
+non-agent documentation there is a latent phantom-agent hazard.
+
 ## Hindsight
 
 Hindsight is consulted only when `/rosey-brainstorm`, `/rosey-plan`,
