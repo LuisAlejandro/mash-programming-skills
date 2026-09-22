@@ -4,6 +4,8 @@ This is a format-rendering reference — it describes how to render any artifact
 
 It is paired with a section contract (`plan-sections.md`, `brainstorm-sections.md`, etc.) that describes *what* the artifact contains. This reference describes *how* markdown specifically presents it. The same content rendered by different skills shares the same markdown principles.
 
+Section names, required headings, and required frontmatter fields are owned by that section contract — do not restate them here. This reference covers presentation only.
+
 ## Hard invariants
 
 These hold regardless of which skill produced the artifact.
@@ -11,7 +13,9 @@ These hold regardless of which skill produced the artifact.
 - **YAML frontmatter at the top of the file.** Standard `---` delimited block containing the artifact's stable metadata (title, date, type, etc. — exact fields are per-skill, defined in the section contract).
 - **ASCII identifiers in anchors.** Markdown headings auto-generate anchors from the heading text. Keep headings ASCII so anchors are predictable (`#implementation-units`, not `#implementación-units`).
 - **Repo-relative paths for file references.** Always. Never absolute paths — they break portability across machines, worktrees, teammates.
-- **No HTML mixed in.** Keep the markdown pure. No `<div>`, no `<details>`, no inline `<style>`. Use tables, lists, and mermaid instead of HTML layout.
+- **No HTML mixed in.** Keep the markdown pure. No `<div>`, no `<details>`, no inline `<style>`. Use tables, lists, and mermaid instead of HTML layout. The one exception is an invisible semantic marker that a section contract explicitly defines (for example `<!-- ce-section: work-relationships -->`) — it carries section meaning for downstream agents without creating layout. If a layout idea only works as HTML, defer it to the HTML rendering; markdown stays markdown.
+- **No fixed-width line wrapping.** Do not hard-wrap prose to a column (e.g. 80 chars). Write one sentence per line, or let each paragraph flow as a single line. The artifact is read rendered and shared, where fixed wraps add nothing and only produce noisy mid-sentence diffs; markdown joins soft line breaks within a paragraph, so wrapping never changes the rendered output.
+- **No box-drawing characters.** Never compose tables, rules, or diagrams from ASCII/Unicode box-drawing glyphs (`┌ ┬ ┐ ├ ┼ ┤ └ ┴ ┘ │ ─`). Use pipe-delimited markdown tables and `---` rules. Box-drawing renders correctly in some harnesses and breaks in others, so it is never the safe choice.
 
 ## Format principles
 
@@ -70,6 +74,7 @@ How section types commonly render in markdown. These are patterns, not contracts
 - **Key Technical Decisions** — bullets with plain `KTD1.` prefix, bold decision name + prose rationale. IDs stay stable across revisions.
 - **Key Flows / Acceptance Examples** — bullets with bold leader labels (Trigger / Actors / Steps / Outcome / Covers / Given-When-Then).
 - **Scope Boundaries** — bullets, optionally split into "Deferred for later" / "Outside this product's identity" sub-headings when the positioning distinction matters.
+- **Goal Capsule** — top-loaded when the section contract defines one: it appears first among the content sections, ahead of the frame and any long appendices, so a reader or executor orients in seconds. Never a hidden machine copy parked at the end.
 
 The agent picks more elaborate or simpler shapes based on what each specific artifact's content needs.
 
@@ -88,7 +93,9 @@ flowchart TB
 
 (`TB` direction default — keeps diagrams narrow in source view and in narrow rendered viewports.)
 
-Markdown's diagram affordances are limited. For quantitative comparisons (bar charts, scatter plots) use a table with the data and let prose or a caption carry the interpretation.
+Markdown's diagram affordances are limited compared to HTML. For quantitative comparisons (bar charts, scatter plots) markdown has no native equivalent — use a table with the data and let prose or a caption carry the interpretation. The richer visualization belongs to the HTML rendering.
+
+For a **UI/layout shape** that would be a wireframe in HTML, markdown has no inline-SVG wireframe affordance. Render the region composition as a mermaid layout `flowchart` (or describe it in prose) — never hand-draw a box-drawing/ASCII wireframe; it violates the no-box-drawing-characters invariant and reads poorly. The wireframe proper is an HTML-only affordance.
 
 ## Inline code and code blocks
 
@@ -128,7 +135,9 @@ Per-skill frontmatter fields are defined in each skill's section contract (`plan
 Before declaring the markdown file written, scan it for these common slips:
 
 - All stable IDs are plain-prefix format, not bolded.
-- No HTML elements mixed in.
+- No HTML elements mixed in, apart from a contract-defined invisible marker.
+- No fixed-width wrapping — no paragraph hard-wrapped to a column.
+- No box-drawing characters; tables are pipe-delimited.
 - All file paths are repo-relative.
 - Horizontal rule separators between H2s when the artifact is substantial: Standard and Deep plans use them; Lightweight plans omit them when they add ceremony; brainstorm documents use them when substantial and omit them when sparse.
 - No process exhaust (Phase X notes, Next Steps pointers, provenance lines).
