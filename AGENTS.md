@@ -42,9 +42,11 @@ VS Code / GitHub Copilot distribution is not supported.
 | Global Rosey state | `~/.config/rosey/` | Guidance, pins, and contract references |
 | Hindsight memory | Hindsight (`hindsight-embed`) | Cross-session memory |
 
-The shared contract references are installed at
-`~/.config/rosey/references/`. Do not restore repo-relative
-`.agents/shared/references/` links in global skills.
+The three contract references (`model-tiers.md`, `scoping-synthesis.md`,
+`markdown-rendering.md`) are sourced from `references/` in this repo and
+installed at `~/.config/rosey/references/`. Do not restore repo-relative
+`.agents/shared/references/` links in global skills, and do not host reference
+documentation under `.agents/` here.
 
 The shared *library* references (domain, strategy, and engineering library) are
 not hosted here. They live only in the repository whose skills consume them —

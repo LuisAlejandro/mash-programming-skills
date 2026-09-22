@@ -1,7 +1,9 @@
-
-# This repo is the Rosey SOURCE and tracks .cursor/ and .agents/ directly.
+# This repo is the Rosey SOURCE and tracks .cursor/ and references/ directly.
+# !.cursor/ is defensive: a machine-global exclude for IDE trees would otherwise
+# hide this repo's own source tree.
+# Nothing is hosted under .agents/ here: pi-subagents scans <repo>/.agents/**/*.md
+# as project agent definitions, so reference docs must not live there.
 !.cursor/
-!.agents/
 !.cursor/hooks-opencode/
 
 # Cursor beforeShellExecution hook (append-only debug log)

@@ -394,9 +394,9 @@ install_global_references() {
     local source dest
     mkdir -p "$ROSEY_CONFIG_DIR/references"
     for source in \
-        "$SOURCE_ROOT/.agents/shared/references/model-tiers/model-tiers.md" \
-        "$SOURCE_ROOT/.agents/shared/references/scoping-synthesis/scoping-synthesis.md" \
-        "$SOURCE_ROOT/.agents/shared/references/markdown-rendering.md"; do
+        "$SOURCE_ROOT/references/model-tiers/model-tiers.md" \
+        "$SOURCE_ROOT/references/scoping-synthesis/scoping-synthesis.md" \
+        "$SOURCE_ROOT/references/markdown-rendering.md"; do
         [ -f "$source" ] || {
             echo "   ⚠️  Missing contract reference: $source" >&2
             continue
