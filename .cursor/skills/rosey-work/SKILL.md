@@ -53,7 +53,7 @@ This skill follows the Rosey-native work workflow with Rosey Sentrux and handoff
 - Before executing each task, run a path pre-pass against the task's declared file paths and block if a required path is outside the current project context or is missing unexpectedly.
 - Do not execute prose-documentation, optional, report, summary, or retrospective tasks. Deployment manifests, config maps, secrets/config patches, and other platform/GitOps artifacts are implementation work and must not be filtered as documentation.
 - Do not invent test infrastructure. Author or run automated tests only when a configured test runner already exists for the touched repo, or when the user explicitly asks for test setup.
-- When the origin or plan says OpenDesign visual parity is aligned, implement remaining functionality only. Do not rerun `rosey-implement-design`; use the design iterator only when a visual-parity review identifies a discrepancy.
+- When the origin or plan says design visual parity is aligned, implement remaining functionality only. Do not rerun design implementation; defer to the design-to-code pipeline this repo installs only when a visual-parity review identifies a discrepancy.
 - After implementation completes, invoke [`rosey-lint`](../rosey-lint/SKILL.md), prepare the Sentrux review brief, and stop with handoff context. Do not invoke `rosey-qa` or `rosey-pr`.
 
 ## Input Document

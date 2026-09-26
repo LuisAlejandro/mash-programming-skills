@@ -149,10 +149,10 @@ Read this before the first implementation write. It owns the task execution loop
 
 6. **Design sync** (if applicable)
 
-   - If the plan or origin names OpenDesign exported HTML/CSS, follow [`rosey-implement-design`](../../rosey-implement-design/SKILL.md) and the applicable design iterator.
+   - If the plan or origin names exported design HTML/CSS, follow the design-to-code pipeline this repo installs and its parity review step.
    - If visual parity is already aligned, implement remaining functionality only. Do not rerun design implementation.
    - If the plan explicitly names Figma, follow the repository's Figma process.
-   - If neither design artifact exists, skip design sync. Do not treat Figma as the default.
+   - If no design artifact exists, skip design sync. Do not treat Figma as the default.
 
 7. **Track Progress**
    - Keep the task list updated as you complete tasks

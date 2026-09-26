@@ -40,12 +40,12 @@ See also the always-on Rosey workflow-gates guideline.
 
 ## Rosey Overlay
 
-This skill follows the Rosey-native brainstorm workflow with Rosey handoffs and OpenDesign boundaries:
+This skill follows the Rosey-native brainstorm workflow with Rosey handoffs:
 
 - Handoff target is `/rosey-plan`. There is no direct-to-work route: planning is not skippable.
 - Do **not** create a separate PRD artifact. The requirements document is the durable product artifact for planning.
 - Do **not** create a separate design doc unless the user explicitly asks for one. The requirements document should be right-sized and can include design-relevant decisions when they matter.
-- After `rosey-implement-design` completes with visual parity aligned, use this skill for the remaining functionality only: real data sources, business logic, validation, submission, error handling, auth, routing guards, and deferred checklist items. Do not rerun `rosey-implement-design` for functionality work.
+- When a design-to-code pipeline has already shipped the visual shell with parity aligned, use this skill for the remaining functionality only: real data sources, business logic, validation, submission, error handling, auth, routing guards, and deferred checklist items. Do not rerun design implementation for functionality work.
 
 ## Feature Description
 

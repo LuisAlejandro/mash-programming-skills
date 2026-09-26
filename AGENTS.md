@@ -9,12 +9,10 @@ repositories.
 
 ### Cursor
 
-For work in this source repository, follow the local source rules in:
-
-- `.cursor/rules/rosey-workflow-gates.mdc`
-- `.cursor/rules/hindsight-memory.mdc`
-- `.cursor/rules/ponytail.mdc`
-- `.cursor/rules/save-insights.mdc`
+For work in this source repository, follow the local source rules in
+`.cursor/rules/*.mdc`. All seven are `alwaysApply: true`:
+`caveman`, `docker-via-make`, `gitchangelog-commits`, `hindsight-memory`,
+`ponytail`, `rosey-workflow-gates`, and `save-insights`.
 
 Use `.cursor/skills/` and `.cursor/agents/` as the canonical source trees.
 
@@ -34,6 +32,14 @@ trees remain canonical source files in this repository.
 Rosey distributes to Cursor, OpenCode, and Pi only. These three are the
 supported targets; do not add install paths for others.
 
+### Naming skills across IDEs
+
+Invocation syntax differs per IDE (Cursor `/name`, Pi `/skill:name`, OpenCode
+has no slash surface). A rule or skill is copied verbatim to every IDE, so any
+slash form would be wrong in at least two of them. Name skills in **prose**
+("invoke the rosey-plan skill"). The only slash syntax in the corpus is the
+reference table in `README.md`.
+
 ## Global state
 
 | Store | Path | What it holds |
@@ -46,9 +52,11 @@ supported targets; do not add install paths for others.
 
 The three contract references (`model-tiers.md`, `scoping-synthesis.md`,
 `markdown-rendering.md`) are sourced from `references/` in this repo and
-installed at `~/.config/rosey/references/`. Do not restore repo-relative
-`.agents/shared/references/` links in global skills, and do not host reference
-documentation under `.agents/` here.
+installed at `~/.config/rosey/references/`. The source nests two of them one
+level deep (`references/model-tiers/model-tiers.md`); the installer flattens
+them on copy, which is why consumers reference the flat global path. Do not
+restore repo-relative `.agents/shared/references/` links in global skills, and
+do not host reference documentation under `.agents/` here.
 
 Always-on rules are sourced from `.cursor/rules/*.mdc` with `alwaysApply: true`.
 Cursor reads those natively; the installer also emits them as one
@@ -65,12 +73,31 @@ IDE's copy of the skill gets a symlink to the shared store, so the documented
 dependencies three times. Never commit a real `.venv/` or `node_modules/` under
 `.cursor/skills/`.
 
+The installer copies in but never prunes. A skill removed from this source tree
+stays behind in `~/.cursor/skills/`, `~/.config/opencode/skills/`, and
+`~/.pi/agent/skills/` (agents likewise in `~/.cursor/agents/`, `~/.agents/`, and
+`~/.config/opencode/agents/`), and its shared dependency store under
+`~/.config/rosey/node_modules/` and `~/.config/rosey/venvs/` also persists.
+After deleting or relocating a skill, remove those installed copies explicitly
+or the IDEs keep offering it.
+
 The shared *library* references (domain, strategy, and engineering library) are
 not hosted here. They live only in the repository whose skills consume them —
 `founders-lounge/.agents/shared/references/` — because no other scoped repo links
 them. Do not re-add the library to this source repo: pi-subagents scans
 everything under `<repo>/.agents/` recursively as project agent definitions, so
 non-agent documentation there is a latent phantom-agent hazard.
+
+## Scope: what Rosey does not own
+
+Rosey ships planning, implementation, review, and release skills. It does **not**
+ship a design-to-code pipeline. Design skills, their `DESIGN.md`, and
+`rosey/designs/` artifacts belong to whichever repository installs them. Do not
+reintroduce design skills, design agents, or design paths here.
+
+Personal, site-specific, or single-repository skills also do not belong in this
+source tree. They live in their owning repository's local (untracked) skill
+tree.
 
 ## Why `.pi/` exists here
 

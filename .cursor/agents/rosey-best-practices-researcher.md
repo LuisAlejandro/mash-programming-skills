@@ -25,7 +25,7 @@ Before going online, check if curated knowledge already exists in skills:
 2. **Identify Relevant Skills**:
    Match the research topic to available skills in this session's skill tree (`**/SKILL.md`). Common mappings:
    - Rails/Ruby → search project skills and `rosey/solutions/` for Rails patterns
-   - Frontend/Design → `rosey-design-system`, `rosey-implement-design`
+   - Frontend/Design → search project skills for the design-to-code pipeline this repo installs
    - TypeScript/React → project conventions and Context7 for framework docs
    - AI/Agents → `rosey-agent-native-reviewer`, `rosey-work`
    - Documentation / memory → `rosey-hindsight`, `rosey-learnings-researcher`

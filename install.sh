@@ -232,7 +232,7 @@ Hindsight is optional and machine-global. The version pin is
 `~/.config/rosey/hindsight-pin`; the shared contract references are under
 `~/.config/rosey/references/`.
 
-When `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa` is
+When the rosey-brainstorm, rosey-plan, rosey-work, or rosey-qa skill is
 active, follow the `rosey-hindsight` skill's gate. If the daemon is unavailable,
 continue and record `Hindsight: unavailable`.
 
@@ -264,7 +264,7 @@ copy_global_rules() {
 # Markdown bundle: OpenCode injects it via instructions[], Pi via APPEND_SYSTEM.md.
 write_global_always_on_rules() {
     local bundle="$ROSEY_CONFIG_DIR/always-on-rules.md"
-    local mdc name
+    local mdc name description
     mkdir -p "$ROSEY_CONFIG_DIR" "$PI_HOME"
     {
         echo "# Rosey Agentic Environment — always-on rules"
@@ -276,13 +276,28 @@ write_global_always_on_rules() {
         [ -f "$mdc" ] || continue
         grep -qE '^alwaysApply:[[:space:]]*true' "$mdc" || continue
         name="$(basename "$mdc" .mdc)"
+        description="$(awk '
+            NR == 1 && /^---$/ { frontmatter = 1; next }
+            frontmatter && /^---$/ { exit }
+            frontmatter && /^description:[[:space:]]*/ {
+                sub(/^description:[[:space:]]*/, "")
+                if ($0 ~ /^".*"$/) {
+                    sub(/^"/, "")
+                    sub(/"$/, "")
+                }
+                print
+                exit
+            }
+        ' "$mdc")"
+        [ -n "$description" ] || description="$name"
         {
             echo
             echo "---"
             echo
-            echo "## $name"
+            # Preserve rule descriptions as headings; Cursor reads frontmatter natively,
+            # while OpenCode and Pi receive only this plain Markdown bundle.
+            echo "## $description"
             echo
-            # Strip YAML frontmatter; both IDEs inject this text verbatim.
             awk 'NR == 1 && /^---$/ { fm = 1; next } fm && /^---$/ { fm = 0; next } !fm' "$mdc"
         } >>"$bundle"
     done
@@ -425,23 +440,6 @@ install_global_references() {
         }
         dest="$ROSEY_CONFIG_DIR/references/$(basename "$source")"
         cp "$source" "$dest"
-    done
-}
-
-seed_global_skill_env() {
-    local example="$SOURCE_ROOT/.cursor/skills/rosey-design-candidates/.env.example"
-    local root dest
-    [ -f "$example" ] || return 0
-    for root in "$CURSOR_HOME/skills" "$OPENCODE_HOME/skills" "$PI_HOME/skills"; do
-        dest="$root/rosey-design-candidates/.env"
-        [ -d "$(dirname "$dest")" ] || continue
-        if [ ! -f "$dest" ]; then
-            if seed_dotenv_from_example "$example" "$dest" "CURSOR_API_KEY"; then
-                echo "   seeded: $dest"
-            else
-                echo "   ⚠️  Could not seed $dest (CURSOR_API_KEY missing)"
-            fi
-        fi
     done
 }
 
@@ -613,13 +611,10 @@ rosey_global_gitignore_ensure() {
     rosey_global_gitignore_bind "$gf"
     python3 - "$gf" <<'PY'
 from pathlib import Path
-import re
 import sys
 
 path = Path(sys.argv[1])
 text = path.read_text() if path.exists() else ""
-# Replace the old installer block. It was historically terminal, so retain any
-# user text after a new explicit end marker and remove only known old entries.
 start = text.find("# Rosey Agentic Environment\n")
 if start >= 0:
     end_marker = text.find("# End Rosey Agentic Environment", start)
@@ -627,39 +622,13 @@ if start >= 0:
         end = text.find("\n", end_marker)
         end = len(text) if end < 0 else end + 1
         text = text[:start] + text[end:]
-    else:
-        old_entries = {
-            "rosey/brainstorms/", "rosey/plans/", "rosey/designs/", "rosey/solutions/",
-            "rosey/insights/", "rosey/design-system/", "rosey/qa/", "rosey/parallel/",
-            "rosey/deepening/", "rosey/loops/", "rosey/ideation/", "rosey/agentic-env.json",
-            "rosey/maintainer-manifest.json", "rosey/hindsight-pin", "AGENTS.md", ".cursorrules",
-            "DESIGN.md", ".cursor/", ".github/copilot-instructions.md", ".github/instructions/",
-            ".github/skills/", ".github/agents/", ".github/hooks/", ".vscode/mcp.json",
-            "opencode.json", ".opencode/", ".pi/", ".agents/",
-        }
-        lines = text.splitlines(keepends=True)
-        kept = []
-        in_block = False
-        for line in lines:
-            stripped = line.rstrip("\n")
-            if stripped == "# Rosey Agentic Environment":
-                in_block = True
-                continue
-            if in_block and (stripped.startswith("# Added by rosey-agentic-env/install.sh") or stripped in old_entries or stripped == ""):
-                continue
-            if in_block:
-                in_block = False
-            kept.append(line)
-        text = "".join(kept)
 
 block = """# Rosey Agentic Environment
 # Added by rosey-agentic-env/install.sh. Remove this block to stop ignoring.
 rosey/brainstorms/
 rosey/plans/
-rosey/designs/
 rosey/solutions/
 rosey/insights/
-rosey/design-system/
 rosey/qa/
 rosey/parallel/
 rosey/deepening/
@@ -770,8 +739,7 @@ install_global_payload() {
     echo "-> Updating machine-global Git excludes..."
     rosey_global_gitignore_ensure
 
-    echo "-> Seeding global skill credentials and MCP configuration..."
-    seed_global_skill_env
+    echo "-> Merging global MCP configuration..."
     merge_global_mcp
 }
 

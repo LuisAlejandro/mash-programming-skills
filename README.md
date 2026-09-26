@@ -85,13 +85,28 @@ one frontmatter-stripped Markdown bundle:
 | Pi | `~/.pi/agent/APPEND_SYSTEM.md` (appends to the system prompt) |
 
 The bundle is generated from `.cursor/rules/*.mdc`; the `.mdc` sources remain the
-single source of truth. Shared `.mdc` copies in `~/.config/rosey/rules/` are keptfor skill scripts that inspect rule contracts.
+single source of truth. Shared `.mdc` copies in `~/.config/rosey/rules/` are kept for skill scripts that inspect rule contracts.
+
+### Invoking a skill
+
+Invocation syntax differs per IDE, so the rules and skills name skills in **prose**
+("invoke the rosey-plan skill") rather than with slash syntax. Prose is the only
+form correct in all three; a rule is copied verbatim to every IDE, so any slash
+form would be wrong in at least two of them.
+
+| IDE | Invocation |
+|---|---|
+| Cursor | `/rosey-plan` (bare slash command) |
+| Pi | `/skill:rosey-plan` (skills register with the `skill:` prefix) |
+| OpenCode | No slash surface; the model invokes the skill through its skill tool |
+
+Slash syntax appears only in this table, never inside a rule or skill.
 
 ## What installation does
 
-1. Copies every remaining Rosey skill into the Cursor, OpenCode, and Pi global
-   skill homes. The 27 repository-scoped skills are absent from Rosey's source
-   and remain local untracked files in their owning repositories.
+1. Copies every Rosey skill in this source tree into the Cursor, OpenCode, and
+   Pi global skill homes. Repository-scoped skills are absent from Rosey's
+   source and remain local untracked files in their owning repositories.
 2. Copies specialist agents to Cursor, OpenCode, and the Pi-subagents home.
 3. Copies Cursor's always-apply rules to `~/.cursor/rules/`, then generates
    `~/.config/rosey/always-on-rules.md` and `~/.pi/agent/APPEND_SYSTEM.md` so
@@ -105,20 +120,18 @@ single source of truth. Shared `.mdc` copies in `~/.config/rosey/rules/` are kep
 7. Merges Rosey's MCP servers into the global Cursor, OpenCode, and Pi config
    files. Same-name Rosey entries overwrite existing entries; this accepted
    risk has no backup or rollback.
-8. Seeds the design-candidates `.env` in global skill homes from
-   `.env.example` and `CURSOR_API_KEY` when available.
-9. Installs skill runtime dependencies once under `~/.config/rosey/` (npm for
+8. Installs skill runtime dependencies once under `~/.config/rosey/` (npm for
    skills with `package.json`, a virtualenv for skills with `requirements.txt`)
    and symlinks them into each IDE copy.
-10. Installs optional machine tools and Pi extensions only when enabled and
-    missing. Existing commands are not reinstalled.
-11. Updates the machine-global Git excludes file so only Rosey working-output
+9. Installs optional machine tools and Pi extensions only when enabled and
+   missing. Existing commands are not reinstalled.
+10. Updates the machine-global Git excludes file so only Rosey working-output
     directories and the maintainer manifest remain ignored. `AGENTS.md` and
     `DESIGN.md` are not ignored.
 
-A design-system skill may create `DESIGN.md` when the user invokes it manually.
-The installer never creates that file. Other skills create `rosey/*` working
-files and directories lazily as needed.
+Skills create `rosey/*` working files and directories lazily as needed. Rosey
+does not ship a design-to-code pipeline; design skills and their `DESIGN.md` /
+`rosey/designs/` artifacts belong to the repository that installs them.
 
 ## Verification and flags
 
@@ -216,5 +229,6 @@ Routine Rosey commands use `hindsight-embed` with
 
 Rosey does not generate repository guidance or scaffolding. If a project needs
 project-specific instructions, its owner may create and track `AGENTS.md`.
-`DESIGN.md` is similarly user/design-skill owned. Skills create `rosey/plans/`,
-`rosey/insights/`, `rosey/qa/`, and other working paths only when invoked.
+`DESIGN.md` is owned by the user or by whichever repository installs a
+design-to-code pipeline. Skills create `rosey/plans/`, `rosey/insights/`,
+`rosey/qa/`, and other working paths only when invoked.
