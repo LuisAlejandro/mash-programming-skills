@@ -150,25 +150,6 @@ if end_marker >= 0:
     end = text.find("\n", end_marker)
     end = len(text) if end < 0 else end + 1
     text = text[:start] + text[end:]
-else:
-    # Legacy block was terminal. Remove only its known lines and marker.
-    old = {
-        "# Rosey Agentic Environment",
-        "# Added by rosey-agentic-env/install.sh. Remove this block to stop ignoring.",
-        "rosey/brainstorms/", "rosey/plans/", "rosey/designs/", "rosey/solutions/",
-        "rosey/insights/", "rosey/design-system/", "rosey/qa/", "rosey/parallel/",
-        "rosey/deepening/", "rosey/loops/", "rosey/ideation/", "rosey/maintainer-manifest.json",
-        "rosey/agentic-env.json", "rosey/hindsight-pin", "AGENTS.md", ".cursorrules",
-        "DESIGN.md", ".cursor/", ".github/copilot-instructions.md", ".github/instructions/",
-        ".github/skills/", ".github/agents/", ".github/hooks/", ".vscode/mcp.json",
-        "opencode.json", ".opencode/", ".pi/", ".agents/",
-    }
-    lines = []
-    for line in text.splitlines(keepends=True):
-        if line.rstrip("\n") in old:
-            continue
-        lines.append(line)
-    text = "".join(lines)
 path.write_text(text.rstrip() + "\n")
 PY
     note "   edited        $gf (removed Rosey ignore block)"
@@ -176,7 +157,6 @@ PY
 
 has_global_install() {
     [ -f "$ROSEY_CONFIG_DIR/install-manifest.json" ] || \
-        [ -f "$ROSEY_CONFIG_DIR/agentic-env.json" ] || \
         [ -f "$CURSOR_HOME/hooks/ensure-hindsight-daemon.sh" ] || \
         [ -f "$PI_HOME/extensions/rosey-hindsight-daemon.ts" ] || \
         [ -f "$OPENCODE_HOME/plugin/rosey-hindsight-daemon.ts" ]

@@ -22,7 +22,7 @@ Every plan is brainstorm-sourced: the missing-origin stop at Phase 0.3b guarante
 
 Most will not survive the keep test as separate call-outs. Surface only the forks where another reasonable agent might choose differently and the user can correct cheaply now.
 
-**Reads from the doc body, not a synthesis section.** Brainstorm docs have no `## Synthesis` section — the synthesis is a chat-time artifact in `rosey-brainstorm`, and only its prose summary embeds, as `## Summary`. Derive plan-time decisions from the origin's body sections (Summary, Problem Frame, Requirements, Key Decisions, Scope Boundaries) plus Phase 1 research. Older brainstorms carrying a legacy `## Synthesis` section work fine; treat that content as supplementary, not authoritative.
+**Reads from the doc body, not a synthesis section.** Brainstorm docs have no `## Synthesis` section — the synthesis is a chat-time artifact in `rosey-brainstorm`, and only its prose summary embeds, as `## Summary`. Derive plan-time decisions from the origin's body sections (Summary, Problem Frame, Requirements, Key Decisions, Scope Boundaries) plus Phase 1 research.
 
 **Why pre-write, not pre-research:** the brainstorm doc already validated WHAT, so research is well-targeted. Plan-time decisions emerge during research and structuring (Phases 1–4), so pre-write catches them at the latest cheap moment — before Phase 5.2 commits the plan to disk.
 

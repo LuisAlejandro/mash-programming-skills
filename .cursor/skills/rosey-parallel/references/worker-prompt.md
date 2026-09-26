@@ -13,7 +13,7 @@ ORIGIN DOC: {origin_doc}   (the task's requirements doc; rosey-plan's origin)
 REPO CONVENTIONS: read AGENTS.md at the repo root.
 
 CONSTRAINTS:
-- Branch is pre-created ({track_branch}): pass `{branch_setup}` in the `rosey-work` skill arguments. Honor it: skip branch setup. Record `BRANCH_DECISION: continued`. Self-check after work: the envelope has `BRANCH_DECISION: continued` and you did not create `feature/<slug>`.
+- Branch is pre-created ({track_branch}): `rosey-work` works in place on the current branch and never runs branch setup, so no override argument is needed. Stay on it: do not create `feature/<slug>` or switch branches. The orchestrator verifies the worktree's branch after each committed phase and fails the task on a mismatch.
 - Skip Sentrux session gating. Record SENTRUX: unavailable for this phase.
 - Phase: {phase}  (one of: plan | work | qa | lint)
 
@@ -51,10 +51,11 @@ FINISH:
 
 | Key | Value | Why |
 | --- | --- | --- |
-| `branch_setup` | `do not run branch setup` | rosey-work's branch gate otherwise creates `feature/<slug>` from develop and breaks the track branch |
 | `sentrux` | `skip` | N concurrent workers would contend on repo-scoped Sentrux session state |
 | `qa_diff_base` | previous task end SHA / track branch point | deterministic per-task QA diff range |
 | `branch` | `rosey-parallel/<run-id>/track-<n>` | all tasks in a track accumulate commits on one branch |
+
+(There is no `branch_setup` override. `rosey-work` no longer has a branch setup step — it works in place on the pre-created track branch unconditionally.)
 
 ## Success / failure signals
 

@@ -33,7 +33,7 @@ The CLI subcommand **`sentrux scan`** (and bare **`sentrux`** / **`sentrux /path
 | Manual headless metrics in terminal | **`sentrux gate`** | `sentrux scan` |
 | CI rules file | **`sentrux check`** (needs `.sentrux/rules.toml`) | `sentrux scan` |
 
-**Rosey skills must call Sentrux only through MCP** (`CallMcpTool`, server `sentrux`) for `scan`, `health`, `session_start`, `session_end`, `dsm`, `git_stats`, `test_gaps`, etc.
+**Rosey skills must call Sentrux only through MCP** — never the CLI — for `scan`, `health`, `session_start`, `session_end`, `dsm`, `git_stats`, `test_gaps`, etc. Match the MCP transport **by capability**, not by a literal tool name: use whatever call-MCP-tool primitive the current harness exposes (see **MCP (workspace)** below).
 
 ### Headless CLI fallback (humans / MCP down)
 
@@ -60,7 +60,17 @@ Sentrux is configured in the global MCP config (Cursor `~/.cursor/mcp.json`, Ope
 }
 ```
 
-Before calling tools, read MCP tool descriptors under the `sentrux` server folder (often `project-0-<workspace>-sentrux` in Cursor). Invoke via `CallMcpTool` with the **enabled server id** from the MCP file system (e.g. `project-0-rosey-agentic-env-sentrux`), not only the short name `sentrux`.
+Before calling tools, read the MCP tool descriptors exposed by the `sentrux` server in the current harness, then invoke them with the enabled server identifier — not only the short name `sentrux`.
+
+Transport by harness (match by capability, as in `rosey-plan/references/research.md`):
+
+| Harness | Call primitives | Server identifier shape |
+|---|---|---|
+| Cursor | `CallMcpTool` | `project-0-<workspace>-sentrux` (from the MCP file system) |
+| Pi | `mcp({ server, tool, args })`, or `mcpScript` to batch several calls | `sentrux` |
+| OpenCode | the native MCP tool surface | `sentrux` |
+
+Read the descriptors before the first call so the correct tool names and arguments come from the server, not from this document.
 
 ### Unavailable fallback
 

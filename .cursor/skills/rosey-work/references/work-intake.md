@@ -6,7 +6,7 @@ Read this on entering Phase 0. It owns input triage and complexity routing, plan
 
 `rosey-work` executes a plan. Resolve one from `<input_document>` or from the session, in this order:
 
-Branch setup no longer exists in this skill — work happens in place on the current branch; branching and PRs belong to `rosey-pr` (invoked explicitly by the user). The legacy `do not run branch setup` phrase is accepted and ignored for compatibility with `rosey-parallel` workers.
+Branch setup does not exist in this skill — work happens in place on the current branch; branching and PRs belong to `rosey-pr` (invoked explicitly by the user).
 
 0. **Blank input — latest software plan.** After stripping `mode:` (and the bypass phrase if present), if the remaining input is empty:
    1. Glob `rosey/plans/*-plan.md`.
@@ -57,15 +57,15 @@ END_ROSEY_WORK_HANDOFF
 
    - **Size the read.** Plans are markdown (`.md`). Read them as `rosey-plan`'s [`plan-sections.md`](../../rosey-plan/references/plan-sections.md) prescribes: a short plan in full; anything longer heading-scanned first (`rg -n '^#{1,3} ' <plan>`), then read in ranges — Goal Capsule, the active unit plus what it cites, Verification Contract, Definition of Done. That file owns the reading protocol; do not restate its mechanics here.
    - Treat the plan as a decision artifact, not an execution script
-   - If the plan includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements` (or legacy `Requirements Trace`), `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
+   - If the plan includes sections such as `Implementation Units`, `Work Breakdown`, `Requirements`, `Files`, `Test Scenarios`, or `Verification`, use those as the primary source material for execution
    - **Read the three contract sections when present**, and carry them forward:
      - **Goal Capsule** — the Objective, the Means when an approach is pinned, and the stop conditions. When implementation starts pulling away from the Objective, that is the signal to stop, not to improvise.
      - **Verification Contract** — the repo's actual commands and gates. Phase 3 runs these; note them now.
      - **Definition of Done** — global and per-unit completion criteria, including the cleanup criterion.
 
-     **A missing section is a noted degradation, not a blocker.** Older plans predate the three contract sections, so the no-contract path still has to work. Fall back to per-unit `Verification` plus `rosey-lint`, and record the gap in the handoff envelope (e.g. `no Verification Contract`). This matches how the skill already treats an unavailable Sentrux, an unavailable Hindsight, and a missing test runner.
+     **A missing section is a noted degradation, not a blocker.** Fall back to per-unit `Verification` plus `rosey-lint`, and record the gap in the handoff envelope (e.g. `no Verification Contract`). This matches how the skill already treats an unavailable Sentrux, an unavailable Hindsight, and a missing test runner.
    - Check for `Execution note` on each implementation unit — these carry the plan's execution posture signal for that unit (for example, test-first or characterization-first). Note them when creating tasks.
-   - Check for `### Deferred to Implementation` under `## Open Questions` — these are questions the planner intentionally left for you to resolve during execution. Note them before starting so they inform your approach rather than surprising you mid-task. Older plans may use `Implementation-Time Unknowns` as a compatibility alias; parse that heading if present, but do not expect it on new plans. See the lifecycle mapping in [`plan-sections.md`](../../rosey-plan/references/plan-sections.md).
+   - Check for `### Deferred to Implementation` under `## Open Questions` — these are questions the planner intentionally left for you to resolve during execution. Note them before starting so they inform your approach rather than surprising you mid-task. See the lifecycle mapping in [`plan-sections.md`](../../rosey-plan/references/plan-sections.md).
    - Check for a `Scope Boundaries` section — these are explicit non-goals. Refer back to them if implementation starts pulling you toward adjacent work
    - Review any references or links provided in the plan
    - If the plan references a Sentrux topology artifact, read it before creating tasks. If no explicit path exists, look beside the plan for `<plan-basename>.topology.json`.
@@ -73,7 +73,7 @@ END_ROSEY_WORK_HANDOFF
    - If anything is unclear or ambiguous, ask clarifying questions now in interactive mode. In non-interactive mode, resolve from plan context or stop with a blocker.
    - If clarifying questions were needed above, get user approval on the resolved answers in interactive mode. If no clarifications were needed, proceed without a separate approval step — plan scope is the plan's authority, not something to renegotiate. In non-interactive mode, no approval step is allowed.
    - **Do not skip this** - better to ask questions now than build the wrong thing
-   - **Do not edit the plan body during execution.** The plan is a decision artifact; progress lives in git commits and the task tracker. Legacy plans may contain `- [ ]` / `- [x]` marks on unit headings — ignore them as state; per-unit completion is determined during execution by reading the current file state.
+   - **Do not edit the plan body during execution.** The plan is a decision artifact; progress lives in git commits and the task tracker. Per-unit completion is determined during execution by reading the current file state.
 
 2. **Setup Environment**
 

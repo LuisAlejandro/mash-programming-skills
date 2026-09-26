@@ -324,6 +324,36 @@ def existing_track_branches(repo_root: str | os.PathLike, tracks: list) -> list:
     return found
 
 
+def assert_worktree_branch(worktree: str | os.PathLike, expected_branch: str | None) -> str | None:
+    """Verify the worktree is on the expected track branch.
+
+    The worker's isolation is enforced by running it with ``cwd`` bound to the
+    worktree, so a mismatch means the worker left its track branch (for example
+    by committing against the main repository directly). Returns an error string
+    on mismatch or unreadable state, ``None`` when the branch is correct.
+    """
+    import subprocess as _sp
+
+    if not expected_branch:
+        return None
+    wt = Path(worktree)
+    if not wt.exists():
+        return None
+    res = _sp.run(
+        ["git", "-C", str(wt), "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True, text=True,
+    )
+    if res.returncode != 0:
+        return f"branch check: cannot read HEAD in {wt}"
+    actual = res.stdout.strip()
+    if actual != expected_branch:
+        return (
+            f"branch check: worktree is on {actual or 'detached HEAD'}, "
+            f"expected {expected_branch}"
+        )
+    return None
+
+
 def commit_uncommitted_fixes(worktree: str | os.PathLike, message: str) -> str | None:
     """Commit dirty qa/lint fixes on the track branch (R27). Returns new HEAD or None."""
     import subprocess as _sp
@@ -523,9 +553,7 @@ def detect_stale_lock(lock: dict, stale_window_s: float = DEFAULT_STALE_WINDOW_S
     """True when a lock should be reaped (R1).
 
     Reap when the owner pid is dead AND past the stale window. A live,
-    progressing owner's lock is never stolen. (The hung-but-alive heartbeat
-    branch was removed: nothing refreshes lastHeartbeat, so it was dead code —
-    P2-12.)
+    progressing owner's lock is never stolen.
     """
     now = datetime.now(timezone.utc)
     pid = lock.get("pid")
@@ -1317,7 +1345,6 @@ def worker_overrides(track_branch: str) -> dict:
     """Prompt overrides for pre-created track branches (U7)."""
     return {
         "branch": track_branch,
-        "branch_setup": "do not run branch setup",
         "sentrux": "skip",
         "qa_diff_base": "track-branch-point",
     }
@@ -1376,8 +1403,7 @@ def orchestrate_run(
         state[tid] = nt
     # Build the run-level record. Uses the same schema as new_run/save_run/
     # load_run (tasks + base_sha_snapshot) so the CLI save->load->resume cycle
-    # round-trips; previously this wrote `state`/`base_sha`, which load_run
-    # rejected on resume.
+    # round-trips.
     harness_name = getattr(getattr(driver, "harness", None), "name", None)
     run = {
         "version": 1,
@@ -1745,7 +1771,17 @@ def _run_execution(state, tracks, driver, run, repo_root=None, max_parallel=4, g
             _capture_pgid(tid)
             wt = t.get("worktree_path")
             if wt and repo_root is not None:
+                # A committed phase must leave the worktree on its track branch.
+                # Isolation is enforced by the worker's cwd, so a mismatch here
+                # means the worker escaped it; do not harvest from a stray tree.
                 if phase in ("qa", "lint"):
+                    mismatch = assert_worktree_branch(wt, t.get("branch"))
+                    if mismatch:
+                        transition(t, STATUS_FAILED)
+                        t.setdefault("blockers", []).append(mismatch)
+                        _note(f"[{phase}] {tid} FAILED: {mismatch}")
+                        _checkpoint()
+                        return
                     sha = commit_uncommitted_fixes(wt, f"rosey-parallel {tid} {phase} fixes")
                     if sha:
                         t["end_sha"] = sha
@@ -2239,7 +2275,6 @@ class HarnessPhaseDriver:
                 "pre-created worktree.\n\nTASK GOAL: {goal}\nPLAN PATH: {plan_path}\n"
                 "ORIGIN DOC: {origin_doc}\nPhase: {phase}\n"
                 "track_branch: {track_branch}\nqa_diff_base: {qa_diff_base}\n"
-                "branch_setup: {branch_setup}\n"
             )
         return template.format(
             goal=ctx.get("goal", task_id),
@@ -2248,7 +2283,6 @@ class HarnessPhaseDriver:
             track_branch=ctx.get("branch") or overrides.get("branch") or "",
             phase=phase,
             qa_diff_base=qa_base,
-            branch_setup=overrides.get("branch_setup") or "do not run branch setup",
         )
 
     def _invoke(self, task_id: str, phase: str) -> str:

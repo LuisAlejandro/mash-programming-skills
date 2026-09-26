@@ -37,7 +37,7 @@ git log origin/<base>..HEAD --oneline
 - Otherwise: kebab-case summary of the change.
 - Do not use `test`, `chore`, or `release` as the slug prefix.
 
-This rule is duplicated verbatim in `SKILL.md` and `rosey-work`'s branch setup. All three must agree — `rosey-pr`'s plan ↔ branch guard stops before commit when they diverge.
+This rule is duplicated verbatim in `SKILL.md`. Both copies must agree — `rosey-pr`'s plan ↔ branch guard stops before commit when they diverge.
 
 ### 4. Create the feature branch
 

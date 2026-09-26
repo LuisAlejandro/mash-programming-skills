@@ -82,9 +82,7 @@ When the named tracker is unavailable or no tracker is named, fall back in this 
 
 1. **Named tracker** (MCP tool, supported CLI, or API the agent can invoke directly, identified via Detection above)
 2. **GitHub Issues via GitHub MCP** — when the MCP issue tools are available and the current repo supports issues
-3. **No sink** — findings remain in the review report's residual-work section (Interactive mode) or are returned in the `no_sink` bucket for the caller to route (Non-interactive mode). The agent does not re-display them through a transient surface.
-
-Previously this chain included a third in-session fallback tier. That tier was removed because in-session tasks do not survive past the session and therefore do not meet the "durable filing" intent of a Defer action. When no durable tracker exists, the correct behavior is to leave findings in the report (Interactive) or return them to the caller (Non-interactive).
+3. **No sink** — findings remain in the review report's residual-work section (Interactive mode) or are returned in the `no_sink` bucket for the caller to route (Non-interactive mode). The agent does not re-display them through a transient surface. When no durable tracker exists, this is the correct behavior.
 
 ---
 

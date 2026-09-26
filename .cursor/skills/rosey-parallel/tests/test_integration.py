@@ -262,3 +262,33 @@ def test_finish_run_gate_failure_blocks_base_ref_move(tmp_path):
         rp._default_integration_gate = orig
     assert run2["integration"]["status"] == "fixup"
     assert _branch_point(repo) == base_before2
+
+# --- Branch assertion: worker must stay on its track branch (B6 follow-up) ---
+
+
+def test_assert_worktree_branch_accepts_matching_branch(tmp_path):
+    repo = _init_repo(tmp_path)
+    wt = repo / "wt"
+    rp.create_worktree(repo, wt, "rp/match", "HEAD")
+    assert rp.assert_worktree_branch(wt, "rp/match") is None
+
+
+def test_assert_worktree_branch_rejects_wrong_branch(tmp_path):
+    repo = _init_repo(tmp_path)
+    wt = repo / "wt"
+    rp.create_worktree(repo, wt, "rp/actual", "HEAD")
+    err = rp.assert_worktree_branch(wt, "rp/expected")
+    assert err is not None
+    assert "rp/actual" in err and "rp/expected" in err
+
+
+def test_assert_worktree_branch_ignores_unset_expectation(tmp_path):
+    repo = _init_repo(tmp_path)
+    wt = repo / "wt"
+    rp.create_worktree(repo, wt, "rp/any", "HEAD")
+    assert rp.assert_worktree_branch(wt, None) is None
+    assert rp.assert_worktree_branch(wt, "") is None
+
+
+def test_assert_worktree_branch_tolerates_missing_worktree(tmp_path):
+    assert rp.assert_worktree_branch(tmp_path / "nope", "rp/x") is None

@@ -15,25 +15,42 @@ Rules:
 - Not: "Sure! I'd be happy to help you with that."
 - Yes: "Bug in auth middleware. Fix:"
 
-Switch level: /caveman lite|full|ultra|wenyan Stop: "stop caveman" or "normal mode"
+Levels: `lite` | `full` | `ultra` | `wenyan-lite` | `wenyan-full` | `wenyan-ultra` (defined below).
 
-Auto-Clarity: drop caveman for security warnings, irreversible actions, user confused. Resume after.
+Default level: **full** when the user invokes caveman explicitly; **lite** when caveman is implied by a Rosey skill. Stop: "stop caveman" — or "normal mode", which reverts every always-on response mode (see `.cursor/rules/ponytail.mdc` § Modes off-switch).
+
+Auto-Clarity: drop caveman for security warnings, irreversible actions, and ambiguous steps (see below). Resume after.
 
 Boundaries: code/commits/PRs written normal.
+
+## Levels
+
+Definitions live here so this always-on rule is self-sufficient without loading the
+skill. Worked examples live in the caveman skill, `SKILL.md`.
+
+- **lite** — No filler or hedging. Keep articles and full sentences. Professional but tight.
+- **full** — Drop articles, fragments OK, short synonyms. Classic caveman.
+- **ultra** — Abbreviate prose words (DB/auth/config/req/res/fn/impl), strip conjunctions, arrows for causality (X -> Y), one word when one word enough. Never abbreviate code symbols, function names, API names, or error strings.
+- **wenyan-lite** — Semi-classical: drop filler and hedging, keep grammar structure, classical register.
+- **wenyan-full** — Fully Classical Chinese. Classical sentence patterns, verbs precede objects, subjects often omitted, classical particles.
+- **wenyan-ultra** — Extreme abbreviation while keeping the classical Chinese feel.
 
 ## Scope (what caveman applies to)
 
 **Caveman applies to:**
 
 - Status/progress while Rosey skills run (brainstorm, plan, work, qa, hindsight)
-- "Done X, next Y" workflow messages
+- "Done X, next Y" workflow messages, inside or outside a Rosey skill
 - Tool-run narration
 
 **Caveman does NOT apply to:**
 
+- Direct answers to "why" / "how do I" questions unless the user invokes caveman
 - Requirements docs, plans, commit messages, PR bodies (normal prose)
-- Direct answers to "why" / "how do I" questions unless user says `/caveman`
 - Security warnings, confusion, irreversible actions (Auto-Clarity)
+- **Overlap case:** a message that both reports status and answers a question is an explanation, not status — write it normal prose unless the user invoked caveman. Explaining why a tool call failed is an explanation.
+
+When the two lists overlap, the "does NOT apply" list wins.
 
 ## Rosey skills
 
@@ -42,12 +59,27 @@ When `rosey-brainstorm`, `rosey-plan`, `rosey-work`, `rosey-qa`, or `rosey-hinds
 - Use **caveman lite** for all assistant chat (not ultra unless hindsight-only CLI narration)
 - First message after skill start must be caveman-lite, including the Hindsight gate line
 
+## Namespace
+
+`lite` / `full` / `ultra` are caveman's *compression* levels. Ponytail uses the same
+three words for *code-minimalism* pressure — an unrelated axis. Always qualify:
+"caveman full" and "ponytail full" are different dials. A bare "go full" is ambiguous;
+ask or infer from context.
+
+## Precedence
+
+This rule and the caveman skill both describe caveman. When both are loaded:
+
+- **This rule owns scope and activation** — when caveman applies, and at what default level.
+- **The skill owns level semantics and examples** — the Intensity table and worked examples.
+- Where they differ on a level name, the skill's table is authoritative; this rule's Levels list is the always-on fallback for when the skill is not loaded.
+
 ## Conflict resolution
 
 If user rules ask for "blog-quality prose" in chat:
 
 - Rosey **workflow status** → caveman lite wins
-- **Conceptual explanations** to user questions → normal concise prose unless user invoked `/caveman`
+- **Conceptual explanations** to user questions → normal concise prose unless the user invoked caveman
 
 ## Proof of compliance
 

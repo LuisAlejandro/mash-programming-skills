@@ -45,9 +45,9 @@ def test_identical_writes_byte_identical(tmp_path):
 
 
 def test_orchestrate_run_roundtrips_through_save_load(tmp_path):
-    # Regression: orchestrate_run previously wrote `state`/`base_sha`, which
-    # load_run/_validate_state rejected (it requires `tasks`/`base_sha_snapshot`).
-    # The CLI save->load->resume cycle must round-trip.
+    # orchestrate_run's record must round-trip through the CLI save->load->resume
+    # cycle with the same schema load_run/_validate_state requires
+    # (tasks/base_sha_snapshot).
     class _D:
         def __init__(self):
             self.log = []
@@ -186,9 +186,7 @@ def test_stale_lock_live_pid_not_reaped(tmp_path):
 
 
 def test_hung_but_alive_owner_not_reaped(tmp_path):
-    # P2-12: the hung-but-alive heartbeat branch was removed (nothing
-    # refreshes lastHeartbeat). A live owner's lock is never stolen, even if
-    # its heartbeat is stale.
+    # A live owner's lock is never stolen, even if its heartbeat is stale.
     p = tmp_path / "locks" / "t1.lock"
     rp.atomic_write_json(p, {
         "ownerTag": "hung", "pid": __import__("os").getpid(),

@@ -44,8 +44,6 @@ Do not hardcode any other destination. This phase writes no commit message and h
 
 Every interactive run gets the full scoping synthesis and a confirmation question — there is no announce-only mode and no signal that thins the checkpoint. The confirmation is unconditional even when zero call-outs survive the keep test, and even when the opening prompt was richly pre-loaded and needed no dialogue.
 
-*Historical note: an earlier design had an announce-only path for the smallest tier, gated on tier plus whether any blocking question had fired. It produced one-sentence checkpoints on substantive scope. The tier it depended on no longer exists and the path was removed — do not reintroduce an announce-only shortcut.*
-
 ### Keep tests per section
 
 The shared reference carries the general keep test. These are the per-section specializations; a section is render-conditional, so an empty one is omitted rather than padded.

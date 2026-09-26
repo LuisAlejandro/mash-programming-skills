@@ -1,5 +1,5 @@
 ---
-description: Mandatory Hindsight gate for /rosey-brainstorm, /rosey-plan, /rosey-work, and /rosey-qa only
+description: Mandatory Hindsight gate for the rosey-brainstorm, rosey-plan, rosey-work, and rosey-qa skills only
 alwaysApply: true
 ---
 
@@ -7,7 +7,7 @@ alwaysApply: true
 
 When a Rosey pipeline skill is active, use [`rosey-hindsight`](../skills/rosey-hindsight/SKILL.md) as the source of truth for local memory.
 
-- At the start of `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa`, recall relevant context with `hindsight-embed memory recall` (see skill for PATH).
+- At the start of the rosey-brainstorm, rosey-plan, rosey-work, or rosey-qa skill, recall relevant context with `hindsight-embed memory recall` (see skill for PATH).
 - During those skills, retain durable discoveries, user preferences, procedure outcomes, and project conventions with `hindsight-embed memory retain`.
 - At the end of `rosey-work`, retain a concise session summary with changed files, verification, blockers, and decisions.
 - If Hindsight is unavailable or not configured, continue the Rosey skill and record the unavailable status where applicable.
@@ -15,9 +15,9 @@ When a Rosey pipeline skill is active, use [`rosey-hindsight`](../skills/rosey-h
 
 ## Mandatory gate (do not skip)
 
-Run this gate **only** when the user invokes `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa`, or that skill is already active in this conversation.
+Run this gate **only** when the user invokes the rosey-brainstorm, rosey-plan, rosey-work, or rosey-qa skill, or that skill is already active in this conversation.
 
-Do **not** run it for generic planning, implementation, code review, or "implement this" / "review this diff" unless one of those four skills is active.
+Do **not** run it for generic planning, implementation, code review, or "implement this" / "review this diff" unless one of those four skills (rosey-brainstorm, rosey-plan, rosey-work, rosey-qa) is active. `rosey-lint` is not one of them.
 
 You **must** run this sequence **before** other research or edits:
 

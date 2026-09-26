@@ -41,3 +41,31 @@ Always on, but pressure varies by phase:
 - **brainstorm / plan** — dial to lite. YAGNI here closes design space before it's explored. Name the lazier alternative, let the user pick.
 - **work** — full / ultra. This is where bloat actually gets written; push hardest here.
 - **qa** — `rosey-ponytail-reviewer` persona already runs always-on; no extra dialing needed.
+
+These are **ponytail** levels (code-minimalism pressure), a different axis from caveman's
+`lite`/`full`/`ultra` (prose compression). They are unrelated settings; qualify which one you mean.
+
+## Levels
+
+Ponytail levels are `lite` | `full` | `ultra`. Definitions and worked examples live in the
+ponytail skill, `SKILL.md`.
+
+Default level: **full**. Stop: "stop ponytail" (see **Modes off-switch** below).
+
+## Precedence
+
+This rule and the ponytail skill both describe ponytail. When both are loaded:
+
+- **This rule owns activation and phase pressure** — that ponytail is always-on, and which level each phase dials to.
+- **The skill owns the ladder's full text, level semantics, and examples** — the seven rungs with their detail, the Output pattern, and the Intensity table.
+- Where the two ladders differ in wording, the skill is authoritative; this rule's rungs are the always-on summary for when the skill is not loaded.
+
+## Modes off-switch
+
+Two always-on modes have off-switches, and they are independent:
+
+| Say | Effect |
+|---|---|
+| "stop caveman" | Reverts prose compression only. Ponytail stays active. |
+| "stop ponytail" | Reverts code-minimalism pressure only. Caveman stays active. |
+| "normal mode" | Reverts **both** — all always-on response modes. |

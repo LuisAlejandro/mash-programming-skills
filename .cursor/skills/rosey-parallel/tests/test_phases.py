@@ -13,7 +13,6 @@ import rosey_parallel as rp  # noqa: E402
 GOOD_HANDOFF = """\
 ROSEY_WORK_HANDOFF
 BRANCH: feature/x
-BRANCH_DECISION: continued
 FILES_CHANGED:
 - a.py
 - b/c.py
@@ -68,7 +67,7 @@ def test_no_drift_when_disjoint():
 
 def test_worker_overrides_neutralize_branch_and_sentrux():
     overrides = rp.worker_overrides("the-track-branch")
-    assert overrides["branch_setup"] == "do not run branch setup"
+    assert "branch_setup" not in overrides
     assert overrides["sentrux"] == "skip"
     assert overrides["branch"] == "the-track-branch"
     prompt = rp.load_worker_prompt().format(
@@ -78,10 +77,11 @@ def test_worker_overrides_neutralize_branch_and_sentrux():
         track_branch="the-track-branch",
         phase="work",
         qa_diff_base="track-branch-point",
-        branch_setup=overrides["branch_setup"],
     )
-    assert "`do not run branch setup`" in prompt or "do not run branch setup" in prompt
-    assert "do NOT run branch setup" not in prompt
+    assert "the-track-branch" in prompt
+    assert "do not create `feature/<slug>`" in prompt
+    assert "verifies the worktree's branch" in prompt
+    assert "branch_setup" not in prompt
 
 
 def test_worker_overrides_include_diff_base_for_track():

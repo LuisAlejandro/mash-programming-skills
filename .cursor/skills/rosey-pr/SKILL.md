@@ -81,12 +81,12 @@ Branch routing:
 - **Detached HEAD** — in interactive mode, explain a branch is required and ask whether to create a `feature/<slug>` branch. If yes, derive `<slug>` per **Branch naming** below and run git-flow feature start. If no, stop. In non-interactive mode, auto-create a feature branch when a safe base can be resolved; otherwise stop with a blocker.
 - **On `<base>` with work to do** (uncommitted, unpushed, or no upstream) — automatically create a `feature/<slug>` branch via git-flow. Pushing the integration branch directly is not supported.
 - **On `<base>` with no work** — report no feature branch work and stop.
-- **Feature branch** — if the branch is meaningful but not `feature/<slug>`, suggest `git branch -m feature/<slug>` before push (mirror `rosey-work` rename guidance). If the name is opaque, derive a slug and rename. Then continue.
+- **Feature branch** — if the branch is meaningful but not `feature/<slug>`, suggest `git branch -m feature/<slug>` before push. If the name is opaque, derive a slug and rename. Then continue.
 
 **Plan ↔ branch guard** (when `plan:<path>` is supplied or `ROSEY_WORK_HANDOFF` includes `PLAN_OR_REQUIREMENTS`):
 
 - Derive expected slug from the plan basename (same rule as **Branch naming** below).
-- If `feature/<expected-slug>` ≠ current branch and `BRANCH_DECISION` is not `continued` with an explicit carryover note, **stop before commit** and report the mismatch. Do not stack a distinct plan onto a prior-phase branch unless the user confirms "add to existing PR" or "ship on current branch."
+- If `feature/<expected-slug>` ≠ current branch, **stop before commit** and report the mismatch. Do not stack a distinct plan onto a prior-phase branch unless the user confirms "add to existing PR" or "ship on current branch." An explicit carryover confirmation clears the guard. Note the `ROSEY_WORK_HANDOFF` envelope carries no branch-decision field — `rosey-work` works in place and never runs branch setup, so the branch reached here is whatever the user was already on.
 - When an open PR exists on the current branch and the plan slug differs, treat as stacked scope — require the same explicit confirmation before commit/push.
 
 **Branch naming** (integration PRs only):
@@ -97,7 +97,7 @@ Branch routing:
 - Otherwise: kebab-case summary of the change.
 - Do not use `test/`, `chore/`, or `release/` prefixes for integration PRs.
 
-This rule is duplicated verbatim in `references/branch-creation.md` and `rosey-work`'s branch setup. All three must agree — the plan ↔ branch guard above stops before commit when they diverge.
+This rule is duplicated verbatim in `references/branch-creation.md`. Both copies must agree — the plan ↔ branch guard above stops before commit when they diverge.
 
 Use GitHub MCP `search_pull_requests` to detect an existing open PR for the current branch. Step 5 uses it to route between new-PR and existing-PR application.
 
@@ -123,7 +123,7 @@ Commit messages follow Caveman-commit principles:
 - Always include a body for breaking changes, security fixes, data migrations, reversions, and migration notes.
 - Do not add AI attribution, filler phrases, or file-by-file restatements.
 
-If `plan:<path>` was supplied, read the plan for title, type, summary, requirements, and key decisions. Do not look for legacy product requirement documents.
+If `plan:<path>` was supplied, read the plan for title, type, summary, requirements, and key decisions.
 
 ## Step 3: Commit and push
 

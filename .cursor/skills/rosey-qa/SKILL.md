@@ -405,7 +405,7 @@ Locate the plan document so Stage 6 can verify requirements completeness. Check 
 - Multiple/ambiguous PR body matches -> `plan_source: inferred` (lower confidence)
 - Auto-discover with single unambiguous match -> `plan_source: inferred` (lower confidence)
 
-If a plan is found, read its **Requirements** section — `## Requirements` in current plans, `## Requirements Trace` in legacy ones — and the R-IDs (R1, R2, etc.) listed there, plus **Implementation Units** (current numeric subsections such as `### U1.`, `### U2.`, or `### Unit 1:` under `## Implementation Units`; legacy bullet or checkbox unit entries under that section also count).
+If a plan is found, read its **Requirements** section — the R-IDs (R1, R2, etc.) listed there, plus **Implementation Units** (numeric subsections such as `### U1.`, `### U2.`, or `### Unit 1:` under `## Implementation Units`).
 
 Also read these three sections when present — they carry the contracts the plan agreed to, and reviewing against a stated bar beats re-deriving one:
 

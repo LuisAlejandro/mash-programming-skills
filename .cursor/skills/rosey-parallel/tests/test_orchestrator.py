@@ -1,5 +1,6 @@
 """U8 tests: orchestrator flow (R1, R3, R4, R6, R10-12, R16-18, R20, R23)."""
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -760,8 +761,9 @@ def test_approve_without_resume_is_rejected(tmp_path):
 
 def test_worker_prompt_injects_placeholders():
     text = rp.load_worker_prompt()
-    for key in ("{goal}", "{plan_path}", "{track_branch}", "{phase}", "{qa_diff_base}", "{branch_setup}"):
+    for key in ("{goal}", "{plan_path}", "{track_branch}", "{phase}", "{qa_diff_base}"):
         assert key in text
+    assert "{branch_setup}" not in text
 
 
 def test_run_schema_matches_new_run(tmp_path):
@@ -773,3 +775,67 @@ def test_run_schema_matches_new_run(tmp_path):
         assert key in run
     assert "report" in run
 
+
+
+# --- End-to-end: a worker that leaves its track branch fails the task ---
+
+
+class DriftingDriver(FakeDriver):
+    """FakeDriver that moves the worktree off its track branch during work."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.cwds = {}
+
+    def set_task_cwd(self, task_id, path):
+        self.cwds[task_id] = path
+
+    def work_phase(self, task_id):
+        wt = self.cwds.get(task_id)
+        if wt:
+            subprocess.run(
+                ["git", "-C", str(wt), "checkout", "-q", "-b", "stray-branch"],
+                check=True, capture_output=True,
+            )
+        return super().work_phase(task_id)
+
+
+def _init_git_repo(path):
+    for cmd in (
+        ["git", "init", "-q", str(path)],
+        ["git", "-C", str(path), "config", "user.email", "t@t"],
+        ["git", "-C", str(path), "config", "user.name", "t"],
+    ):
+        subprocess.run(cmd, check=True)
+    (path / "base.txt").write_text("base\n")
+    subprocess.run(["git", "-C", str(path), "add", "base.txt"], check=True)
+    subprocess.run(
+        ["git", "-C", str(path), "commit", "-qm", "init", "--no-gpg-sign"], check=True,
+    )
+    return path
+
+
+def test_worker_leaving_track_branch_fails_task(tmp_path):
+    repo = _init_git_repo(tmp_path)
+    tasks = {"t1": rp.new_task("t1", "one")}
+    footprints = {"t1": {"a.py"}}
+    driver = DriftingDriver()
+    run = rp.orchestrate_run(repo, tasks, footprints, driver, gate=False)
+    t1 = run["tasks"]["t1"]
+    assert t1["status"] == rp.STATUS_FAILED
+    assert any("branch check" in b for b in t1["blockers"])
+    assert any("stray-branch" in b for b in t1["blockers"])
+
+
+def test_worker_staying_on_track_branch_succeeds(tmp_path):
+    # Control: the same real-git setup without drift must still reach DONE.
+    repo = _init_git_repo(tmp_path)
+    tasks = {"t1": rp.new_task("t1", "one")}
+    footprints = {"t1": {"a.py"}}
+
+    class StayingDriver(FakeDriver):
+        def set_task_cwd(self, task_id, path):
+            pass
+
+    run = rp.orchestrate_run(repo, tasks, footprints, StayingDriver(), gate=False)
+    assert run["tasks"]["t1"]["status"] in (rp.STATUS_DONE, rp.STATUS_REPORTED)

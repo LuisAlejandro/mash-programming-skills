@@ -67,8 +67,6 @@ These sections are present when they carry information that isn't covered elsewh
   | Still unresolved when this plan is written | `## Open Questions` |
   | Intentionally answered during execution | `### Deferred to Implementation` under Open Questions |
 
-  `Implementation-Time Unknowns` is a compatibility alias for older plans. Work still parses it; do not use it in new plans.
-
 - **System-Wide Impact** — include when the change affects cross-cutting concerns (data lifecycles, auth boundaries, performance posture, cardinal rules, shared infrastructure). Skip for changes localized to one component where the impact is self-evident.
 
 - **Risks & Dependencies** — include when there are real risks worth flagging (external service changes, version pins under churn, behavioral assumptions worth highlighting) or material upstream dependencies. Skip for low-risk localized work.
