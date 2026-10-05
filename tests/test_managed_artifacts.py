@@ -26,12 +26,12 @@ class ManagedArtifactsTest(unittest.TestCase):
             (source / ".cursor/agents/keep.md").write_text("")
             (source / ".cursor/rules/keep.mdc").write_text("")
 
-            cursor, opencode, pi, pi_agents, rosey = (
+            cursor, opencode, pi, pi_agents, mash = (
                 root / "cursor",
                 root / "opencode",
                 root / "pi",
                 root / "pi-agents",
-                root / "rosey",
+                root / "mash",
             )
             for home in (cursor, opencode, pi):
                 for name in ("old", "keep", "unrelated"):
@@ -45,9 +45,9 @@ class ManagedArtifactsTest(unittest.TestCase):
                 (cursor / "rules" / name).write_text("")
             for kind in ("node_modules", "venvs"):
                 for name in ("old", "keep", "unrelated"):
-                    (rosey / kind / name).mkdir(parents=True, exist_ok=True)
+                    (mash / kind / name).mkdir(parents=True, exist_ok=True)
 
-            manifest = rosey / "install-manifest.json"
+            manifest = mash / "install-manifest.json"
             manifest.parent.mkdir(parents=True, exist_ok=True)
             manifest.write_text(
                 json.dumps(
@@ -65,7 +65,7 @@ class ManagedArtifactsTest(unittest.TestCase):
 
             self.assertEqual(MODULE.names_for_uninstall(manifest, source, "skills"), ["keep", "old"])
             self.assertFalse(MODULE.manifest_matches(manifest, source))
-            MODULE.prune(manifest, source, cursor, opencode, pi, pi_agents, rosey)
+            MODULE.prune(manifest, source, cursor, opencode, pi, pi_agents, mash)
 
             for home in (cursor, opencode, pi):
                 self.assertFalse((home / "skills/old").exists())
@@ -76,14 +76,15 @@ class ManagedArtifactsTest(unittest.TestCase):
                 self.assertTrue((home / "unrelated.md").exists())
             self.assertFalse((cursor / "rules/old.mdc").exists())
             self.assertTrue((cursor / "rules/unrelated.mdc").exists())
-            self.assertFalse((rosey / "node_modules/old").exists())
-            self.assertFalse((rosey / "venvs/old").exists())
-            self.assertTrue((rosey / "venvs/keep").exists())
-            self.assertTrue((rosey / "venvs/unrelated").exists())
+            self.assertFalse((mash / "node_modules/old").exists())
+            self.assertFalse((mash / "venvs/old").exists())
+            self.assertTrue((mash / "venvs/keep").exists())
+            self.assertTrue((mash / "venvs/unrelated").exists())
 
-            MODULE.write_manifest(manifest, "1.2.3", source, cursor, opencode, pi, pi_agents, rosey)
+            MODULE.write_manifest(manifest, "1.2.3", source, cursor, opencode, pi, pi_agents, mash)
             written = json.loads(manifest.read_text())
             self.assertEqual(written["manifest_version"], 2)
+            self.assertEqual(written["mash"], str(mash))
             self.assertEqual(written["managed"]["skills"], ["keep", "new"])
             self.assertEqual(MODULE.names_for_uninstall(manifest, source, "agents"), ["keep.md"])
             self.assertTrue(MODULE.manifest_matches(manifest, source))

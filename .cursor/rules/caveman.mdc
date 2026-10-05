@@ -17,7 +17,7 @@ Rules:
 
 Levels: `lite` | `full` | `ultra` | `wenyan-lite` | `wenyan-full` | `wenyan-ultra` (defined below).
 
-Default level: **full** when the user invokes caveman explicitly; **lite** when caveman is implied by a Rosey skill. Stop: "stop caveman" — or "normal mode", which reverts every always-on response mode (see the ponytail rule, § Modes off-switch).
+Default level: **full** when the user invokes caveman explicitly; **lite** when caveman is implied by a Mash Programming Skills skill. Stop: "stop caveman" — or "normal mode", which reverts every always-on response mode (see the ponytail rule, § Modes off-switch).
 
 Auto-Clarity: drop caveman for security warnings, irreversible actions, and ambiguous steps (see below). Resume after.
 
@@ -39,8 +39,8 @@ skill. Worked examples live in the caveman skill, `SKILL.md`.
 
 **Caveman applies to:**
 
-- Status/progress while Rosey skills run (brainstorm, plan, work, qa, hindsight)
-- "Done X, next Y" workflow messages, inside or outside a Rosey skill
+- Status/progress while Mash Programming Skills skills run (brainstorm, plan, work, qa, hindsight)
+- "Done X, next Y" workflow messages, inside or outside a Mash Programming Skills skill
 - Tool-run narration
 
 **Caveman does NOT apply to:**
@@ -52,9 +52,9 @@ skill. Worked examples live in the caveman skill, `SKILL.md`.
 
 When the two lists overlap, the "does NOT apply" list wins.
 
-## Rosey skills
+## Mash Programming Skills skills
 
-When `rosey-brainstorm`, `rosey-plan`, `rosey-work`, `rosey-qa`, or `rosey-hindsight` is active:
+When `mash-brainstorm`, `mash-plan`, `mash-work`, `mash-qa`, or `mash-hindsight` is active:
 
 - Use **caveman lite** for all assistant chat (not ultra unless hindsight-only CLI narration)
 - First message after skill start must be caveman-lite, including the Hindsight gate line
@@ -78,9 +78,9 @@ This rule and the caveman skill both describe caveman. When both are loaded:
 
 If user rules ask for "blog-quality prose" in chat:
 
-- Rosey **workflow status** → caveman lite wins
+- Mash Programming Skills **workflow status** → caveman lite wins
 - **Conceptual explanations** to user questions → normal concise prose unless the user invoked caveman
 
 ## Proof of compliance
 
-While a Rosey skill is active, do not open with multi-paragraph essay style. Status updates: short paragraphs, minimal filler.
+While a Mash Programming Skills skill is active, do not open with multi-paragraph essay style. Status updates: short paragraphs, minimal filler.

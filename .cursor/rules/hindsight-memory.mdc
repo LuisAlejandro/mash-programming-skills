@@ -1,16 +1,16 @@
 ---
-description: Mandatory Hindsight gate for the rosey-brainstorm, rosey-plan, rosey-work, rosey-qa, rosey-epic-frame, and rosey-release skills
+description: Mandatory Hindsight gate for the mash-brainstorm, mash-plan, mash-work, mash-qa, mash-epic-frame, and mash-release skills
 alwaysApply: true
 ---
 
 # Hindsight Memory
 
-When a Rosey pipeline skill is active, use the `rosey-hindsight` skill as the source of truth for local memory.
+When a Mash Programming Skills pipeline skill is active, use the `mash-hindsight` skill as the source of truth for local memory.
 
 - At the start of a gated skill (listed below), recall relevant context with `hindsight-embed memory recall` (see skill for PATH).
 - During those skills, retain durable discoveries, user preferences, procedure outcomes, and project conventions with `hindsight-embed memory retain`.
-- At the end of `rosey-work`, retain a concise session summary with changed files, verification, blockers, and decisions.
-- If Hindsight is unavailable or not configured, continue the Rosey skill and record the unavailable status where applicable.
+- At the end of `mash-work`, retain a concise session summary with changed files, verification, blockers, and decisions.
+- If Hindsight is unavailable or not configured, continue the Mash Programming Skills skill and record the unavailable status where applicable.
 - Do not store secrets or sensitive data.
 
 ## Mandatory gate (do not skip)
@@ -19,24 +19,24 @@ Run this gate **only** when a gated skill is invoked, or is already active in th
 
 | Skill | Gate point |
 |---|---|
-| `rosey-brainstorm` | before exploration |
-| `rosey-plan` | before planning |
-| `rosey-work` | before implementation (plus a retain at handoff) |
-| `rosey-qa` | before review |
-| `rosey-epic-frame` | before writing any requirements document |
-| `rosey-release` | before release work |
+| `mash-brainstorm` | before exploration |
+| `mash-plan` | before planning |
+| `mash-work` | before implementation (plus a retain at handoff) |
+| `mash-qa` | before review |
+| `mash-epic-frame` | before writing any requirements document |
+| `mash-release` | before release work |
 
-Do **not** run it for generic planning, implementation, code review, or "implement this" / "review this diff" unless one of those skills is active. `rosey-lint` is not gated.
+Do **not** run it for generic planning, implementation, code review, or "implement this" / "review this diff" unless one of those skills is active. `mash-lint` is not gated.
 
-`rosey-debug` and `rosey-dogfood` use Hindsight **advisorily** — recall and retain are optional there and must never block the run. Do not treat them as gated.
+`mash-debug` and `mash-dogfood` use Hindsight **advisorily** — recall and retain are optional there and must never block the run. Do not treat them as gated.
 
 You **must** run this sequence **before** other research or edits:
 
-1. Read the `rosey-hindsight` skill
+1. Read the `mash-hindsight` skill
 2. Run `hindsight-embed daemon status` with `PATH="${HOME}/.local/bin:${PATH}"` (daemon warm-restart: global Cursor `sessionStart` hook / native OpenCode plugin / global Pi `session_start` extension via `ensure-hindsight-daemon.sh`)
 3. If status OK → run `hindsight-embed memory recall <bank> "<task summary>"`
 4. If status fails → continue the skill but state `Hindsight: unavailable — <reason>` in the first status message
 
 Skipping step 2 without documenting unavailable is a workflow violation.
 
-At end of `rosey-work`: run `memory retain` with session summary **or** document why retain was skipped.
+At end of `mash-work`: run `memory retain` with session summary **or** document why retain was skipped.

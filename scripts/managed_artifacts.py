@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Track and prune Rosey-owned global artifacts."""
+"""Track and prune Mash Programming Skills-owned global artifacts."""
 
 import argparse
 import json
@@ -55,7 +55,7 @@ def remove(path: Path):
     return True
 
 
-def prune(manifest: Path, source: Path, cursor: Path, opencode: Path, pi: Path, pi_agents: Path, rosey: Path):
+def prune(manifest: Path, source: Path, cursor: Path, opencode: Path, pi: Path, pi_agents: Path, mash: Path):
     previous = load_managed(manifest)
     if previous is None:
         return
@@ -64,8 +64,8 @@ def prune(manifest: Path, source: Path, cursor: Path, opencode: Path, pi: Path, 
         "skills": (cursor / "skills", opencode / "skills", pi / "skills"),
         "agents": (cursor / "agents", opencode / "agents", pi_agents),
         "rules": (cursor / "rules",),
-        "npm_skills": (rosey / "node_modules",),
-        "venv_skills": (rosey / "venvs",),
+        "npm_skills": (mash / "node_modules",),
+        "venv_skills": (mash / "venvs",),
     }
     for kind in KINDS:
         for name in sorted(set(previous[kind]) - set(current[kind])):
@@ -85,7 +85,7 @@ def write_manifest(
     opencode: Path,
     pi: Path,
     pi_agents: Path,
-    rosey: Path,
+    mash: Path,
 ):
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(
@@ -99,7 +99,7 @@ def write_manifest(
                 "opencode": str(opencode),
                 "pi": str(pi),
                 "pi_agents": str(pi_agents),
-                "rosey": str(rosey),
+                "mash": str(mash),
                 "managed": inventory(source),
             },
             indent=2,
@@ -153,13 +153,13 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
 
     prune_parser = commands.add_parser("prune")
-    for name in ("manifest", "source", "cursor", "opencode", "pi", "pi_agents", "rosey"):
+    for name in ("manifest", "source", "cursor", "opencode", "pi", "pi_agents", "mash"):
         prune_parser.add_argument(name, type=Path)
 
     write_parser = commands.add_parser("write")
     write_parser.add_argument("manifest", type=Path)
     write_parser.add_argument("version")
-    for name in ("source", "cursor", "opencode", "pi", "pi_agents", "rosey"):
+    for name in ("source", "cursor", "opencode", "pi", "pi_agents", "mash"):
         write_parser.add_argument(name, type=Path)
 
     list_parser = commands.add_parser("list")
@@ -180,7 +180,7 @@ def main():
 
     args = parser.parse_args()
     if args.command == "prune":
-        prune(args.manifest, args.source, args.cursor, args.opencode, args.pi, args.pi_agents, args.rosey)
+        prune(args.manifest, args.source, args.cursor, args.opencode, args.pi, args.pi_agents, args.mash)
     elif args.command == "write":
         write_manifest(
             args.manifest,
@@ -190,7 +190,7 @@ def main():
             args.opencode,
             args.pi,
             args.pi_agents,
-            args.rosey,
+            args.mash,
         )
     elif args.command == "list":
         print("\n".join(names_for_uninstall(args.manifest, args.source, args.kind)))

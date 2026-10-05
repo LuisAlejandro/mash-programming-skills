@@ -40,7 +40,7 @@ Always on, but pressure varies by phase:
 
 - **brainstorm / plan** — dial to lite. YAGNI here closes design space before it's explored. Name the lazier alternative, let the user pick.
 - **work** — full / ultra. This is where bloat actually gets written; push hardest here.
-- **qa** — `rosey-ponytail-reviewer` persona already runs always-on; no extra dialing needed.
+- **qa** — `mash-ponytail-reviewer` persona already runs always-on; no extra dialing needed.
 
 These are **ponytail** levels (code-minimalism pressure), a different axis from caveman's
 `lite`/`full`/`ultra` (prose compression). They are unrelated settings; qualify which one you mean.

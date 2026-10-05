@@ -36,9 +36,9 @@ class AutomationLayerTest(unittest.TestCase):
         self.assertIn("Ordinary page journeys stay on agent-browser", text)
 
     def test_dogfood_uses_agent_browser_evidence(self):
-        browser = (SKILLS / "rosey-dogfood" / "references" / "browser.md").read_text()
-        skill = (SKILLS / "rosey-dogfood" / "SKILL.md").read_text()
-        phases = (SKILLS / "rosey-dogfood" / "references" / "phases.md").read_text()
+        browser = (SKILLS / "mash-dogfood" / "references" / "browser.md").read_text()
+        skill = (SKILLS / "mash-dogfood" / "SKILL.md").read_text()
+        phases = (SKILLS / "mash-dogfood" / "references" / "phases.md").read_text()
         self.assertIn("agent-browser", browser)
         self.assertIn("screenshot", browser.lower())
         self.assertIn("console", browser.lower())
@@ -52,7 +52,7 @@ class AutomationLayerTest(unittest.TestCase):
         self.assertIn("default Chrome profile", combined)
 
     def test_debug_stops_when_agent_browser_is_missing(self):
-        text = skill_text("rosey-debug")
+        text = skill_text("mash-debug")
         self.assertIn("agent-browser", text)
         self.assertIn("stop", text.lower())
         self.assertNotIn("whatever works", text)

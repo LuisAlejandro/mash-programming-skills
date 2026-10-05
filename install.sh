@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Rosey Agentic Environment — machine-global installer.
+# Mash Programming Skills — machine-global installer.
 # This installer intentionally never writes into the current repository.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_ROOT="${ROSEY_AGENTIC_ENV:-$SCRIPT_DIR}"
+SOURCE_ROOT="${MASH_PROGRAMMING_SKILLS:-$SCRIPT_DIR}"
 VERSION_FILE="$SOURCE_ROOT/VERSION"
 INSTALL_VERSION="0.1.0"
 CHECK_ONLY=false
 WRITE_PIN=true
 WRITE_GUIDANCE=true
 
-# Global destinations are machine-owned. Keep the Rosey state root distinct from
+# Global destinations are machine-owned. Keep the Mash Programming Skills state root distinct from
 # each IDE's own global directory so OpenCode can consume the same guidance and
 # reference contracts without shadowing project AGENTS.md files.
-ROSEY_CONFIG_DIR="${HOME}/.config/rosey"
+MASH_CONFIG_DIR="${HOME}/.config/mash"
 CURSOR_HOME="${HOME}/.cursor"
 PI_HOME="${HOME}/.pi/agent"
 OPENCODE_HOME="${HOME}/.config/opencode"
@@ -58,9 +58,9 @@ while [ "$#" -gt 0 ]; do
 Usage: install.sh [--check] [--version] [--write-pin|--no-write-pin]
                   [--agents|--no-agents]
 
-Installs Rosey globally for Cursor, OpenCode, and Pi. It never writes to the
+Installs Mash Programming Skills globally for Cursor, OpenCode, and Pi. It never writes to the
 current repository. Repository AGENTS.md, DESIGN.md, IDE trees, .mcp.json, and
-rosey/* files are not created by this command.
+.mash/* files are not created by this command.
 EOF
             exit 0
             ;;
@@ -73,12 +73,12 @@ done
 
 if [ ! -d "$SOURCE_ROOT/.cursor" ]; then
     echo "Error: Could not find .cursor directory in $SOURCE_ROOT" >&2
-    echo "   Run this script from the rosey-agentic-env repository or set ROSEY_AGENTIC_ENV." >&2
+    echo "   Run this script from the mash-programming-skills repository or set MASH_PROGRAMMING_SKILLS." >&2
     exit 1
 fi
 
 # Read KEY=value from a dotenv-style file (last match). Strips optional quotes.
-rosey_dotenv_get() {
+mash_dotenv_get() {
     local file="$1" key="$2" line val
     [ -f "$file" ] || return 1
     line="$(grep -E "^[[:space:]]*${key}=" "$file" 2>/dev/null | tail -n1)" || return 1
@@ -95,13 +95,13 @@ rosey_dotenv_get() {
 
 # Resolve KEY: process environment, then the source repository's .env.
 # The installer has no repository target, so it never reads a target .env.
-rosey_resolve_env_value() {
+mash_resolve_env_value() {
     local key="$1" val=""
     if [ -n "${!key+x}" ] && [ -n "${!key}" ]; then
         printf '%s' "${!key}"
         return 0
     fi
-    val="$(rosey_dotenv_get "$SOURCE_ROOT/.env" "$key" 2>/dev/null || true)"
+    val="$(mash_dotenv_get "$SOURCE_ROOT/.env" "$key" 2>/dev/null || true)"
     printf '%s' "$val"
 }
 
@@ -114,7 +114,7 @@ seed_dotenv_from_example() {
 
     mkdir -p "$(dirname "$dest")"
     {
-        echo "# Seeded by Rosey install.sh from $(basename "$example") at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        echo "# Seeded by Mash Programming Skills install.sh from $(basename "$example") at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
         while IFS= read -r line || [ -n "$line" ]; do
             if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
                 printf '%s\n' "$line"
@@ -122,7 +122,7 @@ seed_dotenv_from_example() {
             fi
             if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
                 key="${BASH_REMATCH[1]}"
-                val="$(rosey_resolve_env_value "$key")"
+                val="$(mash_resolve_env_value "$key")"
                 if [ -n "$val" ]; then
                     printf '%s=%s\n' "$key" "$val"
                 else
@@ -202,17 +202,17 @@ adapt_agent_frontmatter() {
     } >"$dest"
 }
 
-rosey_agents_guidance() {
+mash_agents_guidance() {
     cat >"$1" <<'EOF'
-# Rosey Agent Guidance
+# Mash Programming Skills Agent Guidance
 
-This machine uses the Rosey Agentic Environment as global tooling.
-This file contains universal Rosey workflow guidance only; it does not replace
+This machine uses the Mash Programming Skills as global tooling.
+This file contains universal Mash Programming Skills workflow guidance only; it does not replace
 project-specific instructions in a repository's own AGENTS.md.
 
-## Global Rosey surfaces
+## Global Mash Programming Skills surfaces
 
-- Always-on rules: `~/.config/rosey/always-on-rules.md`
+- Always-on rules: `~/.config/mash/always-on-rules.md`
 - Cursor rules (native): `~/.cursor/rules/*.mdc`
 - Cursor skills: `~/.cursor/skills/`
 - Cursor specialist agents: `~/.cursor/agents/`
@@ -224,23 +224,23 @@ project-specific instructions in a repository's own AGENTS.md.
 - Pi specialist agents: `~/.agents/`
 
 Before non-trivial planning, implementation, or review work, follow the
-always-on Rosey rules and use the relevant Rosey skill. Do not create or expect
-repo-local IDE trees for Rosey distribution.
+always-on Mash Programming Skills rules and use the relevant Mash Programming Skills skill. Do not create or expect
+repo-local IDE trees for Mash Programming Skills distribution.
 
 ## Hindsight
 
 Hindsight is optional and machine-global. The version pin is
-`~/.config/rosey/hindsight-pin`; the shared contract references are under
-`~/.config/rosey/references/`.
+`~/.config/mash/hindsight-pin`; the shared contract references are under
+`~/.config/mash/references/`.
 
 When a Hindsight-gated skill is active, follow the hindsight-memory rule and
-the `rosey-hindsight` skill. If the daemon is unavailable, continue and record
+the `mash-hindsight` skill. If the daemon is unavailable, continue and record
 `Hindsight: unavailable`.
 
 ## Repository ownership
 
-Rosey never writes a repository's `AGENTS.md`, `DESIGN.md`, IDE trees, MCP
-files, or `rosey/*` working directories during installation. Owners may create
+Mash Programming Skills never writes a repository's `AGENTS.md`, `DESIGN.md`, IDE trees, MCP
+files, or `.mash/*` working directories during installation. Owners may create
 and track project-specific `AGENTS.md`/`DESIGN.md`; skills create their own
 working directories lazily when invoked.
 EOF
@@ -249,7 +249,7 @@ EOF
 copy_global_rules() {
     local src name
     mkdir -p "$CURSOR_HOME/rules"
-    rm -rf "$ROSEY_CONFIG_DIR/rules"
+    rm -rf "$MASH_CONFIG_DIR/rules"
     for src in "$SOURCE_ROOT"/.cursor/rules/*.mdc; do
         [ -f "$src" ] || continue
         name="$(basename "$src")"
@@ -262,11 +262,11 @@ copy_global_rules() {
 # rule frontmatter, so the always-on subset is also emitted as one plain
 # Markdown bundle: OpenCode injects it via instructions[], Pi via APPEND_SYSTEM.md.
 write_global_always_on_rules() {
-    local bundle="$ROSEY_CONFIG_DIR/always-on-rules.md"
+    local bundle="$MASH_CONFIG_DIR/always-on-rules.md"
     local mdc name description
-    mkdir -p "$ROSEY_CONFIG_DIR" "$PI_HOME"
+    mkdir -p "$MASH_CONFIG_DIR" "$PI_HOME"
     {
-        echo "# Rosey Agentic Environment — always-on rules"
+        echo "# Mash Programming Skills — always-on rules"
         echo
         echo "Auto-generated from .cursor/rules/*.mdc with alwaysApply: true."
         echo "Do not edit by hand; re-run install.sh to refresh."
@@ -376,38 +376,38 @@ PY
 
 copy_global_pi_runtime() {
     local hook_src="$SOURCE_ROOT/.cursor/hooks/ensure-hindsight-daemon.sh"
-    local ext_src="$SOURCE_ROOT/.cursor/hooks-pi/rosey-hindsight-daemon.ts"
+    local ext_src="$SOURCE_ROOT/.cursor/hooks-pi/mash-hindsight-daemon.ts"
     mkdir -p "$PI_HOME/scripts" "$PI_HOME/extensions"
     if [ -f "$hook_src" ]; then
         cp "$hook_src" "$PI_HOME/scripts/ensure-hindsight-daemon.sh"
         chmod +x "$PI_HOME/scripts/ensure-hindsight-daemon.sh"
     fi
     if [ -f "$ext_src" ]; then
-        cp "$ext_src" "$PI_HOME/extensions/rosey-hindsight-daemon.ts"
+        cp "$ext_src" "$PI_HOME/extensions/mash-hindsight-daemon.ts"
     fi
 }
 
 copy_global_opencode_runtime() {
-    local src="$SOURCE_ROOT/.cursor/hooks-opencode/rosey-hindsight-daemon.ts"
+    local src="$SOURCE_ROOT/.cursor/hooks-opencode/mash-hindsight-daemon.ts"
     [ -f "$src" ] || return 0
     mkdir -p "$OPENCODE_HOME/plugin"
-    cp "$src" "$OPENCODE_HOME/plugin/rosey-hindsight-daemon.ts"
+    cp "$src" "$OPENCODE_HOME/plugin/mash-hindsight-daemon.ts"
 }
 
 write_global_guidance() {
     [ "$WRITE_GUIDANCE" = true ] || return 0
-    mkdir -p "$ROSEY_CONFIG_DIR" "$PI_HOME"
-    rosey_agents_guidance "$ROSEY_CONFIG_DIR/AGENTS.md"
-    cp "$ROSEY_CONFIG_DIR/AGENTS.md" "$PI_HOME/AGENTS.md"
+    mkdir -p "$MASH_CONFIG_DIR" "$PI_HOME"
+    mash_agents_guidance "$MASH_CONFIG_DIR/AGENTS.md"
+    cp "$MASH_CONFIG_DIR/AGENTS.md" "$PI_HOME/AGENTS.md"
 }
 
 write_global_pins() {
     [ "$WRITE_PIN" = true ] || return 0
-    mkdir -p "$ROSEY_CONFIG_DIR"
+    mkdir -p "$MASH_CONFIG_DIR"
     if [ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ]; then
-        cp "$SOURCE_ROOT/.cursor/hindsight-pin" "$ROSEY_CONFIG_DIR/hindsight-pin"
+        cp "$SOURCE_ROOT/.cursor/hindsight-pin" "$MASH_CONFIG_DIR/hindsight-pin"
     fi
-    python3 - "$ROSEY_CONFIG_DIR/agentic-env.json" "$SOURCE_ROOT" "$INSTALL_VERSION" <<'PY'
+    python3 - "$MASH_CONFIG_DIR/agentic-env.json" "$SOURCE_ROOT" "$INSTALL_VERSION" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone
@@ -428,7 +428,7 @@ PY
 
 install_global_references() {
     local source dest
-    mkdir -p "$ROSEY_CONFIG_DIR/references"
+    mkdir -p "$MASH_CONFIG_DIR/references"
     for source in \
         "$SOURCE_ROOT/references/model-tiers/model-tiers.md" \
         "$SOURCE_ROOT/references/scoping-synthesis/scoping-synthesis.md" \
@@ -437,7 +437,7 @@ install_global_references() {
             echo "   ⚠️  Missing contract reference: $source" >&2
             continue
         }
-        dest="$ROSEY_CONFIG_DIR/references/$(basename "$source")"
+        dest="$MASH_CONFIG_DIR/references/$(basename "$source")"
         cp "$source" "$dest"
     done
 }
@@ -452,8 +452,8 @@ merge_global_mcp() {
     local github_token obsidian_key
     # Set by prompt_github_token when the installer runs interactively; falls back
     # to the environment so --check and scripted runs behave the same.
-    github_token="${ROSEY_GITHUB_TOKEN-$(rosey_resolve_env_value GITHUB_TOKEN)}"
-    obsidian_key="$(rosey_resolve_env_value OBSIDIAN_API_KEY)"
+    github_token="${MASH_GITHUB_TOKEN-$(mash_resolve_env_value GITHUB_TOKEN)}"
+    obsidian_key="$(mash_resolve_env_value OBSIDIAN_API_KEY)"
     if [ -z "$github_token" ]; then
         echo "   no GitHub token; leaving the github MCP server unconfigured"
     fi
@@ -516,7 +516,7 @@ def write_json(path, value):
     except OSError:
         pass
 
-# Cursor: Rosey entries overwrite same-name entries by the accepted decision.
+# Cursor: Mash Programming Skills entries overwrite same-name entries by the accepted decision.
 cursor = read_json(cursor_path)
 cursor["mcpServers"] = merge(cursor.get("mcpServers"))
 write_json(cursor_path, cursor)
@@ -544,7 +544,7 @@ pi_shared = read_json(pi_shared_path)
 pi_shared["mcpServers"] = merge(pi_shared.get("mcpServers"))
 write_json(pi_shared_path, pi_shared)
 
-# Keep the Rosey MCP map visible in Pi's machine settings as documented by the
+# Keep the Mash Programming Skills MCP map visible in Pi's machine settings as documented by the
 # proposal; pi-mcp-adapter reads the standard shared config above.
 pi_settings = read_json(pi_settings_path)
 pi_settings["mcpServers"] = merge(pi_settings.get("mcpServers"))
@@ -552,7 +552,7 @@ write_json(pi_settings_path, pi_settings)
 PY
 
     # Add the OpenCode instruction paths in a separate pass with exact paths.
-    python3 - "$OPENCODE_HOME/opencode.json" "$ROSEY_CONFIG_DIR/AGENTS.md" "$ROSEY_CONFIG_DIR/always-on-rules.md" <<'PY'
+    python3 - "$OPENCODE_HOME/opencode.json" "$MASH_CONFIG_DIR/AGENTS.md" "$MASH_CONFIG_DIR/always-on-rules.md" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -576,7 +576,7 @@ PY
     echo "   merged MCP configuration into Cursor, OpenCode, and Pi global files"
 }
 
-rosey_global_gitignore_path() {
+mash_global_gitignore_path() {
     local p
     if command -v git >/dev/null 2>&1 && p="$(git config --global --get core.excludesFile 2>/dev/null)" && [ -n "$p" ]; then
         case "$p" in
@@ -593,8 +593,8 @@ rosey_global_gitignore_path() {
 # Point core.excludesFile at the file we just wrote when it is unset. Git does
 # not read ~/.gitignore-global by default (its built-in default is
 # $XDG_CONFIG_HOME/git/ignore), so without this the block would be written to an
-# inert file and every Rosey working-directory ignore would silently not apply.
-rosey_global_gitignore_bind() {
+# inert file and every Mash Programming Skills working-directory ignore would silently not apply.
+mash_global_gitignore_bind() {
     local gf="$1" configured
     command -v git >/dev/null 2>&1 || {
         echo "   ⚠️  git not found; cannot bind core.excludesFile. Set it manually:"
@@ -613,40 +613,40 @@ rosey_global_gitignore_bind() {
     fi
 }
 
-rosey_global_gitignore_ensure() {
+mash_global_gitignore_ensure() {
     local gf
-    gf="$(rosey_global_gitignore_path)"
+    gf="$(mash_global_gitignore_path)"
     mkdir -p "$(dirname "$gf")"
-    rosey_global_gitignore_bind "$gf"
+    mash_global_gitignore_bind "$gf"
     python3 - "$gf" <<'PY'
 from pathlib import Path
 import sys
 
 path = Path(sys.argv[1])
 text = path.read_text() if path.exists() else ""
-start = text.find("# Rosey Agentic Environment\n")
+start = text.find("# Mash Programming Skills\n")
 if start >= 0:
-    end_marker = text.find("# End Rosey Agentic Environment", start)
+    end_marker = text.find("# End Mash Programming Skills", start)
     if end_marker >= 0:
         end = text.find("\n", end_marker)
         end = len(text) if end < 0 else end + 1
         text = text[:start] + text[end:]
 
-block = """# Rosey Agentic Environment
-# Added by rosey-agentic-env/install.sh. Remove this block to stop ignoring.
-rosey/brainstorms/
-rosey/plans/
-rosey/designs/
-rosey/design-system/
-rosey/solutions/
-rosey/insights/
-rosey/qa/
-rosey/parallel/
-rosey/deepening/
-rosey/loops/
-rosey/ideation/
-rosey/maintainer-manifest.json
-# End Rosey Agentic Environment
+block = """# Mash Programming Skills
+# Added by mash-programming-skills/install.sh. Remove this block to stop ignoring.
+.mash/brainstorms/
+.mash/plans/
+.mash/designs/
+.mash/design-system/
+.mash/solutions/
+.mash/insights/
+.mash/qa/
+.mash/parallel/
+.mash/deepening/
+.mash/loops/
+.mash/ideation/
+.mash/maintainer-manifest.json
+# End Mash Programming Skills
 """
 text = text.rstrip() + "\n\n" + block
 path.write_text(text)
@@ -656,14 +656,14 @@ PY
 
 write_global_install_markers() {
     python3 "$MANAGED_ARTIFACTS" write \
-        "$ROSEY_CONFIG_DIR/install-manifest.json" \
+        "$MASH_CONFIG_DIR/install-manifest.json" \
         "$INSTALL_VERSION" \
         "$SOURCE_ROOT" \
         "$CURSOR_HOME" \
         "$OPENCODE_HOME" \
         "$PI_HOME" \
         "$HOME/.agents" \
-        "$ROSEY_CONFIG_DIR"
+        "$MASH_CONFIG_DIR"
 }
 
 run_global_check() {
@@ -677,35 +677,35 @@ run_global_check() {
         "$CURSOR_HOME/mcp.json"
         "$OPENCODE_HOME/skills"
         "$OPENCODE_HOME/agents"
-        "$OPENCODE_HOME/plugin/rosey-hindsight-daemon.ts"
+        "$OPENCODE_HOME/plugin/mash-hindsight-daemon.ts"
         "$OPENCODE_HOME/opencode.json"
         "$PI_HOME/AGENTS.md"
         "$PI_HOME/skills"
         "$HOME/.agents"
-        "$PI_HOME/extensions/rosey-hindsight-daemon.ts"
+        "$PI_HOME/extensions/mash-hindsight-daemon.ts"
         "$PI_HOME/scripts/ensure-hindsight-daemon.sh"
         "$PI_SHARED_MCP"
-        "$ROSEY_CONFIG_DIR/AGENTS.md"
-        "$ROSEY_CONFIG_DIR/always-on-rules.md"
+        "$MASH_CONFIG_DIR/AGENTS.md"
+        "$MASH_CONFIG_DIR/always-on-rules.md"
         "$PI_HOME/APPEND_SYSTEM.md"
-        "$ROSEY_CONFIG_DIR/references/model-tiers.md"
-        "$ROSEY_CONFIG_DIR/references/scoping-synthesis.md"
-        "$ROSEY_CONFIG_DIR/references/markdown-rendering.md"
-        "$ROSEY_CONFIG_DIR/install-manifest.json"
+        "$MASH_CONFIG_DIR/references/model-tiers.md"
+        "$MASH_CONFIG_DIR/references/scoping-synthesis.md"
+        "$MASH_CONFIG_DIR/references/markdown-rendering.md"
+        "$MASH_CONFIG_DIR/install-manifest.json"
     )
     if [ "$WRITE_PIN" = true ]; then
-        required+=("$ROSEY_CONFIG_DIR/agentic-env.json" "$ROSEY_CONFIG_DIR/hindsight-pin")
+        required+=("$MASH_CONFIG_DIR/agentic-env.json" "$MASH_CONFIG_DIR/hindsight-pin")
     fi
-    if [ "${ROSEY_SKIP_SKILL_DEPS:-0}" != 1 ]; then
+    if [ "${MASH_SKIP_SKILL_DEPS:-0}" != 1 ]; then
         local dep_src dep_name
         for dep_src in "$SOURCE_ROOT"/.cursor/skills/*/; do
             [ -d "$dep_src" ] || continue
             dep_name="$(basename "$dep_src")"
             if [ -f "$dep_src/package.json" ]; then
-                required+=("$ROSEY_CONFIG_DIR/node_modules/$dep_name/node_modules")
+                required+=("$MASH_CONFIG_DIR/node_modules/$dep_name/node_modules")
             fi
             if [ -f "$dep_src/requirements.txt" ]; then
-                required+=("$ROSEY_CONFIG_DIR/venvs/$dep_name/bin/python")
+                required+=("$MASH_CONFIG_DIR/venvs/$dep_name/bin/python")
             fi
         done
     fi
@@ -715,29 +715,29 @@ run_global_check() {
             missing=$((missing + 1))
         fi
     done
-    if ! python3 "$MANAGED_ARTIFACTS" check "$ROSEY_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT"; then
+    if ! python3 "$MANAGED_ARTIFACTS" check "$MASH_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT"; then
         echo "missing: current managed-artifact inventory in install-manifest.json"
         missing=$((missing + 1))
     fi
     report_automation_tools || true
     if [ "$missing" -eq 0 ]; then
-        echo "Rosey global installation present ($INSTALL_VERSION)"
+        echo "Mash Programming Skills global installation present ($INSTALL_VERSION)"
         return 0
     fi
-    echo "Rosey global installation incomplete ($missing missing)"
+    echo "Mash Programming Skills global installation incomplete ($missing missing)"
     return 1
 }
 
 install_global_payload() {
-    echo "-> Pruning artifacts removed from the Rosey source tree..."
+    echo "-> Pruning artifacts removed from the Mash Programming Skills source tree..."
     python3 "$MANAGED_ARTIFACTS" prune \
-        "$ROSEY_CONFIG_DIR/install-manifest.json" \
+        "$MASH_CONFIG_DIR/install-manifest.json" \
         "$SOURCE_ROOT" \
         "$CURSOR_HOME" \
         "$OPENCODE_HOME" \
         "$PI_HOME" \
         "$HOME/.agents" \
-        "$ROSEY_CONFIG_DIR"
+        "$MASH_CONFIG_DIR"
 
     echo "-> Installing global Cursor rules, skills, and agents..."
     copy_global_rules
@@ -751,14 +751,14 @@ install_global_payload() {
     echo "-> Installing global Pi skills, agents, and warm-start..."
     copy_global_pi_runtime
 
-    echo "-> Installing Rosey guidance, pins, and contract references..."
+    echo "-> Installing Mash Programming Skills guidance, pins, and contract references..."
     write_global_guidance
     write_global_pins
     install_global_references
     write_global_install_markers
 
     echo "-> Updating machine-global Git excludes..."
-    rosey_global_gitignore_ensure
+    mash_global_gitignore_ensure
 
     echo "-> Merging global MCP configuration..."
     merge_global_mcp
@@ -797,7 +797,7 @@ install_npm_deps() {
     ) || echo "   ⚠️  npm install failed in $label (continuing)"
 }
 
-# Global skill dependencies are installed once under ~/.config/rosey and symlinked
+# Global skill dependencies are installed once under ~/.config/mash and symlinked
 # into each IDE's copy, so a skill's deps are not triplicated across three homes.
 
 link_shared_skill_dep() {
@@ -821,7 +821,7 @@ install_global_skill_deps() {
 
         # npm: one install per skill, shared by all three IDE copies.
         if [ -f "$src/package.json" ]; then
-            store="$ROSEY_CONFIG_DIR/node_modules/$sname"
+            store="$MASH_CONFIG_DIR/node_modules/$sname"
             mkdir -p "$store"
             cp "$src/package.json" "$store/package.json"
             if [ -f "$src/package-lock.json" ]; then
@@ -836,9 +836,9 @@ install_global_skill_deps() {
 
         # Python: one venv per skill, shared by all three IDE copies.
         if [ -f "$src/requirements.txt" ]; then
-            venv="$ROSEY_CONFIG_DIR/venvs/$sname"
+            venv="$MASH_CONFIG_DIR/venvs/$sname"
             if [ ! -x "$venv/bin/python" ]; then
-                mkdir -p "$ROSEY_CONFIG_DIR/venvs"
+                mkdir -p "$MASH_CONFIG_DIR/venvs"
                 if command -v uv >/dev/null 2>&1; then
                     uv venv "$venv" >/dev/null 2>&1 || true
                 fi
@@ -932,13 +932,13 @@ linux_pkg_install_one() {
         return 1
     fi
 
-    if [ "${ROSEY_APT_UPDATED:-0}" != 1 ]; then
+    if [ "${MASH_APT_UPDATED:-0}" != 1 ]; then
         if command -v sudo >/dev/null 2>&1; then
             sudo apt-get update -qq || true
         else
             apt-get update -qq || true
         fi
-        ROSEY_APT_UPDATED=1
+        MASH_APT_UPDATED=1
     fi
     if command -v sudo >/dev/null 2>&1; then
         sudo apt-get install -y "$pkg"
@@ -1212,14 +1212,14 @@ install_gitchangelog() {
     return 1
 }
 
-# Agent harnesses that can run Rosey skills and act as rosey-parallel workers.
-# Rosey does not install these: each has its own installer, auth, and licence.
-# Installation continues without one, but Rosey skills have nothing to run in.
-ROSEY_HARNESSES="pi opencode cursor-agent codex claude"
+# Agent harnesses that can run Mash Programming Skills skills and act as mash-parallel workers.
+# Mash Programming Skills does not install these: each has its own installer, auth, and licence.
+# Installation continues without one, but Mash Programming Skills skills have nothing to run in.
+MASH_HARNESSES="pi opencode cursor-agent codex claude"
 
 check_agent_harness() {
     local found="" missing="" harness
-    for harness in $ROSEY_HARNESSES; do
+    for harness in $MASH_HARNESSES; do
         if command -v "$harness" >/dev/null 2>&1; then
             found="$found $harness"
         else
@@ -1233,19 +1233,19 @@ check_agent_harness() {
         return 0
     fi
 
-    echo "   ⚠️  No agent harness found on PATH (looked for:$ROSEY_HARNESSES)."
-    echo "      Rosey installs skills and rules, not harnesses. Without one, nothing loads them,"
-    echo "      and 'rosey-parallel' has no worker to delegate tasks to."
+    echo "   ⚠️  No agent harness found on PATH (looked for:$MASH_HARNESSES)."
+    echo "      Mash Programming Skills installs skills and rules, not harnesses. Without one, nothing loads them,"
+    echo "      and 'mash-parallel' has no worker to delegate tasks to."
     echo "      Install at least one, then re-run this script to finish harness-dependent setup"
     echo "      (Pi extensions install only when the 'pi' CLI is present)."
     return 0
 }
 
 # Prompt once for a GitHub token. Optional: skipping leaves the GitHub MCP server
-# unconfigured rather than writing a broken entry. Sets ROSEY_GITHUB_TOKEN.
+# unconfigured rather than writing a broken entry. Sets MASH_GITHUB_TOKEN.
 prompt_github_token() {
-    ROSEY_GITHUB_TOKEN="$(rosey_resolve_env_value GITHUB_TOKEN)"
-    if [ -n "$ROSEY_GITHUB_TOKEN" ]; then
+    MASH_GITHUB_TOKEN="$(mash_resolve_env_value GITHUB_TOKEN)"
+    if [ -n "$MASH_GITHUB_TOKEN" ]; then
         echo "   GitHub token found in the environment; using it for the GitHub MCP server."
         return 0
     fi
@@ -1258,12 +1258,12 @@ prompt_github_token() {
 
     echo ""
     echo "-> GitHub MCP server (optional)"
-    echo "   Powers PR review, issue creation, and PR description updates in rosey-qa,"
-    echo "   rosey-pr, and rosey-dogfood. Skip it and those skills fall back to the gh CLI"
+    echo "   Powers PR review, issue creation, and PR description updates in mash-qa,"
+    echo "   mash-pr, and mash-dogfood. Skip it and those skills fall back to the gh CLI"
     echo "   or local git; nothing else breaks."
     echo ""
     echo "   Create a fine-grained token: https://github.com/settings/personal-access-tokens/new"
-    echo "   Scopes needed (read-only is enough unless you want Rosey to file issues):"
+    echo "   Scopes needed (read-only is enough unless you want Mash Programming Skills to file issues):"
     echo "     - Repository -> Contents:      Read-only"
     echo "     - Repository -> Pull requests: Read-only  (Read and write to post PR updates)"
     echo "     - Repository -> Issues:        Read and write  (only for issue creation)"
@@ -1271,11 +1271,11 @@ prompt_github_token() {
     echo "   Classic tokens work too: the 'repo' scope covers all of the above."
     echo ""
     printf '   Paste a GitHub token, or press Enter to skip: '
-    IFS= read -r ROSEY_GITHUB_TOKEN || ROSEY_GITHUB_TOKEN=""
+    IFS= read -r MASH_GITHUB_TOKEN || MASH_GITHUB_TOKEN=""
     # Strip surrounding whitespace a paste can carry.
-    ROSEY_GITHUB_TOKEN="$(printf '%s' "$ROSEY_GITHUB_TOKEN" | tr -d '[:space:]')"
+    MASH_GITHUB_TOKEN="$(printf '%s' "$MASH_GITHUB_TOKEN" | tr -d '[:space:]')"
 
-    if [ -z "$ROSEY_GITHUB_TOKEN" ]; then
+    if [ -z "$MASH_GITHUB_TOKEN" ]; then
         echo "   Skipped. The GitHub MCP server will not be configured."
         echo "      To enable it later: set GITHUB_TOKEN and re-run install.sh."
     else
@@ -1314,7 +1314,7 @@ echo "-> Checking for an agent harness..."
 check_agent_harness
 prompt_github_token
 
-if [ "${ROSEY_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then
+if [ "${MASH_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then
     host_path
 
     ensure_host_cli git git git || true
@@ -1342,7 +1342,7 @@ install_sentrux() {
         return 0
     fi
 
-    echo "-> Installing Sentrux CLI once on this machine (required for rosey-plan / rosey-work / rosey-qa)..."
+    echo "-> Installing Sentrux CLI once on this machine (required for mash-plan / mash-work / mash-qa)..."
     case "$(uname -s)" in
         Darwin)
             if command -v brew >/dev/null 2>&1; then
@@ -1364,7 +1364,7 @@ install_sentrux() {
             ;;
         *)
             echo "   ⚠️  Automatic Sentrux install not supported on this OS."
-            echo "      Install manually: cargo install sentrux  (see rosey-sentrux skill)"
+            echo "      Install manually: cargo install sentrux  (see mash-sentrux skill)"
             return 1
             ;;
     esac
@@ -1465,7 +1465,7 @@ install_pi_ask_user() {
     return 1
 }
 
-# --- git-flow (rosey-pr / rosey-work / rosey-debug / rosey-release) ---
+# --- git-flow (mash-pr / mash-work / mash-debug / mash-release) ---
 # Homebrew git-flow-avh is disabled; git-flow (nvie) is deprecated. git-flow-next
 # provides `git flow` and satisfies `git flow version`.
 
@@ -1480,7 +1480,7 @@ install_git_flow() {
         return 0
     fi
 
-    echo "-> Installing git-flow once on this machine (required for rosey-pr / rosey-release)..."
+    echo "-> Installing git-flow once on this machine (required for mash-pr / mash-release)..."
     if [ "$(uname -s)" = Darwin ]; then
         if command -v brew >/dev/null 2>&1; then
             brew install git-flow-next || {
@@ -1507,7 +1507,7 @@ install_git_flow() {
     fi
 }
 
-# --- bumpversion (rosey-release / scripts/release.sh) ---
+# --- bumpversion (mash-release / scripts/release.sh) ---
 # Classic CLI (`bumpversion --dry-run --list`) from bump2version. Do not install
 # Homebrew bump-my-version — that binary is a different command.
 
@@ -1523,7 +1523,7 @@ install_bumpversion() {
         return 0
     fi
 
-    echo "-> Installing bumpversion once on this machine (required for rosey-release)..."
+    echo "-> Installing bumpversion once on this machine (required for mash-release)..."
     if host_has uv; then
         uv tool install bump2version || {
             echo "   ⚠️  uv tool install bump2version failed."
@@ -1559,7 +1559,7 @@ hindsight_embed_configured() {
 }
 
 read_hindsight_pin() {
-    local pin_file="$ROSEY_CONFIG_DIR/hindsight-pin"
+    local pin_file="$MASH_CONFIG_DIR/hindsight-pin"
     if [ -f "$pin_file" ]; then
         tr -d '[:space:]' <"$pin_file"
     elif [ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ]; then
@@ -1591,7 +1591,7 @@ seed_hindsight_embed_if_needed() {
         return 1
     fi
 
-    provider="$(rosey_resolve_env_value HINDSIGHT_API_LLM_PROVIDER)"
+    provider="$(mash_resolve_env_value HINDSIGHT_API_LLM_PROVIDER)"
     provider="${provider:-openai}"
 
     dest="${HOME}/.hindsight/embed"
@@ -1782,13 +1782,13 @@ check_hindsight_embed() {
 install_global_payload
 
 # Install dependencies only after the global skill trees exist. This never
-# enters or modifies a repository workspace. Set ROSEY_SKIP_SKILL_DEPS=1 for a
+# enters or modifies a repository workspace. Set MASH_SKIP_SKILL_DEPS=1 for a
 # filesystem-only install/test.
-if [ "${ROSEY_SKIP_SKILL_DEPS:-0}" != 1 ]; then
+if [ "${MASH_SKIP_SKILL_DEPS:-0}" != 1 ]; then
     install_global_skill_deps
 fi
 
-if [ "${ROSEY_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then
+if [ "${MASH_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then
     install_bumpversion || true
     install_gitchangelog || true
     install_git_flow || true
@@ -1871,11 +1871,11 @@ inventory_cli "gpg (only needed if you sign commits yourself)" gpg
 echo "   not packages: gh auth login, GPG secret keys (not generated), Docker daemon up"
 
 echo ""
-echo "Rosey global environment installed successfully!"
+echo "Mash Programming Skills global environment installed successfully!"
 echo "   Cursor: ~/.cursor/rules, ~/.cursor/skills, ~/.cursor/agents, and global hooks."
 echo "   OpenCode: ~/.config/opencode/skills, agents, instructions, and native Hindsight plugin."
 echo "   Pi: ~/.pi/agent/skills plus ~/.agents agents and global Hindsight extension."
-echo "   Rosey state: ~/.config/rosey (guidance, pins, contract references, manifest)."
+echo "   Mash Programming Skills state: ~/.config/mash (guidance, pins, contract references, manifest)."
 echo "   No repository files or IDE trees were written. Skills create repo files/directories lazily when invoked."
 echo "   Machine-once CLIs skipped if already on PATH: git, make, curl, rsync, jq, rg, gh, uv, bun, gitchangelog, bumpversion, git-flow, sentrux, hindsight-embed."
 echo "   Pi extensions installed once when the pi CLI is present: pi-subagents, pi-mcp-adapter, pi-ask-user."

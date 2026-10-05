@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Rosey Hindsight warm-start: ensure embed daemon is running when configured.
+# Mash Programming Skills Hindsight warm-start: ensure embed daemon is running when configured.
 # Cursor: registered via ~/.cursor/hooks.json sessionStart.
-# OpenCode: ~/.config/opencode/plugin/rosey-hindsight-daemon.ts.
-# Pi: ~/.pi/agent/extensions/rosey-hindsight-daemon.ts session_start hook.
+# OpenCode: ~/.config/opencode/plugin/mash-hindsight-daemon.ts.
+# Pi: ~/.pi/agent/extensions/mash-hindsight-daemon.ts session_start hook.
 # Fail open — Hindsight is optional; never block the IDE session on startup errors.
 #
 # Requires `uv tool install hindsight-embed==<pin> --with hindsight-api==<pin>`
@@ -15,7 +15,7 @@ HINDSIGHT_HOOK_LOG="${HOME}/.hindsight/hook-last-run.log"
 HINDSIGHT_HOOK_LOG_MAX="${HINDSIGHT_HOOK_LOG_MAX:-1048576}" # 1 MiB before rotate
 
 # Repo attribution: which project triggered this hook run. The log is shared
-# across every Rosey repo, so each entry records its repo root basename.
+# across every Mash Programming Skills repo, so each entry records its repo root basename.
 REPO="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")"
 
 hindsight_hook_log() {
@@ -28,7 +28,7 @@ hindsight_hook_log() {
 }
 
 read_hindsight_pin() {
-    local pin_file="${ROSEY_CONFIG_DIR:-${HOME}/.config/rosey}/hindsight-pin"
+    local pin_file="${MASH_CONFIG_DIR:-${HOME}/.config/mash}/hindsight-pin"
     if [ -f "$pin_file" ]; then
         tr -d '[:space:]' <"$pin_file"
     else

@@ -1,5 +1,5 @@
 ---
-description: Save durable Rosey repo insights to rosey/insights after non-trivial discovery.
+description: Save durable Mash Programming Skills repo insights to .mash/insights after non-trivial discovery.
 alwaysApply: true
 ---
 
@@ -11,7 +11,7 @@ After significant codebase exploration, debugging, planning, QA, or workflow wor
 
 Save an insight only when the answer is clearly yes. Good candidates include non-obvious architecture rules, workflow constraints, tool gotchas, cross-file dependencies, recurring failure modes, and "do not do this" lessons.
 
-Do not save routine task summaries, obvious facts, temporary state, secrets, credentials, private data, or anything already captured clearly in `rosey/solutions/` or a nearby plan.
+Do not save routine task summaries, obvious facts, temporary state, secrets, credentials, private data, or anything already captured clearly in `.mash/solutions/` or a nearby plan.
 
 ## Counterfactual capture gate (do not skip)
 
@@ -37,12 +37,12 @@ A session that produced several qualifying insights gets several sequential save
 
 ## How To Save
 
-1. Create `rosey/insights/` if it does not exist.
-2. Choose a concise lowercase filename: `rosey/insights/<topic-slug>.md`.
+1. Create `.mash/insights/` if it does not exist.
+2. Choose a concise lowercase filename: `.mash/insights/<topic-slug>.md`.
 3. If a closely related insight file already exists, update it instead of creating a duplicate.
-4. Add YAML frontmatter so `rosey-learnings-researcher` can find it by metadata:
+4. Add YAML frontmatter so `mash-learnings-researcher` can find it by metadata:
  - `title`: human-readable insight title
- - `module`: repo area or workflow, e.g. `rosey-memory`
+ - `module`: repo area or workflow, e.g. `mash-memory`
  - `problem_type`: use `durable_insight` by default, or a more specific knowledge-track value when it fits (`architecture_pattern`, `workflow_issue`, `tooling_decision`, `convention`, `best_practice`)
  - `component`: specific skill, agent, script, command, or subsystem when known
  - `tags`: searchable keywords
@@ -65,32 +65,32 @@ If the lesson is about a failed or deprecated approach, include a `## Avoid` sec
 ```markdown
 ---
 title: Hindsight uses embed CLI, not MCP
-module: rosey-memory
+module: mash-memory
 problem_type: durable_insight
-component: rosey-hindsight
+component: mash-hindsight
 tags:
  - hindsight
  - memory
  - cursor
  - workflow
 applies_when:
- - Adding or modifying Rosey memory behavior
+ - Adding or modifying Mash Programming Skills memory behavior
 severity: medium
 ---
 
 ## Insight
 
-- Rosey skills use Hindsight via the `hindsight-embed` tool install (`uv tool install` with co-installed `hindsight-api`), not the workspace MCP config. See the `rosey-hindsight` skill.
+- Mash Programming Skills skills use Hindsight via the `hindsight-embed` tool install (`uv tool install` with co-installed `hindsight-api`), not the workspace MCP config. See the `mash-hindsight` skill.
 
 ## When It Applies
 
-- Adding or modifying Rosey memory behavior.
+- Adding or modifying Mash Programming Skills memory behavior.
 
 ## What To Do
 
-- Update `rosey-hindsight` and workflow skill references instead of adding a Hindsight MCP server.
+- Update `mash-hindsight` and workflow skill references instead of adding a Hindsight MCP server.
 
 ## Evidence
 
-- The `rosey-hindsight` skill
+- The `mash-hindsight` skill
 ```

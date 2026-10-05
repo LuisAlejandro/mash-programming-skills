@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# Rosey Agentic Environment — machine-global uninstaller.
+# Mash Programming Skills — machine-global uninstaller.
 #
 # This script never changes the current repository. It removes only the global
-# Rosey payload installed under the user's Cursor, OpenCode, Pi, .agents, and
-# ~/.config/rosey directories. Machine tools, Hindsight memory, and user-owned
+# Mash Programming Skills payload installed under the user's Cursor, OpenCode, Pi, .agents, and
+# ~/.config/mash directories. Machine tools, Hindsight memory, and user-owned
 # project files are left alone.
 #
 # Usage:
 #   ./uninstall.sh                 # dry run
 #   ./uninstall.sh --check         # report global installation state
-#   ./uninstall.sh --apply         # remove global Rosey payload
-#   ./uninstall.sh --apply --force # also remove edited Rosey guidance files
+#   ./uninstall.sh --apply         # remove global Mash Programming Skills payload
+#   ./uninstall.sh --apply --force # also remove edited Mash Programming Skills guidance files
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_ROOT="${ROSEY_AGENTIC_ENV:-$SCRIPT_DIR}"
+SOURCE_ROOT="${MASH_PROGRAMMING_SKILLS:-$SCRIPT_DIR}"
 VERSION_FILE="$SOURCE_ROOT/VERSION"
 UNINSTALL_VERSION="0.1.0"
 if [ -f "$VERSION_FILE" ]; then
@@ -26,7 +26,7 @@ CHECK_ONLY=false
 APPLY=false
 FORCE=false
 
-ROSEY_CONFIG_DIR="${HOME}/.config/rosey"
+MASH_CONFIG_DIR="${HOME}/.config/mash"
 CURSOR_HOME="${HOME}/.cursor"
 PI_HOME="${HOME}/.pi/agent"
 OPENCODE_HOME="${HOME}/.config/opencode"
@@ -101,7 +101,7 @@ remove_empty_dir() {
     fi
 }
 
-rosey_global_gitignore_path() {
+mash_global_gitignore_path() {
     local p
     if command -v git >/dev/null 2>&1 && p="$(git config --global --get core.excludesFile 2>/dev/null)" && [ -n "$p" ]; then
         case "$p" in
@@ -117,13 +117,13 @@ rosey_global_gitignore_path() {
 
 remove_global_gitignore_block() {
     local gf
-    gf="$(rosey_global_gitignore_path)"
+    gf="$(mash_global_gitignore_path)"
     [ -f "$gf" ] || return 0
-    if ! grep -q '^# Rosey Agentic Environment$' "$gf"; then
+    if ! grep -q '^# Mash Programming Skills$' "$gf"; then
         return 0
     fi
     if [ "$APPLY" = false ]; then
-        note "   would edit     $gf (remove Rosey ignore block)"
+        note "   would edit     $gf (remove Mash Programming Skills ignore block)"
         return 0
     fi
     python3 - "$gf" <<'PY'
@@ -132,50 +132,50 @@ import sys
 
 path = Path(sys.argv[1])
 text = path.read_text()
-start = text.find("# Rosey Agentic Environment\n")
+start = text.find("# Mash Programming Skills\n")
 if start < 0:
     raise SystemExit(0)
-end_marker = text.find("# End Rosey Agentic Environment", start)
+end_marker = text.find("# End Mash Programming Skills", start)
 if end_marker >= 0:
     end = text.find("\n", end_marker)
     end = len(text) if end < 0 else end + 1
     text = text[:start] + text[end:]
 path.write_text(text.rstrip() + "\n")
 PY
-    note "   edited        $gf (removed Rosey ignore block)"
+    note "   edited        $gf (removed Mash Programming Skills ignore block)"
 }
 
 has_global_install() {
-    [ -f "$ROSEY_CONFIG_DIR/install-manifest.json" ] || \
+    [ -f "$MASH_CONFIG_DIR/install-manifest.json" ] || \
         [ -f "$CURSOR_HOME/hooks/ensure-hindsight-daemon.sh" ] || \
-        [ -f "$PI_HOME/extensions/rosey-hindsight-daemon.ts" ] || \
-        [ -f "$OPENCODE_HOME/plugin/rosey-hindsight-daemon.ts" ]
+        [ -f "$PI_HOME/extensions/mash-hindsight-daemon.ts" ] || \
+        [ -f "$OPENCODE_HOME/plugin/mash-hindsight-daemon.ts" ]
 }
 
 if [ "$CHECK_ONLY" = true ]; then
     if has_global_install; then
-        note "Rosey global environment is installed"
-        [ -f "$ROSEY_CONFIG_DIR/install-manifest.json" ] && cat "$ROSEY_CONFIG_DIR/install-manifest.json"
+        note "Mash Programming Skills global environment is installed"
+        [ -f "$MASH_CONFIG_DIR/install-manifest.json" ] && cat "$MASH_CONFIG_DIR/install-manifest.json"
         exit 0
     fi
-    note "Rosey global environment is not installed"
+    note "Mash Programming Skills global environment is not installed"
     exit 1
 fi
 
 if ! has_global_install; then
-    note "Nothing to uninstall: no Rosey global artifacts found"
+    note "Nothing to uninstall: no Mash Programming Skills global artifacts found"
     exit 0
 fi
 
 if [ "$APPLY" = false ]; then
-    note "Rosey global environment — DRY RUN (pass --apply to make changes)"
+    note "Mash Programming Skills global environment — DRY RUN (pass --apply to make changes)"
 else
-    note "Rosey global environment — uninstalling"
+    note "Mash Programming Skills global environment — uninstalling"
 fi
 note "-> Version $UNINSTALL_VERSION"
 note ""
 
-# The manifest preserves the exact Rosey-owned names from the last install, so
+# The manifest preserves the exact Mash Programming Skills-owned names from the last install, so
 # deleted or renamed source artifacts remain uninstallable. Old manifests fall
 # back to the current source inventory.
 while IFS= read -r name; do
@@ -183,42 +183,42 @@ while IFS= read -r name; do
     remove_path "$CURSOR_HOME/skills/$name" "Cursor skill $name"
     remove_path "$OPENCODE_HOME/skills/$name" "OpenCode skill $name"
     remove_path "$PI_HOME/skills/$name" "Pi skill $name"
-done < <(python3 "$MANAGED_ARTIFACTS" list "$ROSEY_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" skills)
+done < <(python3 "$MANAGED_ARTIFACTS" list "$MASH_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" skills)
 
 while IFS= read -r name; do
     [ -n "$name" ] || continue
     remove_path "$CURSOR_HOME/rules/$name" "Cursor rule $name"
-done < <(python3 "$MANAGED_ARTIFACTS" list "$ROSEY_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" rules)
+done < <(python3 "$MANAGED_ARTIFACTS" list "$MASH_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" rules)
 
 while IFS= read -r name; do
     [ -n "$name" ] || continue
     remove_path "$CURSOR_HOME/agents/$name" "Cursor agent $name"
     remove_path "$OPENCODE_HOME/agents/$name" "OpenCode agent $name"
     remove_path "$HOME/.agents/$name" "Pi agent $name"
-done < <(python3 "$MANAGED_ARTIFACTS" list "$ROSEY_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" agents)
+done < <(python3 "$MANAGED_ARTIFACTS" list "$MASH_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" agents)
 
 remove_path "$CURSOR_HOME/hooks/ensure-hindsight-daemon.sh" "Cursor Hindsight hook"
-remove_path "$OPENCODE_HOME/plugin/rosey-hindsight-daemon.ts" "OpenCode Hindsight plugin"
+remove_path "$OPENCODE_HOME/plugin/mash-hindsight-daemon.ts" "OpenCode Hindsight plugin"
 remove_path "$PI_HOME/scripts/ensure-hindsight-daemon.sh" "Pi Hindsight script"
-remove_path "$PI_HOME/extensions/rosey-hindsight-daemon.ts" "Pi Hindsight extension"
+remove_path "$PI_HOME/extensions/mash-hindsight-daemon.ts" "Pi Hindsight extension"
 
-remove_marked_file "$ROSEY_CONFIG_DIR/AGENTS.md" "Rosey Agent Guidance" "Rosey global guidance"
-remove_marked_file "$PI_HOME/AGENTS.md" "Rosey Agent Guidance" "Pi global guidance"
-remove_path "$ROSEY_CONFIG_DIR/always-on-rules.md" "Rosey always-on rules bundle"
-remove_path "$ROSEY_CONFIG_DIR/rules" "obsolete Rosey shared rule copies"
-remove_marked_file "$PI_HOME/APPEND_SYSTEM.md" "# Rosey Agentic Environment — always-on rules" "Pi always-on rules"
-remove_path "$ROSEY_CONFIG_DIR/references/model-tiers.md" "Rosey model-tiers contract"
-remove_path "$ROSEY_CONFIG_DIR/references/scoping-synthesis.md" "Rosey scoping-synthesis contract"
-remove_path "$ROSEY_CONFIG_DIR/references/markdown-rendering.md" "Rosey markdown-rendering contract"
-remove_path "$ROSEY_CONFIG_DIR/agentic-env.json" "Rosey agentic-env pin"
-remove_path "$ROSEY_CONFIG_DIR/hindsight-pin" "Rosey Hindsight pin"
-remove_path "$ROSEY_CONFIG_DIR/install-manifest.json" "Rosey install manifest"
-remove_path "$ROSEY_CONFIG_DIR/node_modules" "Rosey shared skill node_modules"
-remove_path "$ROSEY_CONFIG_DIR/venvs" "Rosey shared skill virtualenvs"
+remove_marked_file "$MASH_CONFIG_DIR/AGENTS.md" "Mash Programming Skills Agent Guidance" "Mash Programming Skills global guidance"
+remove_marked_file "$PI_HOME/AGENTS.md" "Mash Programming Skills Agent Guidance" "Pi global guidance"
+remove_path "$MASH_CONFIG_DIR/always-on-rules.md" "Mash Programming Skills always-on rules bundle"
+remove_path "$MASH_CONFIG_DIR/rules" "obsolete Mash Programming Skills shared rule copies"
+remove_marked_file "$PI_HOME/APPEND_SYSTEM.md" "# Mash Programming Skills — always-on rules" "Pi always-on rules"
+remove_path "$MASH_CONFIG_DIR/references/model-tiers.md" "Mash Programming Skills model-tiers contract"
+remove_path "$MASH_CONFIG_DIR/references/scoping-synthesis.md" "Mash Programming Skills scoping-synthesis contract"
+remove_path "$MASH_CONFIG_DIR/references/markdown-rendering.md" "Mash Programming Skills markdown-rendering contract"
+remove_path "$MASH_CONFIG_DIR/agentic-env.json" "Mash Programming Skills agentic-env pin"
+remove_path "$MASH_CONFIG_DIR/hindsight-pin" "Mash Programming Skills Hindsight pin"
+remove_path "$MASH_CONFIG_DIR/install-manifest.json" "Mash Programming Skills install manifest"
+remove_path "$MASH_CONFIG_DIR/node_modules" "Mash Programming Skills shared skill node_modules"
+remove_path "$MASH_CONFIG_DIR/venvs" "Mash Programming Skills shared skill virtualenvs"
 
-# Remove only Rosey's known MCP entries and instruction path; preserve all other
-# machine-owned configuration. Rosey entries win on install by owner decision.
-python3 - "$APPLY" "$FORCE" "$MANAGED_ARTIFACTS" "$SOURCE_ROOT/.cursor/mcp.json.example" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$CURSOR_HOME/hooks.json" "$ROSEY_CONFIG_DIR/AGENTS.md" "$ROSEY_CONFIG_DIR/always-on-rules.md" <<'PY'
+# Remove only Mash Programming Skills's known MCP entries and instruction path; preserve all other
+# machine-owned configuration. Mash Programming Skills entries win on install by owner decision.
+python3 - "$APPLY" "$FORCE" "$MANAGED_ARTIFACTS" "$SOURCE_ROOT/.cursor/mcp.json.example" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$CURSOR_HOME/hooks.json" "$MASH_CONFIG_DIR/AGENTS.md" "$MASH_CONFIG_DIR/always-on-rules.md" <<'PY'
 import importlib.util
 import json
 import sys
@@ -231,7 +231,7 @@ managed = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(managed)
 owned = managed.mcp_owned_names(sys.argv[4])
 paths = [Path(p) for p in sys.argv[5:]]
-rosey_instructions = {str(path) for path in paths[5:]}
+mash_instructions = {str(path) for path in paths[5:]}
 
 
 def load(path):
@@ -270,7 +270,7 @@ for index, key in ((0, "mcpServers"), (1, "mcp"), (2, "mcpServers"), (3, "mcpSer
 # OpenCode instructions.
 opencode = load(paths[1])
 if opencode is not None and isinstance(opencode.get("instructions"), list):
-    instructions = [item for item in opencode["instructions"] if item not in rosey_instructions]
+    instructions = [item for item in opencode["instructions"] if item not in mash_instructions]
     if instructions != opencode["instructions"]:
         if instructions:
             opencode["instructions"] = instructions
@@ -301,15 +301,15 @@ remove_empty_dir "$OPENCODE_HOME/plugin"
 remove_empty_dir "$OPENCODE_HOME/agents"
 remove_empty_dir "$PI_HOME/scripts"
 remove_empty_dir "$PI_HOME/extensions"
-remove_empty_dir "$ROSEY_CONFIG_DIR/references"
-remove_empty_dir "$ROSEY_CONFIG_DIR/node_modules"
-remove_empty_dir "$ROSEY_CONFIG_DIR/venvs"
-remove_empty_dir "$ROSEY_CONFIG_DIR"
+remove_empty_dir "$MASH_CONFIG_DIR/references"
+remove_empty_dir "$MASH_CONFIG_DIR/node_modules"
+remove_empty_dir "$MASH_CONFIG_DIR/venvs"
+remove_empty_dir "$MASH_CONFIG_DIR"
 remove_global_gitignore_block
 
 note ""
 if [ "$APPLY" = true ]; then
-    note "Rosey global environment removed. Machine tools, Hindsight memory, and repositories were not changed."
+    note "Mash Programming Skills global environment removed. Machine tools, Hindsight memory, and repositories were not changed."
 else
     note "Dry run complete. No files changed."
 fi

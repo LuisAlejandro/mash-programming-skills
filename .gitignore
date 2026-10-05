@@ -1,4 +1,4 @@
-# This repo is the Rosey SOURCE and tracks .cursor/ and references/ directly.
+# This repo is the Mash Programming Skills SOURCE and tracks .cursor/ and references/ directly.
 # !.cursor/ is defensive: a machine-global exclude for IDE trees would otherwise
 # hide this repo's own source tree.
 # Nothing is hosted under .agents/ here: pi-subagents scans <repo>/.agents/**/*.md
@@ -9,7 +9,7 @@
 # Cursor beforeShellExecution hook (append-only debug log)
 .cursor/hooks/beforeShellExecution.log
 
-# Local Rosey stack (secrets and runtime logs)
+# Local Mash Programming Skills stack (secrets and runtime logs)
 /.env
 .cursor/mcp.json
 
@@ -23,22 +23,21 @@ __pycache__/
 .cursor/skills/**/__pycache__/
 .cursor/skills/**/*.pyc
 
-# Rosey Agentic Environment
-rosey/brainstorms/
-rosey/plans/
-rosey/designs/
-rosey/solutions/
-rosey/insights/
-rosey/design-system/
-rosey/qa/
-rosey/parallel/
-rosey/deepening/
-rosey/loops/
-rosey/ideation/
-rosey/agentic-env.json
+# Mash Programming Skills
+.mash/brainstorms/
+.mash/plans/
+.mash/designs/
+.mash/solutions/
+.mash/insights/
+.mash/design-system/
+.mash/qa/
+.mash/parallel/
+.mash/deepening/
+.mash/loops/
+.mash/ideation/
 # AGENTS.md and DESIGN.md are user-owned, trackable files.
 
 # Rosey Maintainer Tools
-rosey/maintainer-manifest.json
+.mash/maintainer-manifest.json
 
 inspiration/

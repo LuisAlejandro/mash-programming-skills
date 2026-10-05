@@ -1,6 +1,6 @@
 # Scoping Synthesis
 
-The shared mechanism behind every Rosey scope checkpoint: the compressed, chat-time summary a skill presents to the user before it commits an artifact to disk.
+The shared mechanism behind every Mash Programming Skills scope checkpoint: the compressed, chat-time summary a skill presents to the user before it commits an artifact to disk.
 
 This reference is IDE-agnostic and artifact-agnostic. It never names a phase number, a tier, or a document type — the calling skill supplies those. Read it alongside the skill's own `synthesis-summary.md`, which carries the parameters: when the synthesis fires, what it is about, the tier budgets, the literal templates, and where the content routes in the artifact.
 
