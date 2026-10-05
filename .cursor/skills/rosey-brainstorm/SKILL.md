@@ -6,9 +6,9 @@ argument-hint: "[feature idea or problem to explore]"
 
 # Rosey Brainstorm
 
-Brainstorming answers **WHAT** to build through collaborative dialogue; `/rosey-plan` then answers **HOW**. This skill does not implement code — it explores, clarifies, and documents decisions for later planning or execution. Use the current calendar year when dating artifacts.
+Brainstorming answers **WHAT** to build through collaborative dialogue; `rosey-plan` then answers **HOW**. This skill does not implement code — it explores, clarifies, and documents decisions for later planning or execution. Use the current calendar year when dating artifacts.
 
-**Outcome:** a requirements document under `rosey/brainstorms/` that planning can consume without inventing product behavior, scope boundaries, or success criteria. Every **software** run writes one — the document is the pipeline's contract with `/rosey-plan`, which requires it. In other workflows the artifact might be called a lightweight PRD or feature brief; in Rosey the workflow keeps the name `brainstorm` and the artifact is a **requirements document**.
+**Outcome:** a requirements document under `rosey/brainstorms/` that planning can consume without inventing product behavior, scope boundaries, or success criteria. Every **software** run writes one — the document is the pipeline's contract with `rosey-plan`, which requires it. In other workflows the artifact might be called a lightweight PRD or feature brief; in Rosey the workflow keeps the name `brainstorm` and the artifact is a **requirements document**.
 
 | Route | Artifact |
 | --- | --- |
@@ -42,7 +42,7 @@ See also the always-on Rosey workflow-gates guideline.
 
 This skill follows the Rosey-native brainstorm workflow with Rosey handoffs:
 
-- Handoff target is `/rosey-plan`. There is no direct-to-work route: planning is not skippable.
+- Handoff target is `rosey-plan`. There is no direct-to-work route: planning is not skippable.
 - Do **not** create a separate PRD artifact. The requirements document is the durable product artifact for planning.
 - Do **not** create a separate design doc unless the user explicitly asks for one. The requirements document should be right-sized and can include design-relevant decisions when they matter.
 - When a design-to-code pipeline has already shipped the visual shell with parity aligned, use this skill for the remaining functionality only: real data sources, business logic, validation, submission, error handling, auth, routing guards, and deferred checklist items. Do not rerun design implementation for functionality work.

@@ -1123,15 +1123,62 @@ def ensure_task_worktree(
 # Harness drivers (plan U6: R26, R14, R17)
 # ---------------------------------------------------------------------------
 
-HARNESS_PRIORITY = ["pi", "opencode"]
-
-# Default model per harness when a run does not override via options.model.
-# pi: deepseek-v4-flash (matches ~/.pi/agent/settings.json default).
-# opencode: opencode/deepseek-v4-flash (opencode's hosted deepseek).
-_DEFAULT_MODELS = {
-    "pi": "deepseek-v4-flash",
-    "opencode": "opencode/deepseek-v4-flash",
+# Per-harness contract: binary, non-interactive launch shape, model flag, and
+# the terminal structured event that proves the worker actually ran.
+#
+# `success` selects the interpret() strategy:
+#   "type_event" - a JSON event whose `type` equals `success_event` appears.
+#   "text"       - a non-empty text event appears (guards exit-0-on-auto-reject).
+#
+# Only pi and opencode emit machine-checkable NDJSON today. cursor-agent,
+# codex, and claude are supported as workers; their JSON event vocabularies are
+# not verified here, so they fall back to the "text" strategy, which accepts any
+# non-empty final output and still rejects a silent exit-0.
+_HARNESS_SPECS = {
+    "pi": {
+        "binary": "pi",
+        "launch": ["pi", "-p", "--approve", "--mode", "json"],
+        "model_flag": "--model",
+        "model": "deepseek-v4-flash",
+        "success": "type_event",
+        "success_event": "agent_end",
+    },
+    "opencode": {
+        "binary": "opencode",
+        "launch": ["opencode", "run", "--format", "json"],
+        "model_flag": "--model",
+        "model": "opencode/deepseek-v4-flash",
+        "success": "text",
+    },
+    "cursor-agent": {
+        "binary": "cursor-agent",
+        "launch": ["cursor-agent", "-p", "--force", "--output-format", "json"],
+        "model_flag": "--model",
+        "model": None,
+        "success": "text",
+    },
+    "codex": {
+        "binary": "codex",
+        "launch": ["codex", "exec", "--json", "--dangerously-bypass-approvals-and-sandbox"],
+        "model_flag": "--model",
+        "model": None,
+        "success": "text",
+    },
+    "claude": {
+        "binary": "claude",
+        "launch": ["claude", "-p", "--permission-mode", "acceptEdits",
+                   "--output-format", "stream-json", "--verbose"],
+        "model_flag": "--model",
+        "model": None,
+        "success": "text",
+    },
 }
+
+# Probe order. pi and opencode lead because their completion signal is
+# verifiable; the rest are equally supported but interpreted more loosely.
+HARNESS_PRIORITY = ["pi", "opencode", "cursor-agent", "codex", "claude"]
+
+_DEFAULT_MODELS = {name: spec["model"] for name, spec in _HARNESS_SPECS.items()}
 
 
 class HarnessDriver:
@@ -1140,14 +1187,11 @@ class HarnessDriver:
     def __init__(self, name: str, binary: str | None = None,
                  model: str | None = None) -> None:
         self.name = name
-        if name not in HARNESS_PRIORITY:
+        if name not in _HARNESS_SPECS:
             raise ValueError(f"unknown harness {name!r}")
-        default_binary = {
-            "pi": "pi",
-            "opencode": "opencode",
-        }[name]
-        self.binary = binary or default_binary
-        self.model = model or _DEFAULT_MODELS[name]
+        self.spec = _HARNESS_SPECS[name]
+        self.binary = binary or self.spec["binary"]
+        self.model = model or self.spec["model"]
 
     @classmethod
     def from_name(cls, name: str, binary: str | None = None,
@@ -1161,49 +1205,89 @@ class HarnessDriver:
         return shutil.which(self.binary) is not None
 
     def launch_cmd(self) -> list[str]:
-        """Per-harness invocation shape (KTD4), with the default model flag."""
-        base = {
-            "pi": ["pi", "-p", "--approve", "--mode", "json"],
-            "opencode": ["opencode", "run", "--format", "json"],
-        }[self.name]
-        model_flag = {
-            "pi": ["--model", self.model],
-            "opencode": ["--model", self.model],
-        }[self.name]
-        return base + model_flag
+        """Per-harness invocation shape (KTD4), with the model flag when set.
+
+        A harness with no default model omits the flag entirely so the
+        harness's own configured default applies.
+        """
+        cmd = list(self.spec["launch"])
+        if self.model:
+            cmd += [self.spec["model_flag"], self.model]
+        return cmd
 
     def interpret(self, exit_code: int, output: str) -> str:
         """Map (exit, captured output) to done | blocker | failure (R14).
 
-        Success requires exit 0 AND the terminal structured event. opencode
-        additionally requires non-empty final text (exit-0-on-auto-reject bug).
+        Success requires exit 0 AND evidence the worker produced real output.
+        Exit 0 alone is never enough: opencode can exit 0 after a mid-session
+        auto-reject, so a silent run must read as failure.
         """
         if exit_code != 0:
             return "failure"
         parsed = self._parse_events(output)
         if not parsed:
             return "failure"
-        if self.name == "pi":
-            # pi emits a trailing `agent_settled` event after `agent_end`, so
-            # the terminal event is not `agent_end`. Require `agent_end` to
-            # appear anywhere rather than be the last event, or every pi
-            # worker is misread as failed and its plan is discarded. pi marks
-            # the event with `type`, not `event`.
-            if not any(e.get("type") == "agent_end" for e in parsed):
+        if self.spec["success"] == "type_event":
+            # pi emits a trailing `agent_settled` after `agent_end`, so the
+            # terminal event is not `agent_end`. Require the event to appear
+            # anywhere rather than be last, or every pi worker is misread as
+            # failed and its plan is discarded. pi marks events with `type`.
+            wanted = self.spec["success_event"]
+            if not any(e.get("type") == wanted for e in parsed):
                 return "failure"
-        else:  # opencode
-            # opencode emits step_start / text / step_finish, so the last
-            # event is step_finish, not text. The text content is nested under
-            # `part.text` (not top-level `text`). Accept a non-empty text
-            # event appearing anywhere (the exit-0-on-auto-reject guard still
-            # holds: an auto-reject produces no text event at all).
-            def _has_text(e: dict) -> bool:
-                if e.get("type") != "text":
-                    return False
-                return bool(e.get("text") or (e.get("part") or {}).get("text"))
-            if not any(_has_text(e) for e in parsed):
-                return "failure"
+            return "done"
+        # "text": accept a non-empty text event anywhere. opencode nests the
+        # content under `part.text` and emits step_finish last, so requiring a
+        # terminal text event would misread every successful run.
+        if not any(self._has_text(e) for e in parsed):
+            return "failure"
         return "done"
+
+    @staticmethod
+    def _has_text(event: dict) -> bool:
+        """True when an event carries non-empty assistant *text*.
+
+        Each harness nests the text differently, and the nesting matters:
+
+        - opencode:     {"type":"text", "part":{"text":"..."}}
+        - cursor-agent: {"type":"text", "text":"..."}
+        - codex:        {"type":"item.completed", "item":{"text":"..."}}
+        - claude:       {"type":"assistant", "message":{"content":[{"type":"text","text":"..."}]}}
+                        {"type":"result", "subtype":"success", "result":"..."}
+
+        claude's `message.content` is a *list of blocks*, so a truthiness test on
+        the list alone would accept a turn that only called tools and never
+        answered - which is exactly the silent-failure shape this guard exists to
+        catch. Inspect the blocks and require a non-empty text block.
+        """
+        if event.get("type") not in (
+            "text", "assistant", "item.completed", "message", "result",
+        ):
+            return False
+
+        # An explicitly failed terminal event is never success. codex reports
+        # failure as `error` / `turn.failed` events (filtered by the type check
+        # above); claude flags it inline on the result event.
+        if event.get("is_error") or event.get("subtype") == "error_during_execution":
+            return False
+
+        if event.get("text") or event.get("result"):
+            return True
+        for holder in ("part", "item"):
+            if (event.get(holder) or {}).get("text"):
+                return True
+
+        content = (event.get("message") or {}).get("content")
+        if isinstance(content, str):
+            return bool(content)
+        if isinstance(content, list):
+            return any(
+                isinstance(block, dict)
+                and block.get("type") == "text"
+                and block.get("text")
+                for block in content
+            )
+        return False
 
     @staticmethod
     def _parse_events(output: str) -> list[dict]:
@@ -1237,7 +1321,7 @@ def select_harness(override, available, priority=HARNESS_PRIORITY) -> str:
         if probe(name):
             return name
     raise ValidationError(
-        "no harness available (tried pi, opencode)",
+        "no harness available (tried " + ", ".join(priority) + ")",
         ["no harness available"],
     )
 

@@ -16,7 +16,7 @@ Decline, or no GitHub MCP write tool: leave Failures in the report and stop.
 
 GitHub MCP `issue_write` only. Read the tool descriptor first. `method: "create"` with the same `owner` / `repo` as intake.
 
-Do not import `rosey-qa` tracker-defer. Do not probe Linear. Do not assign labels unless the user named them.
+Do not import `rosey-qa` tracker-defer. Do not probe any tracker other than GitHub. Do not assign labels unless the user named them.
 
 **One issue per Fail**
 

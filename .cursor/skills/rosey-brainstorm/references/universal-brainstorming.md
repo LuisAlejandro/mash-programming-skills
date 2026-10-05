@@ -59,6 +59,6 @@ In `mode:non-interactive`, do not offer next steps. Return the summary and stop;
 
 **Question:** "Brainstorm wrapped. What would you like to do next?"
 
-- **Create a plan** → write `rosey/brainstorms/YYYY-MM-DD-<topic>-requirements.md` from the chat summary (YAML frontmatter with `date` and `topic` only). Do **not** add `## Requirements` — that heading marks a software origin. Then load `/rosey-plan` with that path. Plan 0.1b takes the universal route and structures a non-software plan from this wrap-up; it will not invent Implementation Units.
+- **Create a plan** → write `rosey/brainstorms/YYYY-MM-DD-<topic>-requirements.md` from the chat summary (YAML frontmatter with `date` and `topic` only). Do **not** add `## Requirements` — that heading marks a software origin. Then load `rosey-plan` with that path. Plan 0.1b takes the universal route and structures a non-software plan from this wrap-up; it will not invent Implementation Units.
 - **Save summary to disk** → write to that same `rosey/brainstorms/YYYY-MM-DD-<topic>-requirements.md` path by default (same shape: no `## Requirements`). Write in the current working directory only if the user asks for CWD. Plan's software origin search ignores files without `## Requirements`.
 - **Done** → the conversation was the value, no artifact needed

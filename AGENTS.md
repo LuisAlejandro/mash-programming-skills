@@ -73,13 +73,11 @@ IDE's copy of the skill gets a symlink to the shared store, so the documented
 dependencies three times. Never commit a real `.venv/` or `node_modules/` under
 `.cursor/skills/`.
 
-The installer copies in but never prunes. A skill removed from this source tree
-stays behind in `~/.cursor/skills/`, `~/.config/opencode/skills/`, and
-`~/.pi/agent/skills/` (agents likewise in `~/.cursor/agents/`, `~/.agents/`, and
-`~/.config/opencode/agents/`), and its shared dependency store under
-`~/.config/rosey/node_modules/` and `~/.config/rosey/venvs/` also persists.
-After deleting or relocating a skill, remove those installed copies explicitly
-or the IDEs keep offering it.
+The install manifest records every Rosey-owned skill, agent, rule, and shared
+dependency store. On the next install, entries owned by the previous manifest
+but absent from the current source tree are pruned from all IDE homes. The
+uninstaller uses the same recorded names, so a deleted or renamed source
+artifact remains uninstallable without touching unrelated user entries.
 
 The shared *library* references (domain, strategy, and engineering library) are
 not hosted here. They live only in the repository whose skills consume them —
@@ -111,8 +109,8 @@ enough, and Pi's docs confirm it does not trigger the project-trust prompt.
 
 ## Hindsight
 
-Hindsight is consulted only when `/rosey-brainstorm`, `/rosey-plan`,
-`/rosey-work`, or `/rosey-qa` is active. If the daemon is unavailable,
+Hindsight is consulted only when a gated skill is active. The hindsight-memory
+rule owns that list and is authoritative. If the daemon is unavailable,
 continue and record `Hindsight: unavailable`. Do not store secrets in Hindsight
 or insight files.
 

@@ -12,9 +12,8 @@ Tracker-defer has two execution modes. The caller selects one; the detection, fa
 
 Used by `rosey-qa` Interactive mode's routing question, walk-through Defer actions, and bulk-preview option C. All user-facing prompts fire:
 
-- First Defer of the session with a generic (non-named) label confirms the effective tracker choice.
-- Execution failures prompt with Retry / Fall back to next sink / Convert to Skip.
-- Labels in the routing question reflect `named_sink_available` (name the tracker) vs fallback generics.
+- Execution failures prompt with Retry on GitHub / Convert to Skip.
+- Labels always name GitHub; no confirmation prompt is needed because there is only one sink.
 
 ### Non-interactive mode
 
@@ -29,60 +28,47 @@ The caller decides how to surface the result to the user. The non-interactive mo
 
 ---
 
-## Detection
+## Sink
 
-The agent determines the project's tracker from whatever documentation is obvious. Primary sources: `CLAUDE.md` and `AGENTS.md` at the repo root and in relevant subdirectories. Supplementary signals (when primary documentation is ambiguous): `CONTRIBUTING.md`, `README.md`, PR templates under `.github/`, visible tracker URLs in the repo.
+**GitHub Issues is the only tracker Rosey files to.** There is no tracker detection step and no named-tracker tier: the sink is GitHub Issues via GitHub MCP, or nothing. Do not read `AGENTS.md` for a `project_tracker` key, do not probe Linear/Jira/other MCP servers, and do not fall back to another tracker's CLI.
 
-A tracker can be surfaced via MCP tool, an authenticated direct API, or a project-standard non-GitHub CLI. GitHub tracker operations use GitHub MCP. The detection output is a tuple with two availability flags — one for the named tracker specifically (drives label confidence in Interactive mode) and one for the full fallback chain (drives whether Defer is offered at all):
+The availability output is a single flag:
 
 ```
-{ tracker_name, confidence, named_sink_available, any_sink_available }
+{ sink_available }
 ```
 
-Where:
-- `tracker_name` — human-readable name ("Linear", "GitHub Issues", "Jira"), or `null` when detection cannot identify a specific tracker
-- `confidence` — `high` when the tracker is named explicitly in documentation (or via a linked URL to a specific project/workspace) and is unambiguously the project's canonical tracker; `low` when the signal is thin, conflicting, or implied only
-- `named_sink_available` — `true` only when the agent can actually invoke the detected tracker (MCP tool is loaded, supported CLI is authenticated, or API credentials are in environment); `false` when the tracker is documented but no tool reaches it, or when no tracker is found at all. Drives label confidence: inline tracker naming requires this to be `true`.
-- `any_sink_available` — `true` when any tier in the fallback chain (named tracker or GitHub Issues via MCP) can be invoked this session. Drives whether Defer is offered in Interactive mode, and drives the `no_sink` bucket in Non-interactive mode.
-
-Detection is reasoning-based. Do not maintain an enumerated checklist of files to read. Read the obvious sources and form a confident conclusion; when the obvious sources don't resolve, the label falls back to generic wording and the agent confirms with the user before executing (Interactive mode only).
+- `sink_available` — `true` when GitHub MCP issue tools are loaded and responsive and the current repo has issues enabled (when the MCP exposes that metadata); `false` otherwise. Drives whether Defer is offered in Interactive mode, and drives the `no_sink` bucket in Non-interactive mode.
 
 ---
 
 ## Probe timing and caching
 
-Availability probes run **at most once per session** and **only when Defer execution is imminent**. Never speculatively at review start, never per-Defer, never per-walk-through-finding. The cached tuple is reused for every Defer action in the same run.
+The availability probe runs **at most once per session** and **only when Defer execution is imminent**. Never speculatively at review start, never per-Defer, never per-walk-through-finding. The cached flag is reused for every Defer action in the same run.
 
-Typical probe sequence:
+Probe: verify GitHub MCP issue creation/read tools are available, and that the repository has issues enabled when the MCP exposes that metadata. Set `sink_available` from the result.
 
-1. Read `CLAUDE.md` / `AGENTS.md` for tracker references. If nothing found, set `tracker_name = null`, `confidence = low`.
-2. **Probe the named tracker when one was found.** For GitHub Issues, verify GitHub MCP issue creation/read tools are available and the repository has issues enabled when the MCP exposes that metadata. For Linear or other MCP-backed trackers, verify the relevant MCP tool is loaded and responsive. For API-backed trackers, verify credentials in environment. Set `named_sink_available` from the probe result.
-3. **Probe the GitHub Issues fallback to compute `any_sink_available`.** Even when the named tracker was found and probed, GitHub MCP availability matters for the `no_sink` bucket decision so that a run with no documented tracker but working GitHub Issues still offers Defer.
-   - If `named_sink_available = true`: `any_sink_available = true` (no further probes needed).
-   - Otherwise, probe GitHub Issues via GitHub MCP (skip if already probed in step 2). If it works, `any_sink_available = true`.
-   - Otherwise, `any_sink_available = false`.
-
-When Interactive mode's routing question is skipped entirely (R2 zero-findings case), no probes run. When the cached tuple is reused across a session, any `named_sink_available = true` from the session's first probe stays cached — do not re-probe per Defer.
+When Interactive mode's routing question is skipped entirely (R2 zero-findings case), no probe runs. A cached `sink_available = true` stays cached — do not re-probe per Defer.
 
 ---
 
 ## Label logic (Interactive mode)
 
-- When `confidence = high` AND `named_sink_available = true`: the routing question's option C and the walk-through's per-finding Defer option both include the tracker name verbatim. Example: `File a Linear ticket per finding`, `Defer — file a Linear ticket`.
-- When `any_sink_available = true` but either `confidence = low` or `named_sink_available = false` (a fallback tier is working instead): the labels read generically — `File an issue per finding`, `Defer — file a ticket`. Before executing the first Defer of the session, the agent confirms the effective tracker choice with the user using the platform's blocking question tool.
-- When `any_sink_available = false`: option C is omitted from the routing question, option B (Defer) is omitted from the walk-through per-finding options, and the agent tells the user why in the routing question's stem.
+The sink is always GitHub, so labels name it directly with no confidence gating and no token substitution:
 
-Non-interactive mode skips label decisions entirely — it acts silently on the detected sink.
+- When `sink_available = true`: the routing question's option C reads `File a GitHub issue per finding without applying fixes`, and the walk-through's per-finding Defer option reads `Defer — file a GitHub issue`.
+- When `sink_available = false`: option C is omitted from the routing question, option B (Defer) is omitted from the walk-through per-finding options, and the agent tells the user why in the routing question's stem.
+
+Non-interactive mode skips label decisions entirely — it acts silently on the sink.
 
 ---
 
 ## Fallback chain
 
-When the named tracker is unavailable or no tracker is named, fall back in this order. Prefer the project's detected tracker; use GitHub Issues only when no named tracker was found or the named one is unreachable.
+There is one sink and one fallback:
 
-1. **Named tracker** (MCP tool, supported CLI, or API the agent can invoke directly, identified via Detection above)
-2. **GitHub Issues via GitHub MCP** — when the MCP issue tools are available and the current repo supports issues
-3. **No sink** — findings remain in the review report's residual-work section (Interactive mode) or are returned in the `no_sink` bucket for the caller to route (Non-interactive mode). The agent does not re-display them through a transient surface. When no durable tracker exists, this is the correct behavior.
+1. **GitHub Issues via GitHub MCP** — when the MCP issue tools are available and the current repo supports issues
+2. **No sink** — findings remain in the review report's residual-work section (Interactive mode) or are returned in the `no_sink` bucket for the caller to route (Non-interactive mode). The agent does not re-display them through a transient surface. When GitHub Issues is unreachable, this is the correct behavior.
 
 ---
 
@@ -96,8 +82,8 @@ Every Defer action creates a ticket with the following content, adapted to the t
   - Suggested fix (when present in the finding's `suggested_fix`).
   - Evidence (direct quotes from the reviewer's artifact).
   - Metadata block: `Severity: <level>`, `Confidence: <score>`, `Reviewer(s): <list>`, `Finding ID: <fingerprint>`.
-- **Labels** (when the tracker supports labels): severity tag (`P0`, `P1`, `P2`, `P3`) and, when the tracker convention supports it, a category label sourced from the reviewer name.
-- **Length cap:** when the composed body would exceed a tracker's body length limit, truncate with `... (continued in rosey-qa run artifact: rosey/qa/<run-id>/)` and include the finding_id in both the truncated body and the metadata block so the artifact is discoverable.
+- **Labels:** severity tag (`P0`, `P1`, `P2`, `P3`) and a category label sourced from the reviewer name — but only when the repo already has matching labels. Omit labels rather than creating them.
+- **Length cap:** when the composed body would exceed GitHub's body length limit, truncate with `... (continued in rosey-qa run artifact: rosey/qa/<run-id>/)` and include the finding_id in both the truncated body and the metadata block so the artifact is discoverable.
 
 The finding_id is a stable fingerprint composed as `normalize(file) + line_bucket(line, +/-3) + normalize(title)` — the same fingerprint used by the merge pipeline.
 
@@ -110,30 +96,25 @@ When ticket creation fails at execution (API error, auth expiry mid-session, rat
 **Interactive mode:** surface the failure inline and ask the user using the platform's blocking question tool.
 
 Stem:
-> Defer failed: <tracker name> returned <error summary>. How should the agent handle this finding?
+> Defer failed: GitHub returned <error summary>. How should the agent handle this finding?
 
 Options:
-- `Retry on <tracker>` — re-attempt the same tracker once more (useful for transient errors)
-- `Fall back to next sink` — move this finding's Defer to the next tier in the fallback chain (e.g., from Linear to GitHub Issues)
+- `Retry on GitHub` — re-attempt once more (useful for transient errors)
 - `Convert to Skip — record the failure` — abandon this Defer, note the failure in the completion report's failure section, and continue the walk-through or bulk flow
 
-**Non-interactive mode:** do not prompt. Automatically fall through to the next tier. If every tier fails, record the finding in the `failed` bucket of the structured return and continue. If the chain exhausts with no sink ever available, the finding ends up in the `no_sink` bucket.
+**Non-interactive mode:** do not prompt. Record the finding in the `failed` bucket of the structured return and continue. If the sink was never available, the finding ends up in the `no_sink` bucket instead.
 
-When a high-confidence named tracker fails at execution, the cached `named_sink_available` is set to `false` for the rest of the session. Subsequent Defer actions fall straight through to the next tier without retrying a confirmed-broken sink. `any_sink_available` is only downgraded to `false` when every tier has been confirmed broken — a failed Linear call that succeeds via GitHub MCP keeps `any_sink_available = true`.
+When GitHub issue creation fails at execution, set the cached `sink_available` to `false` for the rest of the session. Subsequent Defer actions skip straight to the failure path rather than retrying a confirmed-broken sink.
 
 Only when `ToolSearch` explicitly returns no match or the tool call errors — or on a platform with no blocking question tool — fall back to numbered options and waiting for the user's reply (Interactive mode only).
 
 ---
 
-## Per-tracker behavior
+## Execution behavior
 
-Concrete behavior per tracker at execution time. The agent may invoke any of these through the appropriate interface (MCP, CLI, or API) — the choice depends on what is available in the current environment.
-
-| Tracker | Interface | Invocation sketch | Body format | Labels |
+| Sink | Interface | Invocation | Body format | Labels |
 |---------|-----------|-------------------|-------------|--------|
-| Linear | MCP (preferred) or API | Create issue in the project/workspace identified by documentation; assign to the reporter if the MCP tool exposes user context | Markdown | Severity priority field if the MCP exposes it; otherwise include severity in body |
 | GitHub Issues | GitHub MCP issue tool | Repo defaults to the current repo. Use severity labels only when the repo already has matching labels; omit labels if unavailable. Fall back to a label-less issue on first failure. | Markdown | `P0` / `P1` / etc. when labels exist |
-| Jira | MCP or API | Create issue in the project identified by documentation; Jira's markdown dialect differs from GitHub's — use plain text in the body when MCP does not handle conversion | Plain text when MCP does not handle markdown | Severity priority field |
 | No sink available | — | Interactive: Defer option omitted, findings remain in the report's residual-work section. Non-interactive: findings returned in the `no_sink` bucket for caller routing. | — | — |
 
 When uncertain, prefer "drop with explicit user-facing notice" over "pass through silently and hope." A Defer that produces no durable artifact and no user message is data loss.

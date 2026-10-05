@@ -33,7 +33,7 @@ If `mode:headless` is present, set **headless mode** for the rest of the workflo
 
 The caller receives findings with their original classifications intact and decides what to do with them.
 
-Non-interactive parent workflows, such as `rosey-plan mode:non-interactive`, should invoke document review with `mode:headless`. `mode:non-interactive` is the parent workflow contract; `mode:headless` remains this skill's structured-output submode.
+A non-interactive parent workflow that explicitly opts into document review should invoke this skill with `mode:headless`. `mode:non-interactive` is the parent workflow contract; `mode:headless` remains this skill's structured-output submode. `rosey-plan` does not invoke document review automatically in either mode.
 
 Callers invoke headless mode by including `mode:headless` in the skill arguments, e.g.:
 

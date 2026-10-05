@@ -157,6 +157,6 @@ Read this before the first implementation write. It owns the task execution loop
 7. **Track Progress**
    - Keep the task list updated as you complete tasks
    - Note any blockers or unexpected discoveries
-   - Do **not** add tasks for unplanned product behavior, files, or requirements outside the plan/origin. Interactive: ask whether to return to `/rosey-plan` or `/rosey-brainstorm`. Non-interactive: stop with `BLOCKERS: scope expansion: …`. Keep genuinely discovered implementation details inside the current unit when they do not change scope. Do not edit the plan body.
+   - Do **not** add tasks for unplanned product behavior, files, or requirements outside the plan/origin. Interactive: ask whether to return to `rosey-plan` or `rosey-brainstorm`. Non-interactive: stop with `BLOCKERS: scope expansion: …`. Keep genuinely discovered implementation details inside the current unit when they do not change scope. Do not edit the plan body.
    - Keep user informed of major milestones
    - When the plan defines U-IDs for Implementation Units, or the plan or origin document carries stable R-IDs (and optionally A/F/AE IDs), reference them in blockers, deferred-work notes, task summaries, and final verification — not routine status updates. U-IDs anchor units across plan edits; R/A/F/AE anchor product intent across the brainstorm-plan handoff. Use the IDs the plan supplies and do not invent ones it does not. This preserves traceability without burying signal under noise.

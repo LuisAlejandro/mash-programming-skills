@@ -59,7 +59,7 @@ Do not open the browser until the base URL accepts connections (local) or is kno
 Read `references/browser.md` before the first navigation. Work the task list **one item at a time**. For each scenario, mark the task `in_progress`, then:
 
 1. **Document** the journey and the expected outcome.
-2. **Drive it** with the host's browser tools to the true end state.
+2. **Drive it** through the browser contract in `references/browser.md` to the true end state.
 3. **Judge** correctness and experience: right data, right destination, sensible content, no console errors, aligned with the product.
 4. **Walk it as each persona.** Paper cuts do not block a `Pass`. Record them in the report. v1 defers every paper cut — do not edit product code.
 5. **Record** `Pass`, `Fail`, `Skipped`, or `Blocked (needs human verify)` in the matrix. Update the report after the judgment. Mark the task `completed` only when the status is no longer `Pending`.

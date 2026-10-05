@@ -48,7 +48,7 @@ An outcome is its own **work area** when both hold:
 
 **Coverage is not an area boundary.** Named devices, providers, views, or data sources reached through one shared path are requirements *inside* an area, not separate areas. Three payment providers behind one checkout flow is one area. Splitting on coverage produces areas that all touch the same code and collapse to a single serial track downstream.
 
-**A shared surface is its own area.** When several outcomes consume the same interface, type set, or schema, that surface is an area the others depend on. Naming it here is what lets `/rosey-epic-decompose` promote it to a contract task.
+**A shared surface is its own area.** When several outcomes consume the same interface, type set, or schema, that surface is an area the others depend on. Naming it here is what lets `rosey-epic-decompose` promote it to a contract task.
 
 Record the candidate areas as a working list. Phase 2 refines them against the seam heuristics; this phase only establishes that there is more than one.
 

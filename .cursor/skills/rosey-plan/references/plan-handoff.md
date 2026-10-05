@@ -1,27 +1,8 @@
 # Plan Handoff
 
-This file contains post-plan-writing instructions: document review, post-generation options, and issue creation. Load it after the plan file has been written and the confidence check (5.3.1-5.3.7) is complete.
+This file contains post-plan-writing instructions: the ponytail sanity-check, post-generation options, optional document review, and issue creation. Load it after the plan file has been written and the confidence check (5.3.1-5.3.7) is complete.
 
-## 5.3.8 Document Review
-
-Run the `rosey-doc-review` skill with `mode:headless` on the plan file. Pass `mode:headless <plan-path>` as the skill arguments. When this step is reached, it is mandatory — do not skip it because the confidence check already ran. The two tools catch different classes of issues.
-
-Headless is the default at this phase because most users want to start work after planning, not adjudicate every reviewer concern up front. Headless applies `safe_auto` fixes silently and returns structured findings text — no walkthrough, no per-finding routing, no blocking prompts. The post-generation menu (see 5.4) offers `Run deeper doc review` as a first-class option so users can opt into the full interactive walkthrough when they want it.
-
-The confidence check and rosey-doc-review are complementary:
-- The confidence check strengthens rationale, sequencing, risk treatment, and grounding
-- Document-review checks coherence, feasibility, scope alignment, and surfaces role-specific issues
-
-Capture the headless envelope so it can drive the contextual summary above the post-generation menu:
-- The number of fixes auto-applied
-- The count of remaining findings, broken out by user-facing bucket (proposed fixes, decisions, FYI observations)
-- The severity breakdown of decisions and proposed fixes (specifically the P0/P1 count, since those benefit from explicit user attention)
-
-When rosey-doc-review returns "Review complete", proceed to the ponytail sanity-check.
-
-**Non-interactive mode:** Non-interactive planning always invokes `rosey-doc-review` with `mode:headless` and the plan path — the headless mode is identical to the interactive default at this phase. Headless applies `safe_auto` fixes. Remaining findings (including P0/P1) stay in the headless envelope; do not wait to resolve them and do not invent plan edits to clear them. No further routing is offered. The caller decides what to do with the returned findings.
-
-## 5.3.8b Ponytail Sanity-Check
+## 5.3.8 Ponytail Sanity-Check
 
 Before final checks, run a lightweight over-engineering pass on the plan's Implementation Units. This is the write-time gate: catch speculative abstractions, unneeded dependencies, and over-scoped units *before* `rosey-work` commits to them, when they are cheapest to cut.
 
@@ -40,7 +21,7 @@ Flag only concrete cuts with a one-line replacement, e.g.:
 
 Do **not** flag: correctness, security, performance, or domain complexity the requirements genuinely require. Do not flag a unit's single smoke test / `assert` self-check — that is the ponytail minimum, not bloat.
 
-**Routing:** Apply `safe_auto`-style cuts (drop a speculative unit, inline a one-caller abstraction) directly to the plan. Surface anything that changes scope or needs a user decision in the post-generation menu summary line alongside the doc-review state. If nothing to cut, note `Ponytail: lean — no cuts.` and move on.
+**Routing:** Apply `safe_auto`-style cuts (drop a speculative unit, inline a one-caller abstraction) directly to the plan. Surface anything that changes scope or needs a user decision in a concise line above the post-generation menu. If nothing to cut, note `Ponytail: lean — no cuts.` and move on.
 
 **Non-interactive mode:** Apply safe ponytail cuts without waiting. Scope-changing cuts go to blockers/open questions rather than waiting for a user decision.
 
@@ -57,60 +38,44 @@ If artifact-backed mode was used:
 
 Write the markdown plan directly per `references/markdown-rendering.md`.
 
-After all mutations in this run have settled (initial write, deepening synthesis, rosey-doc-review `safe_auto` fixes), the artifact at its path reflects the final state.
+After all mutations in this run have settled (initial write, deepening synthesis, and safe ponytail cuts), the artifact at its path reflects the final state.
 
 ## 5.4 Post-Generation Options
 
-**Non-interactive mode:** If `mode:non-interactive` is active, skip the interactive menu below and return control to the caller immediately. The plan file has already been written, the confidence check has already run, and rosey-doc-review has already run — the caller determines the next step.
+**Non-interactive mode:** If `mode:non-interactive` is active, skip the interactive menu below and return control to the caller immediately. The plan file has been written and checked, but document review has not run; the caller may invoke `rosey-doc-review` separately when review is desired.
 
 **Path format:** Use absolute paths for chat-output file references — relative paths are not auto-linked as clickable in most terminals.
-
-**Summary line above the menu (always):** Print a single concise line summarizing the headless review state — e.g., `Doc review applied 3 fixes. 2 decisions, 1 proposed fix, 4 FYI observations remain (1 at P1).` When no fixes were applied and no findings remain, print `Doc review clean — no fixes needed.` This line establishes what the autofix pass did so the user has the context to choose between the menu options below.
 
 **Question:** "Plan ready at `<absolute path to plan>`. What would you like to do next?"
 
 **Options:**
-1. **Start `/rosey-work`** (recommended) - Begin implementing this plan in the current session
-2. **Run deeper doc review** - Walk through the remaining findings interactively (full rosey-doc-review walkthrough)
-3. **Create Issue** - Create a tracked issue from this plan in your configured issue tracker (GitHub or Linear)
+1. **Start `rosey-work`** (recommended) - Begin implementing this plan in the current session
+2. **Agent review of plan with `rosey-doc-review`** - Dispatch reviewer agents to check coherence, feasibility, scope, and role-specific risks; auto-apply safe fixes; route remaining findings interactively. Always shown.
+3. **Create Issue** - Create a tracked GitHub issue from this plan
 4. **Done for now** - Pause; the plan file is saved and can be resumed later
 
-**Menu rendering:** Count visible options after applying the hide rules below. When **4 or fewer** options remain, use the platform's blocking question tool (see Interaction Method in SKILL.md). When the blocking tool is unavailable or errors, fall back to numbered-list-in-chat rendering. Never silently skip the question.
-
-**Hide `Run deeper doc review` when no actionable findings remain.** Show option 2 only when the headless envelope reports `proposed_fixes_count + decisions_count > 0` — i.e., at least one `gated_auto` or `manual` finding at confidence anchor `75` or `100`. Drop the option in any other case, including FYI-only state. FYI observations (anchor `50`) do not enter `rosey-doc-review`'s interactive routing question or walkthrough — that flow is gated to actionable findings — so a `Run deeper doc review` option that only has FYIs to show is a dead-end: rosey-doc-review would re-dispatch the persona team, find the same FYIs, skip the routing question, and fall through to the terminal question with nothing to walk through. The user paid the dispatch cost for no engagement surface. After trimming, renumber visible options contiguously starting at 1. The summary line above the menu still names the FYI count when present (`Doc review applied 3 fixes. 2 FYI observations remain.`) so the user sees what was found, even though there is no menu action attached to it — the FYIs are visible in the headless envelope text the menu rendered alongside.
+**Menu rendering:** Use the platform's blocking question tool (see Interaction Method in SKILL.md). When the blocking tool is unavailable or errors, fall back to numbered-list-in-chat rendering. Never silently skip the question.
 
 Based on selection (the bare per-option routing is also stated inline in the SKILL.md so it cannot be missed when this reference is not loaded; the elaborate sub-flows below are the reason this reference still exists):
-- **Start `/rosey-work`** -> Invoke the `rosey-work` skill via the harness's skill-invocation primitive, passing the plan path as the skill argument. Match by capability — whatever loads and runs a named skill in the current tool list. Do not merely tell the user to type `/rosey-work`; fire the invocation now so the plan executes in this session.
-- **Run deeper doc review** -> Re-invoke the `rosey-doc-review` skill on the plan path **without** `mode:headless` so the interactive routing question and walkthrough fire. The headless pass already applied `safe_auto` fixes and recorded its findings in the session, so the interactive pass picks up where headless stopped — its R29 suppression rule prevents prior-round Skipped/Deferred entries from re-raising. After it returns, re-render this menu with the refreshed counts so the user can pick what to do next.
+- **Start `rosey-work`** -> Invoke the `rosey-work` skill via the harness's skill-invocation primitive, passing the plan path as the skill argument. Match by capability — whatever loads and runs a named skill in the current tool list. Do not merely tell the user to invoke `rosey-work` themselves; fire the invocation now so the plan executes in this session.
+- **Agent review of plan with `rosey-doc-review`** -> Invoke `rosey-doc-review` on the plan path without `mode:headless`. When it returns "Review complete", return to this menu and re-render all four options; the plan may have changed. If residual P0/P1 findings remain unaddressed, add a one-line nudge beside the menu and refer to this option by label, not number.
 - **Create Issue** -> Follow the Issue Creation section below
 - **Done for now** -> Display a brief confirmation that the plan file is saved and end the turn. Do not start follow-up work without an explicit further user prompt.
-- **Free-form prompts that target the findings** (e.g., the user types "review", "walk through", "deep review" instead of picking a numbered option) -> route as if they had picked `Run deeper doc review`. Do not loop back to the menu without firing the deeper review.
+- **Free-form review requests** (e.g., the user types "review", "walk through", or "deep review" instead of picking a numbered option) -> route as if they had picked `Agent review of plan with rosey-doc-review`. Do not loop back to the menu without invoking the review.
 - **Other free-form input** -> Accept revisions to the plan and loop back to options.
 
 ## Issue Creation
 
-When the user selects "Create Issue", detect their project tracker:
+GitHub is the only tracker this skill writes to. When the user selects "Create Issue":
 
-1. Read `AGENTS.md` (or `CLAUDE.md` for compatibility) at the repo root and look for `project_tracker: github` or `project_tracker: linear`.
-2. If `project_tracker: github`:
+1. Create the issue with the GitHub CLI:
 
    ```bash
    gh issue create --title "<type>: <title>" --body-file <plan_path>
    ```
 
-3. If `project_tracker: linear`:
-
-   ```bash
-   linear issue create --title "<title>" --description "$(cat <plan_path>)"
-   ```
-
-4. If no tracker is configured, ask the user which tracker they use with the platform's blocking question tool (see Interaction Method in SKILL.md). Missing `project_tracker` is the normal first-run path — do not invent a default tracker. Options: `GitHub`, `Linear`, `Skip`. Then:
-   - Proceed with the chosen tracker's command above
-   - Offer to persist the choice by adding `project_tracker: <value>` to `AGENTS.md`, where `<value>` is the lowercase tracker key (`github` or `linear`) — not the display label — so future runs match the detector in step 1 and skip this prompt
-   - If `Skip`, return to the options without creating an issue
-
-5. If the detected tracker's CLI is not installed or not authenticated, surface a clear error (e.g., "`gh` CLI not found — install it or create the issue manually") and return to the options.
+2. If `gh` is not installed or not authenticated, surface a clear error (e.g., "`gh` CLI not found — install it, run `gh auth login`, or create the issue manually") and return to the options. Do not substitute another tracker's CLI.
 
 After issue creation:
 - Display the issue URL
-- Ask whether to proceed to `/rosey-work` using the platform's blocking question tool
+- Ask whether to proceed to `rosey-work` using the platform's blocking question tool

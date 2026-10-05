@@ -74,7 +74,7 @@ Standard is the floor. Work too small for a requirements document does not belon
 
 In non-interactive mode, do not ask. Classify conservatively from the supplied feature description and record the classification as an assumption when it materially affects the document.
 
-**Every software run writes a requirements document.** `/rosey-plan` requires it as origin. There is no software-route chat-only outcome.
+**Every software run writes a requirements document.** `rosey-plan` requires it as origin. There is no software-route chat-only outcome.
 
 **Gates (do not run scout / approaches / verifier on every run):**
 - Clear-requirements (0.2) skips Phase 1.1 and 1.2.

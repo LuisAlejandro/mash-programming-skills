@@ -17,7 +17,7 @@ Rules:
 
 Levels: `lite` | `full` | `ultra` | `wenyan-lite` | `wenyan-full` | `wenyan-ultra` (defined below).
 
-Default level: **full** when the user invokes caveman explicitly; **lite** when caveman is implied by a Rosey skill. Stop: "stop caveman" — or "normal mode", which reverts every always-on response mode (see `.cursor/rules/ponytail.mdc` § Modes off-switch).
+Default level: **full** when the user invokes caveman explicitly; **lite** when caveman is implied by a Rosey skill. Stop: "stop caveman" — or "normal mode", which reverts every always-on response mode (see the ponytail rule, § Modes off-switch).
 
 Auto-Clarity: drop caveman for security warnings, irreversible actions, and ambiguous steps (see below). Resume after.
 

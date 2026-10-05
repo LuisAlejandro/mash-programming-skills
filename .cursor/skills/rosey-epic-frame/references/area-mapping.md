@@ -6,7 +6,7 @@ Phase 0 established that there is more than one outcome and produced a candidate
 
 A seam is where **user value** separates, not where code separates. Four seams recur:
 
-**Shared surface vs. its consumers.** When several outcomes need the same types, schema, or interface, that surface is its own area and the others depend on it. This is the most valuable seam to find: it is what lets the consumers run in parallel afterward, and `/rosey-epic-decompose` promotes it to a contract task.
+**Shared surface vs. its consumers.** When several outcomes need the same types, schema, or interface, that surface is its own area and the others depend on it. This is the most valuable seam to find: it is what lets the consumers run in parallel afterward, and `rosey-epic-decompose` promotes it to a contract task.
 
 **Producer vs. consumer.** A backend capability and the interface that uses it are usually two areas — each has its own acceptance boundary, and the interface can be verified against a stubbed or already-shipped producer. Split them when the backend work is substantial enough to stand alone; keep them together when the "backend" is one endpoint that exists only to serve one view.
 
@@ -55,7 +55,7 @@ Bad: `api`, `frontend`, `part-2`, `user_panel_API`.
 
 A dependency means **area B consumes something area A defines** — a type, a schema, an endpoint contract, a component interface. Declare those.
 
-**Do not declare file overlap.** Two areas touching the same file is a scheduling fact, and `/rosey-epic-decompose` derives it from footprints. Declaring it here serializes work that could have run in parallel.
+**Do not declare file overlap.** Two areas touching the same file is a scheduling fact, and `rosey-epic-decompose` derives it from footprints. Declaring it here serializes work that could have run in parallel.
 
 **Do not over-declare.** Every dependency edge removes parallelism. If area B could start against a stub or an agreed shape, it does not depend on area A finishing.
 
@@ -63,10 +63,10 @@ Express dependencies as area ids, and keep them acyclic — a cycle means the se
 
 ## Where framing stops
 
-Areas are drawn on product seams. `/rosey-epic-decompose` then derives file footprints and checks whether those seams are also file-disjoint. They usually are; sometimes they are not.
+Areas are drawn on product seams. `rosey-epic-decompose` then derives file footprints and checks whether those seams are also file-disjoint. They usually are; sometimes they are not.
 
 **A file-level collision is decompose's to resolve, not framing's.** Merging two areas onto one track, or promoting a shared surface to a contract task, is scheduling work — it belongs to the skill that owns footprints and sequencing. This phase does not wait for that answer and the run does not come back here.
 
 The consequence is worth knowing: when decompose merges two areas onto one track, both of their requirements documents stay valid and the merged task carries both. That is correct — the documents describe product scope, and product scope did not change because two areas share a file.
 
-Footprints, disjointness validation, collision resolution, and the run inputs all stay with `/rosey-epic-decompose`. This phase supplies the product seams and the declared dependencies, and hands off.
+Footprints, disjointness validation, collision resolution, and the run inputs all stay with `rosey-epic-decompose`. This phase supplies the product seams and the declared dependencies, and hands off.

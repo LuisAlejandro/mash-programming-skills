@@ -84,8 +84,8 @@ one frontmatter-stripped Markdown bundle:
 | OpenCode | `~/.config/rosey/always-on-rules.md` via `config.instructions[]` |
 | Pi | `~/.pi/agent/APPEND_SYSTEM.md` (appends to the system prompt) |
 
-The bundle is generated from `.cursor/rules/*.mdc`; the `.mdc` sources remain the
-single source of truth. Shared `.mdc` copies in `~/.config/rosey/rules/` are kept for skill scripts that inspect rule contracts.
+The bundle is generated from `.cursor/rules/*.mdc`; those `.mdc` files remain
+the single source of truth.
 
 ### Invoking a skill
 
@@ -102,30 +102,62 @@ form would be wrong in at least two of them.
 
 Slash syntax appears only in this table, never inside a rule or skill.
 
+## Requirements Rosey does not install
+
+### An agent harness
+
+Rosey installs skills, rules, and agents — not the harness that runs them. Install at
+least one of `pi`, `opencode`, `cursor-agent`, `codex`, or `claude`. The installer
+checks and **warns without blocking** when none is found; `rosey-parallel` also uses
+these as its delegated workers, probing in that order. Pi extensions install only when
+the `pi` CLI is present, so install a harness first and re-run to finish that setup.
+
+### A GitHub token (optional)
+
+The installer prompts once for a token to configure the GitHub MCP server, which powers
+PR review, issue creation, and PR description updates in `rosey-qa`, `rosey-pr`, and
+`rosey-dogfood`. Fine-grained token scopes:
+
+| Scope | Level |
+|---|---|
+| Contents | Read-only |
+| Pull requests | Read-only, or Read and write to post PR updates |
+| Issues | Read and write, only for issue creation |
+| Metadata | Read-only (automatic) |
+
+A classic token with the `repo` scope also works. Press Enter to skip: the GitHub MCP
+server is then left unconfigured rather than written with an unusable credential, and
+those skills fall back to the `gh` CLI or local git. Set `GITHUB_TOKEN` in `.env` or the
+environment to skip the prompt, and re-run the installer later to enable the server.
+
+GitHub is the only issue tracker Rosey writes to.
+
 ## What installation does
 
-1. Copies every Rosey skill in this source tree into the Cursor, OpenCode, and
+1. Prunes skills, agents, rules, and shared dependency stores that the previous
+   install manifest owned but the current source tree no longer contains.
+2. Copies every Rosey skill in this source tree into the Cursor, OpenCode, and
    Pi global skill homes. Repository-scoped skills are absent from Rosey's
    source and remain local untracked files in their owning repositories.
-2. Copies specialist agents to Cursor, OpenCode, and the Pi-subagents home.
-3. Copies Cursor's always-apply rules to `~/.cursor/rules/`, then generates
+3. Copies specialist agents to Cursor, OpenCode, and the Pi-subagents home.
+4. Copies Cursor's always-apply rules to `~/.cursor/rules/`, then generates
    `~/.config/rosey/always-on-rules.md` and `~/.pi/agent/APPEND_SYSTEM.md` so
    OpenCode and Pi receive the same always-on rules.
-4. Installs global Hindsight warm-start hooks for all three supported IDEs.
-5. Writes `~/.config/rosey/AGENTS.md` and the Pi global context file. Rosey never
+5. Installs global Hindsight warm-start hooks for all three supported IDEs.
+6. Writes `~/.config/rosey/AGENTS.md` and the Pi global context file. Rosey never
    creates or edits a repository-root `AGENTS.md`.
-6. Installs the three shared contract references in
+7. Installs the three shared contract references in
    `~/.config/rosey/references/` and updates global skill call sites to use
    those paths.
-7. Merges Rosey's MCP servers into the global Cursor, OpenCode, and Pi config
+8. Merges Rosey's MCP servers into the global Cursor, OpenCode, and Pi config
    files. Same-name Rosey entries overwrite existing entries; this accepted
    risk has no backup or rollback.
-8. Installs skill runtime dependencies once under `~/.config/rosey/` (npm for
+9. Installs skill runtime dependencies once under `~/.config/rosey/` (npm for
    skills with `package.json`, a virtualenv for skills with `requirements.txt`)
    and symlinks them into each IDE copy.
-9. Installs optional machine tools and Pi extensions only when enabled and
-   missing. Existing commands are not reinstalled.
-10. Updates the machine-global Git excludes file so only Rosey working-output
+10. Installs optional machine tools and Pi extensions only when enabled and
+    missing. Existing commands are not reinstalled.
+11. Updates the machine-global Git excludes file so only Rosey working-output
     directories and the maintainer manifest remain ignored. `AGENTS.md` and
     `DESIGN.md` are not ignored.
 
@@ -156,10 +188,11 @@ Uninstallation is global-only and dry-run by default:
 ./uninstall.sh --apply --force # also remove edited Rosey guidance files
 ```
 
-It removes Rosey-owned global skills, agents, rules, hooks, plugins, guidance,
-pins, contract references, manifest, and MCP entries. It preserves unrelated
-user entries in shared JSON files, machine tools, Hindsight memory, and all
-repositories.
+It removes the exact Rosey-owned global skills, agents, and rules recorded by
+the last install manifest, plus hooks, plugins, guidance, pins, contract
+references, shared dependency stores, the manifest, and MCP entries. It
+preserves unrelated user entries in shared JSON files, machine tools, Hindsight
+memory, and all repositories.
 
 ## Optional Hindsight local memory
 

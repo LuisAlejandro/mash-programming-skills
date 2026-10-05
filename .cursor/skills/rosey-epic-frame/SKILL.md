@@ -6,13 +6,13 @@ argument-hint: "[the epic to frame]"
 
 # Rosey Epic Frame
 
-Framing answers **WHAT the areas are** for an epic; `/rosey-epic-decompose` then answers **how they schedule**, and `/rosey-parallel` runs them. This skill does not implement code and does not compute file footprints — it explores, clarifies, and writes one requirements document per work area. Use the current calendar year when dating artifacts.
+Framing answers **WHAT the areas are** for an epic; `rosey-epic-decompose` then answers **how they schedule**, and `rosey-parallel` runs them. This skill does not implement code and does not compute file footprints — it explores, clarifies, and writes one requirements document per work area. Use the current calendar year when dating artifacts.
 
 **Pipeline position:** `rosey-epic-frame` → `rosey-epic-decompose` → `rosey-parallel`. This is the parallel-execution pipeline. It runs end to end on its own and does not route into any other workflow.
 
 **Outcome:** N work areas, each with its own requirements document under `rosey/brainstorms/`, plus an area list carrying goals and declared dependencies. Downstream planning reads those documents as its origin, so each parallel task starts from validated product decisions rather than a projected stub.
 
-**Done:** every area has a written requirements document, the area list is presented, and the handoff to `/rosey-epic-decompose` has fired.
+**Done:** every area has a written requirements document, the area list is presented, and the handoff to `rosey-epic-decompose` has fired.
 
 **Scope floor.** This skill is for ambitions with **more than one separately-deliverable outcome**. A single feature or change does not belong here — say so and stop. There is no path through this skill that produces one document.
 
@@ -75,7 +75,7 @@ Ask one question at a time. Prefer a concise single-select choice when natural o
 2. **Slice on product seams.** An area needs its own user value and its own acceptance boundary. A named device, provider, view, or data source is not automatically an area — coverage across several of them is usually one requirement inside one area.
 3. **One document per area.** N coherent requirements documents, never one document about N things. Each stands alone as a planning origin.
 4. **Every area is independently verifiable.** An area that cannot be finished and checked on its own cannot be a parallel task. Merge it into the area it depends on.
-5. **Declare consumption, not overlap.** A dependency means area B consumes something area A defines. Two areas touching the same file is a scheduling fact for `/rosey-epic-decompose`, not a dependency to declare here.
+5. **Declare consumption, not overlap.** A dependency means area B consumes something area A defines. Two areas touching the same file is a scheduling fact for `rosey-epic-decompose`, not a dependency to declare here.
 6. **Resolve product decisions here.** User-facing behavior, scope boundaries, and success criteria belong in this workflow. File layouts, schemas, and code structure belong downstream.
 7. **Right-size the epic.** Two to five areas is the common shape. One area means this is not an epic; twenty means the seams were drawn too fine.
 
@@ -94,7 +94,7 @@ Phases run in this order. Each names the files it cannot run correctly without: 
 | whenever a sub-agent is dispatched (1.1) | `~/.config/rosey/references/model-tiers.md` | the extraction / generation / ceiling tiers; blocking-dispatch and resolved-path rules; the degradation ladder down to inline |
 | 2 — draw the areas | `references/area-mapping.md` | product-seam heuristics; granularity bounds; area ids and the slug contract; dependency declaration rules; where framing stops and `rosey-epic-decompose` takes over |
 | 3 — write the documents | `references/area-sections.md` | the per-area section contract and hard floor; the ID namespaces; the filename rule; the cross-area relationships section; sibling exclusion |
-| 4 — handoff | `references/handoff.md` | the area table; the dispatch to `/rosey-epic-decompose`; what decompose still owns; non-interactive envelope |
+| 4 — handoff | `references/handoff.md` | the area table; the dispatch to `rosey-epic-decompose`; what decompose still owns; non-interactive envelope |
 
 ## Common Pitfalls to Avoid
 

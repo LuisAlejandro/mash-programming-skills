@@ -95,7 +95,7 @@ This keeps memory scoped to the current cloned repository by default.
 
 ## Recall
 
-Recall only when `/rosey-brainstorm`, `/rosey-plan`, `/rosey-work`, or `/rosey-qa` is active:
+Recall only when `rosey-brainstorm`, `rosey-plan`, `rosey-work`, or `rosey-qa` is active:
 
 - Before `rosey-brainstorm` gathers research
 - Before `rosey-plan` gathers local research

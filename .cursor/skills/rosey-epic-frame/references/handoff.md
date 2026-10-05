@@ -21,7 +21,7 @@ Use absolute paths for the document references in chat output — relative paths
 
 State the expected shape in one line: how many areas can start immediately, and which wait on a dependency.
 
-## 4.2 Hand off to `/rosey-epic-decompose`
+## 4.2 Hand off to `rosey-epic-decompose`
 
 Load the `rosey-epic-decompose` skill in the current session, passing the area list: each area's id, goal, declared dependencies, and document path.
 
@@ -31,7 +31,7 @@ Do not print a closing summary first — the handoff continues the run.
 
 - **File footprints** — which files each area is likely to touch. This phase produced product seams, not file lists.
 - **Disjointness validation and collision resolution** — whether those footprints actually separate, and what to do when they do not. Merging areas onto one track or promoting a shared surface to a contract task is scheduling work and belongs to decompose.
-- **The run inputs and the run itself** — decompose emits `run-inputs.json` and invokes `/rosey-parallel`.
+- **The run inputs and the run itself** — decompose emits `run-inputs.json` and invokes `rosey-parallel`.
 
 The handoff is one-way. Framing does not wait for decompose's answer and the run does not return here.
 

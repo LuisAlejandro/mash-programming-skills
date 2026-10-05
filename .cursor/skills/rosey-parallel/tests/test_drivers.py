@@ -119,6 +119,155 @@ def test_select_none_available_fails():
         rp.select_harness(None, availability.get, PRIORITY)
 
 
+# --- cursor-agent / codex / claude support ------------------------------------
+
+ALL_HARNESSES = ["pi", "opencode", "cursor-agent", "codex", "claude"]
+
+
+def test_all_five_harnesses_are_supported():
+    # Priority order is the probe order; every entry must be constructible.
+    assert rp.HARNESS_PRIORITY == ALL_HARNESSES
+    for name in ALL_HARNESSES:
+        assert rp.HarnessDriver.from_name(name).binary
+
+
+def test_unknown_harness_still_rejected():
+    with pytest.raises(ValueError):
+        rp.HarnessDriver.from_name("not-a-harness")
+    with pytest.raises(rp.ValidationError):
+        rp.select_harness("not-a-harness", lambda name: True, rp.HARNESS_PRIORITY)
+
+
+def test_new_harness_launch_shapes_are_non_interactive():
+    # Each worker must run headless and emit structured output, or the
+    # orchestrator cannot tell a finished task from a hung prompt.
+    cursor = rp.HarnessDriver.from_name("cursor-agent").launch_cmd()
+    assert cursor[:2] == ["cursor-agent", "-p"]
+    assert "json" in cursor
+
+    codex = rp.HarnessDriver.from_name("codex").launch_cmd()
+    assert codex[:2] == ["codex", "exec"]
+    assert "--json" in codex
+
+    claude = rp.HarnessDriver.from_name("claude").launch_cmd()
+    assert claude[:2] == ["claude", "-p"]
+    assert "stream-json" in claude
+
+
+def test_harness_without_default_model_omits_model_flag():
+    # These harnesses use their own configured default; passing an empty
+    # --model would be a launch error.
+    for name in ("cursor-agent", "codex", "claude"):
+        assert rp.HarnessDriver.from_name(name).model is None
+        assert "--model" not in rp.HarnessDriver.from_name(name).launch_cmd()
+    # An explicit override still wires the flag.
+    cmd = rp.HarnessDriver.from_name("codex", model="gpt-5").launch_cmd()
+    assert cmd[cmd.index("--model") + 1] == "gpt-5"
+
+
+def test_new_harnesses_reject_silent_exit_zero():
+    # The exit-0-with-no-output shape must read as failure on every harness,
+    # otherwise an auto-rejected worker is harvested as a completed task.
+    for name in ("cursor-agent", "codex", "claude"):
+        h = rp.HarnessDriver.from_name(name)
+        assert h.interpret(0, "") == "failure"
+        assert h.interpret(0, '{"type": "permission"}\n') == "failure"
+        assert h.interpret(1, '{"type": "text", "text": "Done."}\n') == "failure"
+
+
+def test_new_harnesses_accept_their_text_event_shapes():
+    claude = rp.HarnessDriver.from_name("claude")
+    assert claude.interpret(0, '{"type": "assistant", "message": {"content": "Done."}}\n') == "done"
+
+    codex = rp.HarnessDriver.from_name("codex")
+    assert codex.interpret(0, '{"type": "item.completed", "item": {"text": "Done."}}\n') == "done"
+
+    cursor = rp.HarnessDriver.from_name("cursor-agent")
+    assert cursor.interpret(0, '{"type": "text", "text": "Done."}\n') == "done"
+
+
+# Fixtures below were captured from the real CLIs (codex-cli 0.157.1,
+# claude-code 2.1.283) rather than assumed, after `--help` verification of the
+# launch flags.
+
+# claude nests assistant text in a *list of content blocks*, so a truthiness
+# test on `message.content` would accept a turn that only called tools.
+CLAUDE_TEXT = '{"type":"assistant","message":{"content":[{"type":"text","text":"Done."}]}}\n'
+CLAUDE_TOOL_ONLY = '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash"}]}}\n'
+CLAUDE_RESULT_OK = '{"type":"result","subtype":"success","result":"Done."}\n'
+CLAUDE_RESULT_ERR = '{"type":"result","subtype":"error_during_execution","is_error":true}\n'
+
+# Real codex failure stream: JSONL interleaved with plain-text log lines.
+CODEX_AUTH_FAILURE = (
+    '{"type":"thread.started","thread_id":"x"}\n'
+    '{"type":"turn.started"}\n'
+    "2026-09-27T12:49:53Z ERROR codex_api: failed to connect to websocket\n"
+    '{"type":"error","message":"Reconnecting... 2/5 (401 Unauthorized)"}\n'
+    '{"type":"turn.failed","error":{"message":"401 Unauthorized"}}\n'
+)
+
+
+def test_claude_requires_a_real_text_block_not_just_content():
+    # Regression: a tool-use-only turn produced no answer, so it must not be
+    # harvested as a completed task even though `content` is non-empty.
+    claude = rp.HarnessDriver.from_name("claude")
+    assert claude.interpret(0, CLAUDE_TEXT) == "done"
+    assert claude.interpret(0, CLAUDE_TOOL_ONLY) == "failure"
+    assert claude.interpret(0, '{"type":"assistant","message":{"content":[]}}\n') == "failure"
+    assert (
+        claude.interpret(0, '{"type":"assistant","message":{"content":[{"type":"text","text":""}]}}\n')
+        == "failure"
+    )
+
+
+def test_claude_terminal_result_event():
+    claude = rp.HarnessDriver.from_name("claude")
+    assert claude.interpret(0, CLAUDE_RESULT_OK) == "done"
+    # An explicitly failed result must not read as success even on exit 0.
+    assert claude.interpret(0, CLAUDE_RESULT_ERR) == "failure"
+
+
+def test_codex_real_failure_stream_with_interleaved_log_lines():
+    # The plain-text ERROR lines must be skipped as noise, and an error-only
+    # event stream must never read as success - including on exit 0.
+    codex = rp.HarnessDriver.from_name("codex")
+    assert codex.interpret(101, CODEX_AUTH_FAILURE) == "failure"
+    assert codex.interpret(0, CODEX_AUTH_FAILURE) == "failure"
+
+
+def test_claude_stream_json_launch_requires_verbose():
+    # `claude -p --output-format stream-json` errors out without --verbose:
+    # "When using --print, --output-format=stream-json requires --verbose".
+    cmd = rp.HarnessDriver.from_name("claude").launch_cmd()
+    assert "--output-format" in cmd and "stream-json" in cmd
+    assert "--verbose" in cmd
+
+
+def test_selection_prefers_verifiable_harnesses():
+    # pi and opencode have machine-checked completion events, so they lead.
+    availability = dict.fromkeys(ALL_HARNESSES, True)
+    assert rp.select_harness(None, availability.get, rp.HARNESS_PRIORITY) == "pi"
+    availability["pi"] = False
+    assert rp.select_harness(None, availability.get, rp.HARNESS_PRIORITY) == "opencode"
+    # With only the new harnesses present, one is still selected rather than
+    # failing the run.
+    availability.update({"pi": False, "opencode": False})
+    assert rp.select_harness(None, availability.get, rp.HARNESS_PRIORITY) == "cursor-agent"
+    availability["cursor-agent"] = False
+    assert rp.select_harness(None, availability.get, rp.HARNESS_PRIORITY) == "codex"
+    availability["codex"] = False
+    assert rp.select_harness(None, availability.get, rp.HARNESS_PRIORITY) == "claude"
+
+
+def test_no_harness_error_names_every_candidate():
+    availability = dict.fromkeys(ALL_HARNESSES, False)
+    with pytest.raises(rp.ValidationError) as excinfo:
+        rp.select_harness(None, availability.get, rp.HARNESS_PRIORITY)
+    message = str(excinfo.value)
+    for name in ALL_HARNESSES:
+        assert name in message
+
+
 def test_failure_carries_fix_hint():
     guidance = rp.retry_guidance("merge conflict on feature/x")
     assert guidance["errorType"] == "merge_conflict"

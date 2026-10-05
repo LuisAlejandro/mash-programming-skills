@@ -47,7 +47,7 @@ Ask one question at a time. Use the platform's blocking question tool when avail
 
 **Before exiting Phase 1, run this check.** It is this skill's highest-value probe, because it catches what per-area questioning structurally cannot.
 
-Combine what the user has said across areas and surface consequences no single area's dialogue would reach. When area A's decisions plus area B's decisions plus an agent default produce a shared surface neither area named — a type both need, a schema both write, a route both register — probe it now. That surface is usually a missing area, and finding it here is what prevents `/rosey-epic-decompose` from collapsing two tracks into one.
+Combine what the user has said across areas and surface consequences no single area's dialogue would reach. When area A's decisions plus area B's decisions plus an agent default produce a shared surface neither area named — a type both need, a schema both write, a route both register — probe it now. That surface is usually a missing area, and finding it here is what prevents `rosey-epic-decompose` from collapsing two tracks into one.
 
 One probe per genuine combination effect, asked open-ended.
 

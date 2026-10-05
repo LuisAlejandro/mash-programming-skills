@@ -13,7 +13,9 @@
 /.env
 .cursor/mcp.json
 
-# Local skill dependencies
+# Local skill dependencies and Python caches
+__pycache__/
+*.pyc
 .cursor/skills/**/node_modules/
 .cursor/skills/**/.venv/
 .cursor/skills/**/.pytest_cache/

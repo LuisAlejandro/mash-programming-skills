@@ -1,6 +1,6 @@
 # rosey-parallel worker prompt contract
 
-Substrate-agnostic prompt template for delegated harness workers (`pi`, `opencode`). The orchestrator fills the placeholders and invokes the configured harness per KTD4 with the appropriate launch flag set.
+Substrate-agnostic prompt template for delegated harness workers (`pi`, `opencode`, `cursor-agent`, `codex`, `claude`). The orchestrator fills the placeholders and invokes the configured harness per KTD4 with the appropriate launch flag set.
 
 ## Structure
 

@@ -8,7 +8,7 @@ Phase 0.1b (`references/intake.md`) routes here for anything that isn't clearly 
 
 - **Is this actually a software task?** The key distinction is task-type, not topic-domain. A study guide about Rust is non-software (producing educational content). A Rust library refactor is software (modifying code). If this is actually software **and a software-shaped origin exists** (`## Requirements` present), return to Phase 0.2 in `references/intake.md`. A named wrap-up without that heading is not a software origin — stay on this workflow; do not bounce back to 0.2.
 - **Is this a quick-help request, not a planning task?** Error messages, factual questions, and single-step tasks don't need a plan. Respond directly and exit. Examples: "zsh: command not found: brew", "what's the capital of France."
-- **Non-interactive mode?** If `mode:non-interactive` is active: output "Non-software planning is not valid in `mode:non-interactive`. Re-run `/rosey-plan` interactively or remove `mode:non-interactive`." and stop.
+- **Non-interactive mode?** If `mode:non-interactive` is active: output "Non-software planning is not valid in `mode:non-interactive`. Invoke the `rosey-plan` skill again interactively or remove `mode:non-interactive`." and stop.
 
 Once past these checks, commit to producing a plan. Do not exit because the task looks like a "lookup" or "research question" — the user invoked `rosey-plan` because they want a structured output.
 
@@ -32,7 +32,7 @@ Evaluate two things before planning:
 | **None** | Generic, timeless, or conceptual plan (study curriculum methodology, project management approach, personal goal breakdown) | Skip research. Model knowledge is sufficient. After structuring the plan, offer: "I based this on general knowledge. Want me to search for [specific thing research would improve]?" — e.g., sourced recipes, current product recommendations, expert frameworks. Only if the user accepts. |
 | **Recommended** | Plan references specific locations, venues, dates, prices, schedules, seasonal availability, or current events — anything where stale information would break the plan (closed restaurants, changed prices, cancelled events, wrong seasonal dates). | Research before planning. Decompose into 2-5 focused research questions and dispatch parallel web searches. Use the harness's cheapest capable model per dispatch where it exposes an override; when model names are unknown, omit the override and inherit rather than guessing. Collate findings before structuring the plan. |
 
-When research is recommended, do it — don't just offer. Stale recommendations (closed restaurants, rethemed attractions, outdated prices) are worse than no recommendations. The user invoked `/rosey-plan` because they want a good plan, not a disclaimer about training data.
+When research is recommended, do it — don't just offer. Stale recommendations (closed restaurants, rethemed attractions, outdated prices) are worse than no recommendations. The user invoked `rosey-plan` because they want a good plan, not a disclaimer about training data.
 
 **Research decomposition pattern:**
 1. Identify 2-5 independent research questions based on the task. Good questions target facts the model is least confident about: current prices, hours, availability, recent changes, seasonal specifics.
@@ -109,4 +109,4 @@ After structuring the plan, ask the user how they want to receive it using the p
    - Use filename convention: `YYYY-MM-DD-<descriptive-name>-plan.md`
    - Start the document with a `# Title` heading, followed by `Created: YYYY-MM-DD` on the next line. No YAML frontmatter.
 
-Do not offer `/rosey-work` (software-only) or issue creation (not applicable to non-software plans).
+Do not offer `rosey-work` (software-only) or issue creation (not applicable to non-software plans).

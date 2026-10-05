@@ -31,6 +31,7 @@ CURSOR_HOME="${HOME}/.cursor"
 PI_HOME="${HOME}/.pi/agent"
 OPENCODE_HOME="${HOME}/.config/opencode"
 PI_SHARED_MCP="${HOME}/.config/mcp/mcp.json"
+MANAGED_ARTIFACTS="$SOURCE_ROOT/scripts/managed_artifacts.py"
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -46,19 +47,8 @@ while [ "$#" -gt 0 ]; do
             APPLY=true
             shift
             ;;
-        --yes)
-            shift
-            ;;
         --force)
             FORCE=true
-            shift
-            ;;
-        --targets=*)
-            echo "warning: --targets is obsolete; global uninstall covers Cursor, OpenCode, and Pi" >&2
-            shift
-            ;;
-        --purge-git-config)
-            echo "warning: --purge-git-config is obsolete; global Git excludes are handled by this uninstall" >&2
             shift
             ;;
         -h | --help)
@@ -185,36 +175,27 @@ fi
 note "-> Version $UNINSTALL_VERSION"
 note ""
 
-# Remove the Rosey skill names currently present in the source tree. These are
-# Rosey-owned global copies; unrelated user skills remain untouched.
-if [ -d "$SOURCE_ROOT/.cursor/skills" ]; then
-    for src in "$SOURCE_ROOT"/.cursor/skills/*/; do
-        [ -d "$src" ] || continue
-        name="$(basename "$src")"
-        remove_path "$CURSOR_HOME/skills/$name" "Cursor skill $name"
-        remove_path "$OPENCODE_HOME/skills/$name" "OpenCode skill $name"
-        remove_path "$PI_HOME/skills/$name" "Pi skill $name"
-    done
-fi
+# The manifest preserves the exact Rosey-owned names from the last install, so
+# deleted or renamed source artifacts remain uninstallable. Old manifests fall
+# back to the current source inventory.
+while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    remove_path "$CURSOR_HOME/skills/$name" "Cursor skill $name"
+    remove_path "$OPENCODE_HOME/skills/$name" "OpenCode skill $name"
+    remove_path "$PI_HOME/skills/$name" "Pi skill $name"
+done < <(python3 "$MANAGED_ARTIFACTS" list "$ROSEY_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" skills)
 
-if [ -d "$SOURCE_ROOT/.cursor/rules" ]; then
-    for src in "$SOURCE_ROOT"/.cursor/rules/*.mdc; do
-        [ -f "$src" ] || continue
-        name="$(basename "$src")"
-        remove_path "$CURSOR_HOME/rules/$name" "Cursor rule $name"
-        remove_path "$ROSEY_CONFIG_DIR/rules/$name" "Rosey shared rule $name"
-    done
-fi
+while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    remove_path "$CURSOR_HOME/rules/$name" "Cursor rule $name"
+done < <(python3 "$MANAGED_ARTIFACTS" list "$ROSEY_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" rules)
 
-if [ -d "$SOURCE_ROOT/.cursor/agents" ]; then
-    for src in "$SOURCE_ROOT"/.cursor/agents/*; do
-        [ -e "$src" ] || continue
-        name="$(basename "$src")"
-        remove_path "$CURSOR_HOME/agents/$name" "Cursor agent $name"
-        remove_path "$OPENCODE_HOME/agents/$name" "OpenCode agent $name"
-        remove_path "$HOME/.agents/$name" "Pi agent $name"
-    done
-fi
+while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    remove_path "$CURSOR_HOME/agents/$name" "Cursor agent $name"
+    remove_path "$OPENCODE_HOME/agents/$name" "OpenCode agent $name"
+    remove_path "$HOME/.agents/$name" "Pi agent $name"
+done < <(python3 "$MANAGED_ARTIFACTS" list "$ROSEY_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" agents)
 
 remove_path "$CURSOR_HOME/hooks/ensure-hindsight-daemon.sh" "Cursor Hindsight hook"
 remove_path "$OPENCODE_HOME/plugin/rosey-hindsight-daemon.ts" "OpenCode Hindsight plugin"
@@ -224,6 +205,7 @@ remove_path "$PI_HOME/extensions/rosey-hindsight-daemon.ts" "Pi Hindsight extens
 remove_marked_file "$ROSEY_CONFIG_DIR/AGENTS.md" "Rosey Agent Guidance" "Rosey global guidance"
 remove_marked_file "$PI_HOME/AGENTS.md" "Rosey Agent Guidance" "Pi global guidance"
 remove_path "$ROSEY_CONFIG_DIR/always-on-rules.md" "Rosey always-on rules bundle"
+remove_path "$ROSEY_CONFIG_DIR/rules" "obsolete Rosey shared rule copies"
 remove_marked_file "$PI_HOME/APPEND_SYSTEM.md" "# Rosey Agentic Environment — always-on rules" "Pi always-on rules"
 remove_path "$ROSEY_CONFIG_DIR/references/model-tiers.md" "Rosey model-tiers contract"
 remove_path "$ROSEY_CONFIG_DIR/references/scoping-synthesis.md" "Rosey scoping-synthesis contract"
@@ -236,15 +218,19 @@ remove_path "$ROSEY_CONFIG_DIR/venvs" "Rosey shared skill virtualenvs"
 
 # Remove only Rosey's known MCP entries and instruction path; preserve all other
 # machine-owned configuration. Rosey entries win on install by owner decision.
-python3 - "$APPLY" "$FORCE" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$CURSOR_HOME/hooks.json" "$ROSEY_CONFIG_DIR/AGENTS.md" "$ROSEY_CONFIG_DIR/always-on-rules.md" <<'PY'
+python3 - "$APPLY" "$FORCE" "$MANAGED_ARTIFACTS" "$SOURCE_ROOT/.cursor/mcp.json.example" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$CURSOR_HOME/hooks.json" "$ROSEY_CONFIG_DIR/AGENTS.md" "$ROSEY_CONFIG_DIR/always-on-rules.md" <<'PY'
+import importlib.util
 import json
 import sys
 from pathlib import Path
 
 apply = sys.argv[1] == "true"
 force = sys.argv[2] == "true"
-paths = [Path(p) for p in sys.argv[3:]]
-mcp_names = {"github", "context7", "sentrux"}
+spec = importlib.util.spec_from_file_location("managed_artifacts", sys.argv[3])
+managed = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(managed)
+owned = managed.mcp_owned_names(sys.argv[4])
+paths = [Path(p) for p in sys.argv[5:]]
 rosey_instructions = {str(path) for path in paths[5:]}
 
 
@@ -273,11 +259,9 @@ for index, key in ((0, "mcpServers"), (1, "mcp"), (2, "mcpServers"), (3, "mcpSer
     data = load(path)
     if data is None or not isinstance(data.get(key), dict):
         continue
-    changed = False
-    for name in list(data[key]):
-        if name in mcp_names:
-            del data[key][name]
-            changed = True
+    merged = managed.merge_mcp_servers(data[key], owned, {})
+    changed = merged != data[key]
+    data[key] = merged
     if changed:
         if not data[key]:
             data.pop(key, None)
@@ -318,7 +302,6 @@ remove_empty_dir "$OPENCODE_HOME/agents"
 remove_empty_dir "$PI_HOME/scripts"
 remove_empty_dir "$PI_HOME/extensions"
 remove_empty_dir "$ROSEY_CONFIG_DIR/references"
-remove_empty_dir "$ROSEY_CONFIG_DIR/rules"
 remove_empty_dir "$ROSEY_CONFIG_DIR/node_modules"
 remove_empty_dir "$ROSEY_CONFIG_DIR/venvs"
 remove_empty_dir "$ROSEY_CONFIG_DIR"

@@ -12,7 +12,7 @@ argument-hint: "[optional: feature description, requirements doc path, plan path
 
 **Outcome:** a durable plan under `rosey/plans/` that an implementer can act on without re-deciding what was already settled.
 
-**Done:** that result is delivered **and** its handoff has fired — the Phase 5.4 menu presented and the selected action actually executed; in `mode:non-interactive`, the handoff envelope emitted. Writing the file, running the confidence check, and running or explicitly skipping document review are **intermediate milestones, not completion**. Rendering the menu, receiving a selection, or announcing a route is not completion either — execute the selected action.
+**Done:** that result is delivered **and** its handoff has fired — the Phase 5.4 menu presented and the selected action actually executed; in `mode:non-interactive`, the handoff envelope emitted. Writing the file and running the confidence check are **intermediate milestones, not completion**. Document review runs only when the user selects it from the handoff menu. Rendering the menu, receiving a selection, or announcing a route is not completion either — execute the selected action.
 
 **Once an origin document is in hand, always plan.** Never classify such an invocation as "not a planning task" and abandon the workflow. If the origin leaves something unclear, ask clarifying questions — but stay in the workflow. Sanctioned stops: missing origin (0.3b), unreadable required reference, non-software route, or an ambiguous deepen target in non-interactive mode.
 
@@ -137,13 +137,13 @@ Phases run in order unless an owner routes out or short-circuits.
 | 4.2 — compose | `references/plan-sections.md`, then `references/markdown-rendering.md` | what the plan contains (hard floor, include-when-material catalog, ID rules); how markdown presents it |
 | 5.1–5.3.2 — review, write, confidence gate | `references/final-review.md` | the pre-write checklist; the scoping synthesis; write-path mechanics and the handoff envelope; confidence classification and the deepening gate |
 | 5.3.3–5.3.7 — deepening (when the gate fires) | `references/deepening-workflow.md` | confidence scoring checklists; section-to-agent dispatch; execution modes; interactive finding review; plan synthesis |
-| 5.3.8–5.4 — document review and handoff | `references/plan-handoff.md` | mandatory document review and its headless default; the ponytail sanity-check; final checks; menu visibility, rendering, and per-selection routing; issue creation |
+| 5.3.8–5.4 — final checks and handoff | `references/plan-handoff.md` | the ponytail sanity-check; final checks; the user-selected document-review option; menu rendering and per-selection routing; issue creation |
 | the scoping synthesis (5.1.5) | `references/synthesis-summary.md` | the affirmability and keep tests; summary shape budgets; anti-patterns; the literal templates; non-interactive routing |
 
-**Before Phase 5.3.8, read `references/plan-handoff.md`.** Document review, ponytail checks, final checks, and Phase 5.4 remain part of this skill. Done means the selected Phase 5.4 action executed in interactive mode or the handoff envelope emitted in non-interactive mode. Document review is mandatory for every software plan that reaches Phase 5.3.8, including Lightweight plans. Its default is `mode:headless`. Without that reference the menu renders and the run stops without firing the routed action. If the selection arrives after a user turn, reload that reference before acting.
+**Before Phase 5.3.8, read `references/plan-handoff.md`.** Ponytail checks, final checks, and Phase 5.4 remain part of this skill. Done means the selected Phase 5.4 action executed in interactive mode or the handoff envelope emitted in non-interactive mode. Document review is never automatic: interactive runs offer it as a menu option, while non-interactive runs skip it. Without that reference the menu renders and the run stops without firing the routed action. If the selection arrives after a user turn, reload that reference before acting.
 
 **Phase 5.4 routing (concise; details in `references/plan-handoff.md`):**
-- **Start `/rosey-work`** — invoke `rosey-work` with the plan path now. Do not only tell the user to type the command.
-- **Run deeper doc review** — invoke `rosey-doc-review` on the plan path without `mode:headless`.
+- **Start `rosey-work`** — invoke `rosey-work` with the plan path now. Do not only tell the user to type the command.
+- **Agent review of plan with `rosey-doc-review`** — invoke `rosey-doc-review` on the plan path without `mode:headless`, then return to the Phase 5.4 menu.
 - **Create Issue** — follow the Issue Creation section in `references/plan-handoff.md`.
 - **Done for now** — confirm the plan file is saved and stop.

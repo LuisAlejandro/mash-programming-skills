@@ -95,7 +95,7 @@ Read the full conversation — the original description AND every comment, with 
 
 Confirm the bug exists and understand its behavior. Run the test, trigger the error, follow reported reproduction steps — whatever matches the input.
 
-- **Browser bugs:** Prefer `agent-browser` if installed. Otherwise use whatever works — MCP browser tools, direct URL testing, screenshot capture, etc.
+- **Browser bugs:** Follow the agent-browser skill. When the task is browser automation and the binary or MCP server is missing, stop that path with the install remediation. Do not switch to another browser tool.
 - **Manual setup required:** If reproduction needs specific conditions the agent cannot create alone (data states, user roles, external services, environment config), document the exact setup steps and guide the user through them. Clear step-by-step instructions save significant time even when the process is fully manual.
 - **Does not reproduce after 2-3 attempts:** Read `references/investigation-techniques.md` for intermittent-bug techniques.
 - **Cannot reproduce at all in this environment:** Document what was tried and what conditions appear to be missing.
@@ -181,7 +181,7 @@ Options to offer:
 
 1. **Fix it now** — proceed to Phase 3
 2. **Diagnosis only — I'll take it from here** — skip the fix, proceed to Phase 4's summary, and end the skill
-3. **Rethink the design** (`/rosey-brainstorm`) — only when the root cause reveals a design problem (see below)
+3. **Rethink the design** (`rosey-brainstorm`) — only when the root cause reveals a design problem (see below)
 
 Do not assume the user wants action right now. The test recommendations are part of the diagnosis regardless of which path is chosen.
 
@@ -199,7 +199,7 @@ If 2-3 hypotheses are exhausted without confirmation, diagnose why:
 
 | Pattern | Diagnosis | Next move |
 |---------|-----------|-----------|
-| Hypotheses point to different subsystems | Architecture/design problem, not a localized bug | Present findings, suggest `/rosey-brainstorm` |
+| Hypotheses point to different subsystems | Architecture/design problem, not a localized bug | Present findings, suggest `rosey-brainstorm` |
 | Evidence contradicts itself | Wrong mental model of the code | Step back, re-read the code path without assumptions |
 | Works locally, fails in CI/prod | Environment problem | Focus on env differences, config, dependencies, timing |
 | Fix works but prediction was wrong | Symptom fix, not root cause | The real cause is still active — keep investigating |
@@ -214,7 +214,7 @@ Present the diagnosis to the user before proceeding.
 
 *Reminder: one change at a time. If you are changing multiple things, stop.*
 
-If the user chose "Diagnosis only" at the end of Phase 2, skip this phase and go straight to Phase 4 for the summary — the skill's job was the diagnosis. If they chose "Rethink the design", control has transferred to `/rosey-brainstorm` and this skill ends.
+If the user chose "Diagnosis only" at the end of Phase 2, skip this phase and go straight to Phase 4 for the summary — the skill's job was the diagnosis. If they chose "Rethink the design", control has transferred to `rosey-brainstorm` and this skill ends.
 
 **Workspace and branch check:** Before editing files:
 
@@ -258,10 +258,10 @@ Analyze how this was introduced and what allowed it to survive. Note any systemi
 
 **If Phase 3 ran**, the next move depends on whether the skill created the branch in Phase 3.
 
-#### After the fix: commit in place, then offer `/rosey-pr`
+#### After the fix: commit in place, then offer `rosey-pr`
 
 1. **Commit the fix locally** on the current branch, path-limited to this session's files. Never branch, stash, or open a worktree.
-2. **Offer `/rosey-pr`** as an explicit user invocation to branch, push, and open a PR. Never auto-invoke it. If the entry came from an issue tracker, include the appropriate auto-close syntax for that tracker so it closes on merge (`Fixes #N` for GitHub, `Closes ABC-123` for Linear, Jira Smart Commits in the commit message).
+2. **Offer `rosey-pr`** as an explicit user invocation to branch, push, and open a PR. Never auto-invoke it. If the entry came from an issue tracker, include the appropriate auto-close syntax for that tracker so it closes on merge (`Fixes #N` for GitHub, `Closes ABC-123` for Linear, Jira Smart Commits in the commit message).
 3. **Emit `DEBUG_HANDOFF`** and stop.
 
 #### Pre-existing branch (skill did not create it): ask the user
@@ -270,7 +270,7 @@ Use the platform's blocking question tool (`AskUserQuestion` in Claude Code, `As
 
 Options:
 
-1. **Commit and open a PR (`/rosey-pr`)** — recommended
+1. **Commit and open a PR (`rosey-pr`)** — recommended
 2. **Commit the fix locally (`git commit`)** — local commit only
 3. **Stop here** — user takes it from there
 

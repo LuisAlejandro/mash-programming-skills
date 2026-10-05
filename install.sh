@@ -20,6 +20,7 @@ CURSOR_HOME="${HOME}/.cursor"
 PI_HOME="${HOME}/.pi/agent"
 OPENCODE_HOME="${HOME}/.config/opencode"
 PI_SHARED_MCP="${HOME}/.config/mcp/mcp.json"
+MANAGED_ARTIFACTS="$SOURCE_ROOT/scripts/managed_artifacts.py"
 HINDSIGHT_CLI_INSTALLER_URL="https://hindsight.vectorize.io/get-cli"
 
 if [ -f "$VERSION_FILE" ]; then
@@ -232,9 +233,9 @@ Hindsight is optional and machine-global. The version pin is
 `~/.config/rosey/hindsight-pin`; the shared contract references are under
 `~/.config/rosey/references/`.
 
-When the rosey-brainstorm, rosey-plan, rosey-work, or rosey-qa skill is
-active, follow the `rosey-hindsight` skill's gate. If the daemon is unavailable,
-continue and record `Hindsight: unavailable`.
+When a Hindsight-gated skill is active, follow the hindsight-memory rule and
+the `rosey-hindsight` skill. If the daemon is unavailable, continue and record
+`Hindsight: unavailable`.
 
 ## Repository ownership
 
@@ -246,15 +247,13 @@ EOF
 }
 
 copy_global_rules() {
-    local src dest name
-    mkdir -p "$CURSOR_HOME/rules" "$ROSEY_CONFIG_DIR/rules"
+    local src name
+    mkdir -p "$CURSOR_HOME/rules"
+    rm -rf "$ROSEY_CONFIG_DIR/rules"
     for src in "$SOURCE_ROOT"/.cursor/rules/*.mdc; do
         [ -f "$src" ] || continue
         name="$(basename "$src")"
         cp "$src" "$CURSOR_HOME/rules/$name"
-        # Shared rule copies let global OpenCode/Pi skill scripts inspect the
-        # same rule contracts even though those IDEs have different transports.
-        cp "$src" "$ROSEY_CONFIG_DIR/rules/$name"
     done
     write_global_always_on_rules
 }
@@ -451,15 +450,25 @@ merge_global_mcp() {
     }
 
     local github_token obsidian_key
-    github_token="$(rosey_resolve_env_value GITHUB_TOKEN)"
+    # Set by prompt_github_token when the installer runs interactively; falls back
+    # to the environment so --check and scripted runs behave the same.
+    github_token="${ROSEY_GITHUB_TOKEN-$(rosey_resolve_env_value GITHUB_TOKEN)}"
     obsidian_key="$(rosey_resolve_env_value OBSIDIAN_API_KEY)"
-    python3 - "$example" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$github_token" "$obsidian_key" <<'PY'
+    if [ -z "$github_token" ]; then
+        echo "   no GitHub token; leaving the github MCP server unconfigured"
+    fi
+    python3 - "$MANAGED_ARTIFACTS" "$example" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$github_token" "$obsidian_key" <<'PY'
+import importlib.util
 import json
 import sys
 from pathlib import Path
 
-example, cursor_path, opencode_path, pi_shared_path, pi_settings_path, github_token, obsidian_key = sys.argv[1:]
+managed_path, example, cursor_path, opencode_path, pi_shared_path, pi_settings_path, github_token, obsidian_key = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("managed_artifacts", managed_path)
+managed = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(managed)
 source = json.loads(Path(example).read_text())
+owned = managed.mcp_owned_names(example)
 
 def substitute(value):
     if isinstance(value, dict):
@@ -473,6 +482,22 @@ def substitute(value):
 servers = substitute(source).get("mcpServers", {})
 if not isinstance(servers, dict):
     servers = {}
+
+# An unauthenticated github entry fails every call, so omit the server entirely
+# when no token was supplied. Any server whose config still carries an
+# unsubstituted placeholder is dropped for the same reason.
+if not github_token:
+    servers.pop("github", None)
+servers = {
+    name: srv
+    for name, srv in servers.items()
+    if "$GITHUB_TOKEN" not in json.dumps(srv) and "$OBSIDIAN_API_KEY" not in json.dumps(srv)
+}
+
+def merge(existing, adapted=None):
+    """Apply this run's servers and drop owned names that are absent."""
+    configured = servers if adapted is None else adapted
+    return managed.merge_mcp_servers(existing, owned, configured)
 
 def read_json(path):
     p = Path(path)
@@ -493,11 +518,7 @@ def write_json(path, value):
 
 # Cursor: Rosey entries overwrite same-name entries by the accepted decision.
 cursor = read_json(cursor_path)
-current = cursor.get("mcpServers")
-if not isinstance(current, dict):
-    current = {}
-current.update(servers)
-cursor["mcpServers"] = current
+cursor["mcpServers"] = merge(cursor.get("mcpServers"))
 write_json(cursor_path, cursor)
 
 # OpenCode: adapt Cursor server definitions and merge into its mcp map.
@@ -515,30 +536,18 @@ for name, raw in servers.items():
             srv["type"] = "remote"
     opencode_servers[name] = srv
 opencode = read_json(opencode_path)
-current = opencode.get("mcp")
-if not isinstance(current, dict):
-    current = {}
-current.update(opencode_servers)
-opencode["mcp"] = current
+opencode["mcp"] = merge(opencode.get("mcp"), opencode_servers)
 write_json(opencode_path, opencode)
 
 # Standard global Pi MCP config consumed by pi-mcp-adapter.
 pi_shared = read_json(pi_shared_path)
-current = pi_shared.get("mcpServers")
-if not isinstance(current, dict):
-    current = {}
-current.update(servers)
-pi_shared["mcpServers"] = current
+pi_shared["mcpServers"] = merge(pi_shared.get("mcpServers"))
 write_json(pi_shared_path, pi_shared)
 
 # Keep the Rosey MCP map visible in Pi's machine settings as documented by the
 # proposal; pi-mcp-adapter reads the standard shared config above.
 pi_settings = read_json(pi_settings_path)
-current = pi_settings.get("mcpServers")
-if not isinstance(current, dict):
-    current = {}
-current.update(servers)
-pi_settings["mcpServers"] = current
+pi_settings["mcpServers"] = merge(pi_settings.get("mcpServers"))
 write_json(pi_settings_path, pi_settings)
 PY
 
@@ -627,6 +636,8 @@ block = """# Rosey Agentic Environment
 # Added by rosey-agentic-env/install.sh. Remove this block to stop ignoring.
 rosey/brainstorms/
 rosey/plans/
+rosey/designs/
+rosey/design-system/
 rosey/solutions/
 rosey/insights/
 rosey/qa/
@@ -644,19 +655,15 @@ PY
 }
 
 write_global_install_markers() {
-    mkdir -p "$ROSEY_CONFIG_DIR"
-    cat >"$ROSEY_CONFIG_DIR/install-manifest.json" <<EOF
-{
-  "version": "$INSTALL_VERSION",
-  "source": "$SOURCE_ROOT",
-  "scope": "global",
-  "cursor": "$CURSOR_HOME",
-  "opencode": "$OPENCODE_HOME",
-  "pi": "$PI_HOME",
-  "pi_agents": "$HOME/.agents",
-  "rosey": "$ROSEY_CONFIG_DIR"
-}
-EOF
+    python3 "$MANAGED_ARTIFACTS" write \
+        "$ROSEY_CONFIG_DIR/install-manifest.json" \
+        "$INSTALL_VERSION" \
+        "$SOURCE_ROOT" \
+        "$CURSOR_HOME" \
+        "$OPENCODE_HOME" \
+        "$PI_HOME" \
+        "$HOME/.agents" \
+        "$ROSEY_CONFIG_DIR"
 }
 
 run_global_check() {
@@ -681,7 +688,6 @@ run_global_check() {
         "$ROSEY_CONFIG_DIR/AGENTS.md"
         "$ROSEY_CONFIG_DIR/always-on-rules.md"
         "$PI_HOME/APPEND_SYSTEM.md"
-        "$ROSEY_CONFIG_DIR/rules"
         "$ROSEY_CONFIG_DIR/references/model-tiers.md"
         "$ROSEY_CONFIG_DIR/references/scoping-synthesis.md"
         "$ROSEY_CONFIG_DIR/references/markdown-rendering.md"
@@ -709,6 +715,11 @@ run_global_check() {
             missing=$((missing + 1))
         fi
     done
+    if ! python3 "$MANAGED_ARTIFACTS" check "$ROSEY_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT"; then
+        echo "missing: current managed-artifact inventory in install-manifest.json"
+        missing=$((missing + 1))
+    fi
+    report_automation_tools || true
     if [ "$missing" -eq 0 ]; then
         echo "Rosey global installation present ($INSTALL_VERSION)"
         return 0
@@ -718,6 +729,16 @@ run_global_check() {
 }
 
 install_global_payload() {
+    echo "-> Pruning artifacts removed from the Rosey source tree..."
+    python3 "$MANAGED_ARTIFACTS" prune \
+        "$ROSEY_CONFIG_DIR/install-manifest.json" \
+        "$SOURCE_ROOT" \
+        "$CURSOR_HOME" \
+        "$OPENCODE_HOME" \
+        "$PI_HOME" \
+        "$HOME/.agents" \
+        "$ROSEY_CONFIG_DIR"
+
     echo "-> Installing global Cursor rules, skills, and agents..."
     copy_global_rules
     copy_global_skills
@@ -1191,10 +1212,107 @@ install_gitchangelog() {
     return 1
 }
 
+# Agent harnesses that can run Rosey skills and act as rosey-parallel workers.
+# Rosey does not install these: each has its own installer, auth, and licence.
+# Installation continues without one, but Rosey skills have nothing to run in.
+ROSEY_HARNESSES="pi opencode cursor-agent codex claude"
+
+check_agent_harness() {
+    local found="" missing="" harness
+    for harness in $ROSEY_HARNESSES; do
+        if command -v "$harness" >/dev/null 2>&1; then
+            found="$found $harness"
+        else
+            missing="$missing $harness"
+        fi
+    done
+
+    if [ -n "$found" ]; then
+        echo "   agent harnesses present:$found"
+        [ -n "$missing" ] && echo "   not installed (optional):$missing"
+        return 0
+    fi
+
+    echo "   ⚠️  No agent harness found on PATH (looked for:$ROSEY_HARNESSES)."
+    echo "      Rosey installs skills and rules, not harnesses. Without one, nothing loads them,"
+    echo "      and 'rosey-parallel' has no worker to delegate tasks to."
+    echo "      Install at least one, then re-run this script to finish harness-dependent setup"
+    echo "      (Pi extensions install only when the 'pi' CLI is present)."
+    return 0
+}
+
+# Prompt once for a GitHub token. Optional: skipping leaves the GitHub MCP server
+# unconfigured rather than writing a broken entry. Sets ROSEY_GITHUB_TOKEN.
+prompt_github_token() {
+    ROSEY_GITHUB_TOKEN="$(rosey_resolve_env_value GITHUB_TOKEN)"
+    if [ -n "$ROSEY_GITHUB_TOKEN" ]; then
+        echo "   GitHub token found in the environment; using it for the GitHub MCP server."
+        return 0
+    fi
+
+    if [ ! -t 0 ]; then
+        echo "   No GITHUB_TOKEN set and no terminal to prompt on; skipping the GitHub MCP server."
+        echo "      Set GITHUB_TOKEN in $SOURCE_ROOT/.env or the environment, then re-run to enable it."
+        return 0
+    fi
+
+    echo ""
+    echo "-> GitHub MCP server (optional)"
+    echo "   Powers PR review, issue creation, and PR description updates in rosey-qa,"
+    echo "   rosey-pr, and rosey-dogfood. Skip it and those skills fall back to the gh CLI"
+    echo "   or local git; nothing else breaks."
+    echo ""
+    echo "   Create a fine-grained token: https://github.com/settings/personal-access-tokens/new"
+    echo "   Scopes needed (read-only is enough unless you want Rosey to file issues):"
+    echo "     - Repository -> Contents:      Read-only"
+    echo "     - Repository -> Pull requests: Read-only  (Read and write to post PR updates)"
+    echo "     - Repository -> Issues:        Read and write  (only for issue creation)"
+    echo "     - Repository -> Metadata:      Read-only  (enabled automatically)"
+    echo "   Classic tokens work too: the 'repo' scope covers all of the above."
+    echo ""
+    printf '   Paste a GitHub token, or press Enter to skip: '
+    IFS= read -r ROSEY_GITHUB_TOKEN || ROSEY_GITHUB_TOKEN=""
+    # Strip surrounding whitespace a paste can carry.
+    ROSEY_GITHUB_TOKEN="$(printf '%s' "$ROSEY_GITHUB_TOKEN" | tr -d '[:space:]')"
+
+    if [ -z "$ROSEY_GITHUB_TOKEN" ]; then
+        echo "   Skipped. The GitHub MCP server will not be configured."
+        echo "      To enable it later: set GITHUB_TOKEN and re-run install.sh."
+    else
+        echo "   Token captured. Configuring the GitHub MCP server."
+    fi
+    return 0
+}
+
+report_automation_tools() {
+    PATH="${HOME}/.local/bin:${PATH}"
+    local name pin reported decision
+    for name in cua-driver agent-browser; do
+        pin="$(python3 "$MANAGED_ARTIFACTS" pin "$name")"
+        reported="$("$name" --version 2>/dev/null || true)"
+        decision="$(python3 "$MANAGED_ARTIFACTS" install-needed "$name" "$reported")"
+        if [ "$decision" = yes ]; then
+            echo "automation: $name wants $pin (reported: ${reported:-missing})"
+        else
+            echo "automation: $name $pin present"
+        fi
+    done
+    pin="$(python3 "$MANAGED_ARTIFACTS" pin chrome-devtools-mcp)"
+    if command -v npx >/dev/null 2>&1; then
+        echo "automation: chrome-devtools-mcp@$pin uses npx; no binary install"
+    else
+        echo "automation: npx absent; chrome-devtools-mcp@$pin unresolved"
+    fi
+}
+
 if [ "$CHECK_ONLY" = true ]; then
     run_global_check
     exit $?
 fi
+
+echo "-> Checking for an agent harness..."
+check_agent_harness
+prompt_github_token
 
 if [ "${ROSEY_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then
     host_path
@@ -1679,7 +1797,59 @@ if [ "${ROSEY_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then
     install_pi_mcp_adapter || true
     install_pi_ask_user || true
     check_hindsight_embed || true
+    install_automation_tools || true
 fi
+
+# --- Automation tools (CUA Driver, agent-browser, Chrome DevTools MCP) ---
+# Pins live in scripts/managed_artifacts.py. A failed install warns and still
+# returns success so skill copy and MCP merge are not rolled back.
+# report_automation_tools is defined above the --check exit.
+
+install_automation_tools() {
+    host_path
+    local cua_pin agent_pin chrome_pin reported decision
+    cua_pin="$(python3 "$MANAGED_ARTIFACTS" pin cua-driver)"
+    agent_pin="$(python3 "$MANAGED_ARTIFACTS" pin agent-browser)"
+    chrome_pin="$(python3 "$MANAGED_ARTIFACTS" pin chrome-devtools-mcp)"
+
+    reported="$(cua-driver --version 2>/dev/null || true)"
+    decision="$(python3 "$MANAGED_ARTIFACTS" install-needed cua-driver "$reported")"
+    if [ "$decision" = yes ]; then
+        echo "-> Installing CUA Driver ${cua_pin}..."
+        if ! CUA_DRIVER_RS_VERSION="$cua_pin" /bin/bash -c "$(curl -fsSL https://cua.ai/driver/install.sh)"; then
+            echo "   ⚠️  CUA Driver ${cua_pin} install failed."
+            echo "      Retry with CUA_DRIVER_RS_VERSION=${cua_pin} and https://cua.ai/driver/install.sh"
+        fi
+    else
+        echo "-> CUA Driver ${cua_pin} already present; skipping install"
+    fi
+
+    reported="$(agent-browser --version 2>/dev/null || true)"
+    decision="$(python3 "$MANAGED_ARTIFACTS" install-needed agent-browser "$reported")"
+    if [ "$decision" = yes ]; then
+        echo "-> Installing agent-browser ${agent_pin}..."
+        if ! command -v npm >/dev/null 2>&1; then
+            echo "   ⚠️  npm is absent. Retry: npm install -g agent-browser@${agent_pin}"
+        elif ! npm install -g "agent-browser@${agent_pin}"; then
+            echo "   ⚠️  agent-browser@${agent_pin} install failed. Retry: npm install -g agent-browser@${agent_pin}"
+        elif ! agent-browser install; then
+            echo "   ⚠️  agent-browser browser install failed. Retry: agent-browser install"
+        fi
+    else
+        echo "-> agent-browser ${agent_pin} already present; skipping install"
+    fi
+
+    if ! command -v npx >/dev/null 2>&1; then
+        echo "   ⚠️  npx is absent. chrome-devtools-mcp@${chrome_pin} stays unresolved."
+    elif ! npm view "chrome-devtools-mcp@${chrome_pin}" version >/dev/null 2>&1; then
+        echo "   ⚠️  Cannot resolve chrome-devtools-mcp@${chrome_pin}."
+    else
+        echo "-> chrome-devtools-mcp@${chrome_pin} resolves through npx; no binary install"
+    fi
+
+    echo "   On macOS, a person must grant Accessibility and Screen Recording on CuaDriver.app, then relaunch that app."
+    return 0
+}
 
 # --- Inventory of host tools this script does not install ---
 

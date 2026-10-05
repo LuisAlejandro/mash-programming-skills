@@ -2,7 +2,7 @@
 
 Local `<base>` may have stale commits (another session/worktree advanced it) or commits the user authored intending to branch from later. Local git can't distinguish these — ask when unpushed commits are present in interactive mode. In non-interactive mode, never ask; stop when preserving or excluding local commits would materially change the PR.
 
-Integration PRs use git-flow feature branches: `feature/<slug>`. This matches `pr-auto-merge.yml` head filters (`feature/**`).
+Integration PRs use git-flow feature branches: `feature/<slug>`.
 
 ## Decision flow
 

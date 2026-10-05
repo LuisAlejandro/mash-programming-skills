@@ -22,11 +22,11 @@ This skill follows the Rosey-native commit/push/PR workflow, with Rosey transpor
 - Do **not** use the GitHub CLI.
 - Do **not** assign or bootstrap PR labels.
 - For app repos: push the current feature branch and create or update a pull request against `develop`.
-- Use `develop` as the fixed Rosey workspace integration/base branch unless the user explicitly overrides with `base:<branch>` for an exceptional manual case. PRs not targeting `develop` are out of `pr-auto-merge.yml` scope (gate skips).
-- Integration PR head branches must be `feature/<slug>` (git-flow) so static-synced auto-merge head filters match. Dependabot uses `dependabot/**`.
+- Use `develop` as the fixed Rosey workspace integration/base branch unless the user explicitly overrides with `base:<branch>` for an exceptional manual case.
+- Integration PR head branches must be `feature/<slug>` (git-flow). Dependabot uses `dependabot/**`.
 - Receive completed work after `rosey-work` and usually after `rosey-qa`.
-- Stop at PR create/update. Do not merge PRs, watch or fix CI, create milestones, or run releases; auto-merge workflows and `rosey-release` own those later steps.
-- Create PRs **ready for review** only (`draft: false`). Never open draft PRs — `pr.yml` and `pr-auto-merge.yml` expect a normal PR on `feature/*` → `develop`. If the user asks for a draft, explain and create ready-for-review instead.
+- Stop at PR create/update. Do not merge PRs, watch or fix CI, create milestones, or run releases; `rosey-release` owns publishing after work lands on `develop`.
+- Create PRs **ready for review** only (`draft: false`). Never open draft PRs — `pr.yml` expects a normal PR on `feature/*` → `develop`. If the user asks for a draft, explain and create ready-for-review instead.
 - Do not use the old product-document mode. Prefer `plan:<path>` metadata when supplied; otherwise derive title/body from branch commits and diff.
 - After a successful PR create/update, write a PR summary artifact beside the source plan when a plan path is known.
 
@@ -147,7 +147,7 @@ git fetch origin <base>
 git merge origin/<base>
 ```
 
-If the merge produces conflicts: in interactive mode, stop and report them to the user. In non-interactive mode, abort the merge (`git merge --abort`), skip the update, push the branch as-is, and note in the final status that the feature branch is behind `<base>` due to conflicts — the auto-merge workflow will attempt `updateBranch` as a fallback.
+If the merge produces conflicts: in interactive mode, stop and report them to the user. In non-interactive mode, abort the merge (`git merge --abort`), skip the update, push the branch as-is, and note in the final status that the feature branch is behind `<base>` due to conflicts.
 
 Then push:
 

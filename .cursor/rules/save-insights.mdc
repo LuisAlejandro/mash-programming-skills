@@ -80,7 +80,7 @@ severity: medium
 
 ## Insight
 
-- Rosey skills use Hindsight via the `hindsight-embed` tool install (`uv tool install` with co-installed `hindsight-api`), not the workspace MCP config. See `../skills/rosey-hindsight/SKILL.md`.
+- Rosey skills use Hindsight via the `hindsight-embed` tool install (`uv tool install` with co-installed `hindsight-api`), not the workspace MCP config. See the `rosey-hindsight` skill.
 
 ## When It Applies
 
@@ -92,5 +92,5 @@ severity: medium
 
 ## Evidence
 
-- `../skills/rosey-hindsight/SKILL.md`
+- The `rosey-hindsight` skill
 ```

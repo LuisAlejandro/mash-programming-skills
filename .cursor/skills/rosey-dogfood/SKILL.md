@@ -73,7 +73,7 @@ If the remainder is unparseable, ask one clarifying question (interactive) or st
 - **Do not switch the user's checkout.** Local target is the current tree. Staging and prod need no checkout.
 - **No commits, pushes, or PRs.** Fixes are a later `rosey-work` invocation or a ticket. Do not patch `main` to clear a matrix item.
 - **Screenshots** go to OS temp (`mktemp -d "${TMPDIR:-/tmp}/rosey-dogfood-XXXXXX"`), never the repo root. Copy one in only to embed it in the report.
-- **Host browser tools**, never `agent-browser` and never `npx` for browser control. See `references/browser.md`.
+- **agent-browser** for page journeys, including in Pi. See `references/browser.md`. If it is missing, the journey is `Blocked` with the install remediation. Do not shell out to `npx` as a browser, and do not attach to the human's default Chrome profile.
 - **Serve via Make / Compose**, never host `npm` / `pip` / `node` / `python`. See `references/serve.md`.
 - **v1 is merged-only.** An open or draft PR in an explicit list is recorded as skipped, not driven.
 
@@ -90,7 +90,7 @@ Reports live under `<repo-root>/rosey/dogfood/`. Resolve `<repo-root>` the first
 
 ## Optional memory
 
-Hindsight recall is **optional** and must not block the run. If `hindsight-embed daemon status` succeeds (PATH includes `${HOME}/.local/bin`), recall test-account prefs, known flaky flows, and prior dogfood outcomes for this repo. If status fails, continue. Do not treat this skill as one of the four Hindsight-gated pipeline skills.
+Hindsight recall is **optional** and must not block the run. If `hindsight-embed daemon status` succeeds (PATH includes `${HOME}/.local/bin`), recall test-account prefs, known flaky flows, and prior dogfood outcomes for this repo. If status fails, continue. Do not treat this skill as Hindsight-gated; recall here is advisory.
 
 ## Phase order
 

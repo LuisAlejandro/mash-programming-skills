@@ -1,6 +1,6 @@
 ---
 name: rosey-parallel
-description: Orchestrate an epic's task list through the rosey pipeline (plan → work → qa → lint) in parallel — per-task planning worktrees, deterministic file-disjoint track sequencing, one batched human gate, delegated external-harness workers (pi → opencode), local-only integration with a bounded fix-up loop, and resumable run state.
+description: Orchestrate an epic's task list through the rosey pipeline (plan → work → qa → lint) in parallel — per-task planning worktrees, deterministic file-disjoint track sequencing, one batched human gate, delegated external-harness workers (pi, opencode, cursor-agent, codex, claude), local-only integration with a bounded fix-up loop, and resumable run state.
 argument-hint: "[run-inputs.json] or [--resume <run-id>]"
 ---
 
@@ -14,7 +14,7 @@ argument-hint: "[run-inputs.json] or [--resume <run-id>]"
 
 Runs a *task list* (an epic) through the rosey pipeline concurrently. Independent tasks run in parallel; tasks touching the same files or declaring dependencies run serially on one **track**. One batched human review happens before execution; after it, work → qa → lint and integration run non-interactive.
 
-The skill **delegates** to external harness workers (`pi` / `opencode`); it never runs parallel work inside its own agent context. It is **local-only**: integrates into the base branch locally and stops — no push, no PR. State lives in a run-scoped directory so interrupted runs resume.
+The skill **delegates** to external harness workers (`pi`, `opencode`, `cursor-agent`, `codex`, `claude`); it never runs parallel work inside its own agent context. It is **local-only**: integrates into the base branch locally and stops — no push, no PR. State lives in a run-scoped directory so interrupted runs resume.
 
 ## Pipeline
 
@@ -26,7 +26,7 @@ A run receives:
 
 - `tasks`: list of `{id, goal, deps?: [ids]}`
 - `base_branch` (default `develop`)
-- optional harness override (`pi` | `opencode`)
+- optional harness override (`pi` | `opencode` | `cursor-agent` | `codex` | `claude`)
 - optional tunables: `max_parallel`, `timeout_budget`
 
 The epic-level brainstorm that produced the validated task list happens **outside** the run (origin 5.1). The task list arrives as a pre-existing input.
@@ -83,7 +83,19 @@ The substrate-agnostic worker prompt plus phase-runner details are in [`referenc
 
 ## Harness drivers
 
-Selection is deterministic: explicit override first, else the highest-priority available via probe (pi → opencode). Per-harness invocation shapes and signal verification are in the helper's driver layer (U6). No harness provides its own run timeout — the orchestrator enforces per-task budgets and kills/reaps process groups.
+Five harnesses are supported. Selection is deterministic: explicit override first, else the highest-priority available via `PATH` probe.
+
+| Priority | Harness | Completion signal |
+|---|---|---|
+| 1 | `pi` | `agent_end` event — machine-verified |
+| 2 | `opencode` | non-empty final text — machine-verified |
+| 3 | `cursor-agent` | non-empty final text |
+| 4 | `codex` | non-empty final text |
+| 5 | `claude` | non-empty final text |
+
+`pi` and `opencode` lead because their event vocabularies are verified against real output. The other three are equally supported workers, but their JSON shapes are not pinned here, so completion is judged by non-empty assistant text. **Exit 0 alone never counts as success on any harness** — a silent exit-0 (the auto-reject shape) reads as `failure` so a rejected worker is never harvested as a finished task.
+
+Each harness launches non-interactively with structured output and its own approval bypass. `pi`, `opencode`, and an explicit `--model` override pass a model flag; `cursor-agent`, `codex`, and `claude` omit it so the harness's own configured default applies. Per-harness invocation shapes live in the helper's driver layer (U6). No harness provides its own run timeout — the orchestrator enforces per-task budgets and kills/reaps process groups.
 
 ## Logs
 
@@ -99,6 +111,7 @@ Triage from the orchestrator log, then the harness session, then the plan and ph
 
    - **pi** — session `.jsonl` under `~/.pi/agent/sessions/` (or `.pi/` in the repo). Match by start time near the `run.log` spawn line. Search the jsonl for `PLAN PATH`, `ROSEY_EVIDENCE`, and the last `agent_end`.
    - **opencode** — session database (sqlite) under the opencode data dir. Query sessions by timestamp; inspect message/part rows for the task prompt and the final `text` event.
+   - **cursor-agent**, **codex**, **claude** — consult that harness's own session/history store. Match by start time near the `run.log` spawn line, then search the transcript for `PLAN PATH` and `ROSEY_EVIDENCE` as above.
 
 4. Flow: harness session → `plan_path` in state → failing phase in `run.log`. If work failed the evidence gate, the session will show a missing `ROSEY_EVIDENCE` body even when interpret looked successful. If a timeout, the `pgid` was killed; the session log stops mid-turn.
 

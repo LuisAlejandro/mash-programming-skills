@@ -1,23 +1,15 @@
 # Browser
 
-Required read before the first Phase 4 navigation. Drive a real browser through the **host's browser tools**. Never `agent-browser`, never `npx` for browser control, never Chrome DevTools MCP under another product name when the host already exposes a browser tool.
+Required read before the first Phase 4 navigation. Drive the page through agent-browser. Open a named session, use fresh refs, and record a screenshot plus console and network evidence.
 
-## Host contract
+If agent-browser is missing, mark the journey `Blocked` and give the install remediation. Do not shell out to `npx` as a browser. Do not use Chrome DevTools MCP or CUA Driver for the page. Do not attach to the human's default Chrome profile. Refuse a profile named `Default` and refuse auto-connect.
 
-Match by capability, not by a host-specific name: navigate, lock/focus, accessibility snapshot, click, fill, screenshot, console/network inspection.
+## Session
 
-On Cursor, that is `cursor-ide-browser`. Discover the schema (`GetDynamicTools` / the host equivalent) before the first call. Typical loop:
-
-1. `browser_tabs` list — reuse an open tab when it is already the app
-2. `browser_navigate` to the scenario's URL
-3. `browser_lock` with `action: "lock"` before a stretch of interactions
-4. `browser_snapshot` for refs
-5. `browser_click` / `browser_fill` / `browser_press_key` / `browser_select_option` as the journey requires
-6. `browser_take_screenshot` into the OS temp dir from Phase 4
-7. Console / network: host CDP or equivalent (`browser_cdp` `Runtime.evaluate` / log/network) — record errors in the report
-8. `browser_lock` with `action: "unlock"` when Phase 4 is finished for this run, not after every scenario
-
-If the host has no browser tool, stop and say this skill cannot run here. Do not shell out to Playwright or a downloaded CLI.
+1. Start a named session. The unnamed session is the shared `default` session, so a forgotten name collides with every other agent.
+2. Snapshot before each click or fill so refs are current.
+3. Keep screenshot, console, and network evidence.
+4. Credentials do not appear in prompts, reports, or repository files.
 
 ## Screenshot temp
 

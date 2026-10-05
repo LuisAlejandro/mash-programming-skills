@@ -18,7 +18,7 @@ This skill owns release publishing for app repos. It does not plan feature work,
 
 `rosey-release` is the publishing endpoint after features land on `develop`:
 
-- Upstream: `rosey-work`, `rosey-qa`, `rosey-pr`, then app PRs auto-merge into `develop`.
+- Upstream: `rosey-work`, `rosey-qa`, and `rosey-pr`. This skill runs from `develop`.
 - Owned steps: release readiness checks, retroactive milestone documentation,
   `make release-*` execution, branch CI verification, Publish Release workflow verification, PyPI/package asset verification, milestone closure, and handoff.
 - Downstream: none. This skill stops after release verification and handoff.
@@ -103,7 +103,7 @@ Preconditions:
 - `origin/develop` exists.
 - No in-flight `release/*` branch unless user explicitly asked to recover (use undo first).
 - Current branch must be `develop`. Sync: `git pull origin develop`.
-- `release/<version>` uses **Push** workflow (`push.yml`) and `scripts/release.sh`; it does not go through `pr-auto-merge.yml`.
+- `release/<version>` uses **Push** workflow (`push.yml`) and `scripts/release.sh`.
 
 Warn (do not block) on open PRs targeting `develop`:
 

@@ -226,9 +226,9 @@ When presenting findings from multiple agents targeting the same section, presen
 
 After all agents have been reviewed, carry only the accepted findings forward to 5.3.7.
 
-If the user accepted no findings, report "No findings accepted — plan unchanged." Then proceed directly to Phase 5.4 (skip document-review and synthesis — the plan was not modified). This skip belongs to the review-each-finding posture only; integrate-directly always proceeds through 5.3.7 and 5.3.8. No explicit scratch cleanup required — `$SCRATCH_DIR` lives under gitignored `rosey/deepening/`; leaving it in place preserves rejected agent artifacts for debugging.
+If the user accepted no findings, report "No findings accepted — plan unchanged." Skip synthesis and proceed to Phase 5.3.8 for the ponytail sanity-check, final checks, and Phase 5.4 options. No explicit scratch cleanup is required — `$SCRATCH_DIR` lives under gitignored `rosey/deepening/`; leaving it in place preserves rejected agent artifacts for debugging.
 
-If findings were accepted and the plan was modified, proceed through 5.3.7 and 5.3.8 as normal — document-review acts as a quality gate on the changes.
+If findings were accepted and the plan was modified, proceed through 5.3.7 and 5.3.8 as normal. Document review remains a user-selected Phase 5.4 option.
 
 ## 5.3.7 Synthesize and Update the Plan
 

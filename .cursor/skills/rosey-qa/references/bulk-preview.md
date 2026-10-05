@@ -12,7 +12,7 @@ The best-judgment path (routing option B and the walk-through's `Auto-resolve wi
 
 One call site:
 
-- **Routing option C (top-level File tickets)** — after the user picks `File a [TRACKER] ticket per finding without applying fixes` but before any ticket is filed. Scope: every pending `gated_auto` / `manual` finding. Every finding appears under `Filing [TRACKER] tickets (N):` regardless of the agent's natural recommendation, because option C is batch-defer.
+- **Routing option C (top-level File issues)** — after the user picks `File a GitHub issue per finding without applying fixes` but before any issue is filed. Scope: every pending `gated_auto` / `manual` finding. Every finding appears under `Filing GitHub issues (N):` regardless of the agent's natural recommendation, because option C is batch-defer.
 
 The user confirms with `Proceed` or backs out with `Cancel`. No per-item decisions inside the preview — per-item decisioning is the walk-through's role (option A).
 
@@ -23,13 +23,13 @@ The user confirms with `Proceed` or backs out with `Cancel`. No per-item decisio
 The preview is grouped by the action the agent intends to take. Bucket headers appear only when their bucket is non-empty.
 
 ```
-<Path label> — <scope summary>[ (tracker: <name>)]:
+<Path label> — <scope summary>:
 
 Applying (N):
   [P0] <file>:<line> — <one-line plain-English summary>
   [P1] <file>:<line> — <one-line plain-English summary>
 
-Filing [TRACKER] tickets (N):
+Filing GitHub issues (N):
   [P2] <file>:<line> — <one-line plain-English summary>
 
 Skipping (N):
@@ -39,12 +39,12 @@ Acknowledging (N):
   [P3] <file>:<line> — <one-line plain-English summary>
 ```
 
-Worked example, for routing option C (file tickets):
+Worked example, for routing option C (file issues):
 
 ```
-File plan — 8 findings as Linear tickets:
+File plan — 8 findings as GitHub issues:
 
-Filing Linear tickets (8):
+Filing GitHub issues (8):
   [P0] orders_controller.rb:42 — Missing ownership guard on order lookup
   [P1] webhook_handler.rb:120 — Unhandled error swallowed in webhook
   [P2] user_serializer.rb:14 — internal_id leaks in serialized response
@@ -59,9 +59,9 @@ Filing Linear tickets (8):
 
 ## Scope summary wording
 
-- **Routing option C (top-level File tickets):** header reads `File plan — N findings as [TRACKER] tickets:`. Every finding lands in the `Filing [TRACKER] tickets (N):` bucket. Option C is batch-defer — no Apply / Skip / Acknowledge buckets render in the preview, since every finding is being filed.
+- **Routing option C (top-level File issues):** header reads `File plan — N findings as GitHub issues:`. Every finding lands in the `Filing GitHub issues (N):` bucket. Option C is batch-defer — no Apply / Skip / Acknowledge buckets render in the preview, since every finding is being filed.
 
-When the detected tracker is low-confidence or generic (see `tracker-defer.md`), the `(tracker: <name>)` annotation is omitted from the header and the `Filing [TRACKER] tickets` bucket header uses the generic form (`Filing tickets (N):`).
+GitHub Issues is the only sink, so the header carries no tracker annotation and the bucket label never varies.
 
 ---
 
@@ -94,19 +94,19 @@ Only when `ToolSearch` explicitly returns no match or the tool call errors — o
 
 ## Cancel semantics
 
-`Cancel` returns the user to the routing question (the four-option menu in `SKILL.md` Step 2 Interactive mode). No tickets are filed; no state is recorded. The session's cached tracker-detection tuple is preserved.
+`Cancel` returns the user to the routing question (the four-option menu in `SKILL.md` Step 2 Interactive mode). No issues are filed; no state is recorded. The session's cached `sink_available` flag is preserved.
 
 ---
 
 ## Proceed semantics
 
-When the user picks `Proceed`, every finding in the preview routes through `references/tracker-defer.md` for ticket creation. No fixes are applied. After all tickets have been filed (or failed), emit the unified completion report (see `references/walkthrough.md`).
+When the user picks `Proceed`, every finding in the preview routes through `references/tracker-defer.md` for issue creation. No fixes are applied. After all issues have been filed (or failed), emit the unified completion report (see `references/walkthrough.md`).
 
-Failure during `Proceed` (e.g., ticket creation fails for one finding during a batch Defer) follows the failure path defined in `tracker-defer.md` — surface the failure inline with Retry / Fallback / Skip, continue with the rest of the plan, and capture the failure in the completion report's failure section.
+Failure during `Proceed` (e.g., issue creation fails for one finding during a batch Defer) follows the failure path defined in `tracker-defer.md` — surface the failure inline with Retry on GitHub / Convert to Skip, continue with the rest of the plan, and capture the failure in the completion report's failure section.
 
 ---
 
 ## Edge cases
 
 - **N=1 preview (only one finding in scope):** the preview still renders with a single-line bucket. `Proceed` / `Cancel` still apply.
-- **No tracker available:** option C is not offered upstream (see `tracker-defer.md` no sink handling). The bulk preview is therefore never invoked when `any_sink_available` is false.
+- **No sink available:** option C is not offered upstream (see `tracker-defer.md` no sink handling). The bulk preview is therefore never invoked when `sink_available` is false.
