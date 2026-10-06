@@ -1,26 +1,21 @@
 #!/usr/bin/env bash
 # Mash Programming Skills — machine-global uninstaller.
 #
-# This script never changes the current repository. It removes only the global
-# Mash Programming Skills payload installed under the user's Cursor, OpenCode, Pi, .agents, and
-# ~/.config/mash directories. Machine tools, Hindsight memory, and user-owned
-# project files are left alone.
+# Removes the global Mash Programming Skills payload recorded in
+# ~/.config/mash/install-manifest.json. Does not need the source checkout.
+# Machine tools, Hindsight memory, and repositories are left alone.
 #
-# Usage:
-#   ./uninstall.sh                 # dry run
-#   ./uninstall.sh --check         # report global installation state
-#   ./uninstall.sh --apply         # remove global Mash Programming Skills payload
-#   ./uninstall.sh --apply --force # also remove edited Mash Programming Skills guidance files
+# Usage (repo copy or ~/.config/mash/uninstall.sh):
+#   uninstall.sh                 # dry run
+#   uninstall.sh --check         # report global installation state
+#   uninstall.sh --apply         # remove the global payload
+#   uninstall.sh --apply --force # also remove edited guidance files
+#
+# Install copies this file to ~/.config/mash/uninstall.sh.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_ROOT="${MASH_PROGRAMMING_SKILLS:-$SCRIPT_DIR}"
-VERSION_FILE="$SOURCE_ROOT/VERSION"
-UNINSTALL_VERSION="0.1.0"
-if [ -f "$VERSION_FILE" ]; then
-    UNINSTALL_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
-fi
 
 CHECK_ONLY=false
 APPLY=false
@@ -31,7 +26,39 @@ CURSOR_HOME="${HOME}/.cursor"
 PI_HOME="${HOME}/.pi/agent"
 OPENCODE_HOME="${HOME}/.config/opencode"
 PI_SHARED_MCP="${HOME}/.config/mcp/mcp.json"
-MANAGED_ARTIFACTS="$SOURCE_ROOT/scripts/managed_artifacts.py"
+MANIFEST="$MASH_CONFIG_DIR/install-manifest.json"
+INVENTORY_DIR=""
+
+cleanup() {
+    if [ -n "$INVENTORY_DIR" ]; then
+        rm -rf "$INVENTORY_DIR"
+    fi
+}
+trap cleanup EXIT
+
+read_manifest_version() {
+    python3 - "$MANIFEST" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+try:
+    data = json.loads(Path(sys.argv[1]).read_text())
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(0)
+version = data.get("version") if isinstance(data, dict) else None
+if isinstance(version, str) and version.strip():
+    print(version.strip())
+PY
+}
+
+UNINSTALL_VERSION="$(read_manifest_version || true)"
+if [ -z "$UNINSTALL_VERSION" ] && [ -f "$SCRIPT_DIR/VERSION" ]; then
+    UNINSTALL_VERSION="$(tr -d '[:space:]' < "$SCRIPT_DIR/VERSION")"
+fi
+if [ -z "$UNINSTALL_VERSION" ]; then
+    UNINSTALL_VERSION="unknown"
+fi
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -52,7 +79,7 @@ while [ "$#" -gt 0 ]; do
             shift
             ;;
         -h | --help)
-            sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+            sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
@@ -146,16 +173,87 @@ PY
 }
 
 has_global_install() {
-    [ -f "$MASH_CONFIG_DIR/install-manifest.json" ] || \
+    [ -f "$MANIFEST" ] || \
         [ -f "$CURSOR_HOME/hooks/ensure-hindsight-daemon.sh" ] || \
         [ -f "$PI_HOME/extensions/mash-hindsight-daemon.ts" ] || \
         [ -f "$OPENCODE_HOME/plugin/mash-hindsight-daemon.ts" ]
 }
 
+load_manifest_inventory() {
+    INVENTORY_DIR="$(mktemp -d)"
+    python3 - "$MANIFEST" "$INVENTORY_DIR" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+manifest_path = Path(sys.argv[1])
+out = Path(sys.argv[2])
+
+def safe(names):
+    if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+        return None
+    cleaned = []
+    for name in names:
+        if name in {"", ".", ".."} or "/" in name or "\\" in name or name != Path(name).name:
+            continue
+        cleaned.append(name)
+    return sorted(set(cleaned))
+
+def write_list(filename, names):
+    (out / filename).write_text("".join(f"{name}\n" for name in names))
+
+try:
+    data = json.loads(manifest_path.read_text()) if manifest_path.is_file() else None
+except json.JSONDecodeError:
+    data = None
+
+if not isinstance(data, dict):
+    (out / "no-manifest").write_text("")
+    raise SystemExit(0)
+
+managed = data.get("managed")
+lists = {}
+if isinstance(managed, dict):
+    for kind in ("skills", "rules", "agents"):
+        names = safe(managed.get(kind))
+        if names is None:
+            lists = None
+            break
+        lists[kind] = names
+else:
+    lists = None
+
+if lists is None:
+    (out / "missing-managed").write_text("")
+else:
+    for kind, names in lists.items():
+        write_list(kind, names)
+
+if "mcp_servers" not in data:
+    (out / "missing-mcp").write_text("")
+else:
+    names = safe(data.get("mcp_servers"))
+    if names is None:
+        (out / "missing-mcp").write_text("")
+    else:
+        write_list("mcp", names)
+PY
+}
+
+each_name() {
+    local file="$1"
+    [ -f "$INVENTORY_DIR/$file" ] || return 0
+    while IFS= read -r name || [ -n "$name" ]; do
+        [ -n "$name" ] || continue
+        printf '%s\n' "$name"
+    done < "$INVENTORY_DIR/$file"
+    return 0
+}
+
 if [ "$CHECK_ONLY" = true ]; then
     if has_global_install; then
         note "Mash Programming Skills global environment is installed"
-        [ -f "$MASH_CONFIG_DIR/install-manifest.json" ] && cat "$MASH_CONFIG_DIR/install-manifest.json"
+        [ -f "$MANIFEST" ] && cat "$MANIFEST"
         exit 0
     fi
     note "Mash Programming Skills global environment is not installed"
@@ -175,27 +273,33 @@ fi
 note "-> Version $UNINSTALL_VERSION"
 note ""
 
-# The manifest preserves the exact Mash Programming Skills-owned names from the last install, so
-# deleted or renamed source artifacts remain uninstallable. Old manifests fall
-# back to the current source inventory.
+load_manifest_inventory
+if [ -f "$INVENTORY_DIR/no-manifest" ]; then
+    warn "no install manifest; leaving skills, agents, rules, and MCP entries in place"
+else
+    if [ -f "$INVENTORY_DIR/missing-managed" ]; then
+        warn "install manifest has no managed inventory; leaving skills, agents, and rules in place"
+    fi
+    if [ -f "$INVENTORY_DIR/missing-mcp" ]; then
+        warn "install manifest has no mcp_servers list; leaving MCP entries in place"
+    fi
+fi
+
 while IFS= read -r name; do
-    [ -n "$name" ] || continue
     remove_path "$CURSOR_HOME/skills/$name" "Cursor skill $name"
     remove_path "$OPENCODE_HOME/skills/$name" "OpenCode skill $name"
     remove_path "$PI_HOME/skills/$name" "Pi skill $name"
-done < <(python3 "$MANAGED_ARTIFACTS" list "$MASH_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" skills)
+done < <(each_name skills)
 
 while IFS= read -r name; do
-    [ -n "$name" ] || continue
     remove_path "$CURSOR_HOME/rules/$name" "Cursor rule $name"
-done < <(python3 "$MANAGED_ARTIFACTS" list "$MASH_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" rules)
+done < <(each_name rules)
 
 while IFS= read -r name; do
-    [ -n "$name" ] || continue
     remove_path "$CURSOR_HOME/agents/$name" "Cursor agent $name"
     remove_path "$OPENCODE_HOME/agents/$name" "OpenCode agent $name"
     remove_path "$HOME/.agents/$name" "Pi agent $name"
-done < <(python3 "$MANAGED_ARTIFACTS" list "$MASH_CONFIG_DIR/install-manifest.json" "$SOURCE_ROOT" agents)
+done < <(each_name agents)
 
 remove_path "$CURSOR_HOME/hooks/ensure-hindsight-daemon.sh" "Cursor Hindsight hook"
 remove_path "$OPENCODE_HOME/plugin/mash-hindsight-daemon.ts" "OpenCode Hindsight plugin"
@@ -212,25 +316,21 @@ remove_path "$MASH_CONFIG_DIR/references/scoping-synthesis.md" "Mash Programming
 remove_path "$MASH_CONFIG_DIR/references/markdown-rendering.md" "Mash Programming Skills markdown-rendering contract"
 remove_path "$MASH_CONFIG_DIR/agentic-env.json" "Mash Programming Skills agentic-env pin"
 remove_path "$MASH_CONFIG_DIR/hindsight-pin" "Mash Programming Skills Hindsight pin"
-remove_path "$MASH_CONFIG_DIR/install-manifest.json" "Mash Programming Skills install manifest"
+remove_path "$MANIFEST" "Mash Programming Skills install manifest"
 remove_path "$MASH_CONFIG_DIR/node_modules" "Mash Programming Skills shared skill node_modules"
 remove_path "$MASH_CONFIG_DIR/venvs" "Mash Programming Skills shared skill virtualenvs"
+remove_path "$MASH_CONFIG_DIR/uninstall.sh" "Mash Programming Skills uninstaller"
 
-# Remove only Mash Programming Skills's known MCP entries and instruction path; preserve all other
-# machine-owned configuration. Mash Programming Skills entries win on install by owner decision.
-python3 - "$APPLY" "$FORCE" "$MANAGED_ARTIFACTS" "$SOURCE_ROOT/.cursor/mcp.json.example" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$CURSOR_HOME/hooks.json" "$MASH_CONFIG_DIR/AGENTS.md" "$MASH_CONFIG_DIR/always-on-rules.md" <<'PY'
-import importlib.util
+python3 - "$APPLY" "$INVENTORY_DIR/mcp" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$CURSOR_HOME/hooks.json" "$MASH_CONFIG_DIR/AGENTS.md" "$MASH_CONFIG_DIR/always-on-rules.md" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 apply = sys.argv[1] == "true"
-force = sys.argv[2] == "true"
-spec = importlib.util.spec_from_file_location("managed_artifacts", sys.argv[3])
-managed = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(managed)
-owned = managed.mcp_owned_names(sys.argv[4])
-paths = [Path(p) for p in sys.argv[5:]]
+mcp_file = Path(sys.argv[2])
+paths = [Path(p) for p in sys.argv[3:]]
+owned = set(mcp_file.read_text().splitlines()) if mcp_file.is_file() else set()
+owned.discard("")
 mash_instructions = {str(path) for path in paths[5:]}
 
 
@@ -253,21 +353,20 @@ def save(path, data):
         pass
     print(f"   edited        {path}")
 
-# Cursor mcpServers, OpenCode mcp, and Pi configs.
 for index, key in ((0, "mcpServers"), (1, "mcp"), (2, "mcpServers"), (3, "mcpServers")):
     path = paths[index]
     data = load(path)
-    if data is None or not isinstance(data.get(key), dict):
+    if data is None or not isinstance(data.get(key), dict) or not owned:
         continue
-    merged = managed.merge_mcp_servers(data[key], owned, {})
-    changed = merged != data[key]
-    data[key] = merged
-    if changed:
-        if not data[key]:
-            data.pop(key, None)
-        save(path, data)
+    merged = {name: value for name, value in data[key].items() if name not in owned}
+    if merged == data[key]:
+        continue
+    if merged:
+        data[key] = merged
+    else:
+        data.pop(key, None)
+    save(path, data)
 
-# OpenCode instructions.
 opencode = load(paths[1])
 if opencode is not None and isinstance(opencode.get("instructions"), list):
     instructions = [item for item in opencode["instructions"] if item not in mash_instructions]
@@ -278,7 +377,6 @@ if opencode is not None and isinstance(opencode.get("instructions"), list):
             opencode.pop("instructions", None)
         save(paths[1], opencode)
 
-# Cursor user hook registration.
 hooks_path = paths[4]
 hooks = load(hooks_path)
 if hooks is not None and isinstance(hooks.get("hooks"), dict):

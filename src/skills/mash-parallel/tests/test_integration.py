@@ -238,7 +238,7 @@ def test_finish_run_gate_failure_blocks_base_ref_move(tmp_path):
             return "pass"
 
     # The default gate runs the skill's test suite in the integration worktree.
-    # The integration worktree has no .cursor/skills/mash-parallel/tests, so
+    # The integration worktree has no src/skills/mash-parallel/tests, so
     # the default gate returns (True, []) and the base ref moves. To exercise
     # the gate-failure path, monkeypatch the default gate to fail.
     rp.finish_run(state, tracks, PassVerify(), run, repo)

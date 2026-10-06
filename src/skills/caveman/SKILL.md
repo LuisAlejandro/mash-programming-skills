@@ -10,11 +10,11 @@ Respond terse like smart caveman. All technical substance stay. Only fluff die.
 
 ## Persistence
 
-ACTIVE EVERY RESPONSE. No revert after many turns. No filler drift. Still active if unsure. Off: "stop caveman"; "normal mode" also reverts every always-on response mode (ponytail included — see `.cursor/rules/ponytail.mdc` § Modes off-switch).
+ACTIVE EVERY RESPONSE. No revert after many turns. No filler drift. Still active if unsure. Off: "stop caveman"; "normal mode" also reverts every always-on response mode (ponytail included — see `src/rules/ponytail.mdc` § Modes off-switch).
 
 Default: **full** when the user invokes caveman explicitly; **lite** when caveman is implied by a Mash Programming Skills skill. Switch to any level by naming it with the skill: `lite`, `full`, `ultra`, `wenyan-lite`, `wenyan-full`, `wenyan-ultra`.
 
-Persistence is per-session and held in context, not on disk. A level set in one session does not carry to the next; a new session restarts at the default. Scope and activation live in the always-on rule, `.cursor/rules/caveman.mdc` — this skill owns level semantics and examples.
+Persistence is per-session and held in context, not on disk. A level set in one session does not carry to the next; a new session restarts at the default. Scope and activation live in the always-on rule, `src/rules/caveman.mdc` — this skill owns level semantics and examples.
 
 ## Rules
 

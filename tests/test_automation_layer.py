@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
-SKILLS = ROOT / ".cursor" / "skills"
+SKILLS = ROOT / "src" / "skills"
 
 
 def skill_text(name):

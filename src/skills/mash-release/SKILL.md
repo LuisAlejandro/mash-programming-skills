@@ -25,7 +25,7 @@ This skill owns release publishing for app repos. It does not plan feature work,
 
 Hard boundaries:
 
-- App repos only. Do not run in `rosey-maintainer-tools` or `mash-programming-skills`.
+- App repos only. Do not run in `maintainer-tools` or `mash-programming-skills`.
 - Patch is the default. Minor and major only when explicitly requested in
   arguments or by the user. Do not infer from issues, labels, commits, or PRs.
 - Do not implement feature code.
@@ -71,7 +71,7 @@ Before release work:
 ### 1. Resolve Repository
 
 1. Confirm git repository; resolve root and repo name.
-2. Stop if repo is `rosey-maintainer-tools` or `mash-programming-skills`.
+2. Stop if repo is `maintainer-tools` or `mash-programming-skills`.
 3. Confirm files exist:
    - `Makefile`, `.bumpversion.cfg`
    - `scripts/release.sh`, `scripts/lib.sh`, `scripts/rollback.sh`

@@ -1,27 +1,23 @@
-# This repo is the Mash Programming Skills SOURCE and tracks .cursor/ and references/ directly.
-# !.cursor/ is defensive: a machine-global exclude for IDE trees would otherwise
-# hide this repo's own source tree.
+# This repo is the Mash Programming Skills SOURCE and tracks src/ and references/ directly.
 # Nothing is hosted under .agents/ here: pi-subagents scans <repo>/.agents/**/*.md
 # as project agent definitions, so reference docs must not live there.
-!.cursor/
-!.cursor/hooks-opencode/
 
 # Cursor beforeShellExecution hook (append-only debug log)
-.cursor/hooks/beforeShellExecution.log
+src/hooks/beforeShellExecution.log
 
 # Local Mash Programming Skills stack (secrets and runtime logs)
 /.env
-.cursor/mcp.json
+src/mcp.json
 
 # Local skill dependencies and Python caches
 __pycache__/
 *.pyc
-.cursor/skills/**/node_modules/
-.cursor/skills/**/.venv/
-.cursor/skills/**/.pytest_cache/
-.cursor/skills/**/.env
-.cursor/skills/**/__pycache__/
-.cursor/skills/**/*.pyc
+src/skills/**/node_modules/
+src/skills/**/.venv/
+src/skills/**/.pytest_cache/
+src/skills/**/.env
+src/skills/**/__pycache__/
+src/skills/**/*.pyc
 
 # Mash Programming Skills
 .mash/brainstorms/
@@ -37,7 +33,7 @@ __pycache__/
 .mash/ideation/
 # AGENTS.md and DESIGN.md are user-owned, trackable files.
 
-# Rosey Maintainer Tools
+# Maintainer Tools
 .mash/maintainer-manifest.json
 
 inspiration/

@@ -32,7 +32,7 @@ read_hindsight_pin() {
     if [ -f "$pin_file" ]; then
         tr -d '[:space:]' <"$pin_file"
     else
-        echo "0.8.2"
+        echo "0.8.3"
     fi
 }
 

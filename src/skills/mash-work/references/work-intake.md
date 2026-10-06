@@ -8,7 +8,7 @@ Read this on entering Phase 0. It owns input triage and complexity routing, plan
 
 Branch setup does not exist in this skill — work happens in place on the current branch; branching and PRs belong to `mash-pr` (invoked explicitly by the user).
 
-0. **Blank input — latest software plan.** After stripping `mode:` (and the bypass phrase if present), if the remaining input is empty:
+0. **Blank input — latest software plan.** After stripping `mode:`, if the remaining input is empty:
    1. Glob `.mash/plans/*-plan.md`.
    2. Keep only **software** plans: YAML frontmatter is present. Skip universal plans that start with `# Title` plus a `Created:` date and have no YAML frontmatter.
    3. Pick the newest remaining file by mtime.

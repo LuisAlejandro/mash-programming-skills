@@ -60,6 +60,6 @@ Bad (land in Other or clutter release notes):
 
 ```text
 fix: pin eslint to ^9.28.0
-Chore: apply rosey-maintainer fleet sync.
+Chore: apply maintainer fleet sync.
 Fixing bugs
 ```

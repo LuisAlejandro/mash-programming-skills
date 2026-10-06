@@ -16,9 +16,9 @@ BINARY_TOOLS = frozenset({"cua-driver", "agent-browser"})
 
 
 def inventory(source: Path):
-    skills_dir = source / ".cursor" / "skills"
-    agents_dir = source / ".cursor" / "agents"
-    rules_dir = source / ".cursor" / "rules"
+    skills_dir = source / "src" / "skills"
+    agents_dir = source / "src" / "agents"
+    rules_dir = source / "src" / "rules"
     skills = sorted(path.name for path in skills_dir.iterdir() if path.is_dir()) if skills_dir.is_dir() else []
     return {
         "skills": skills,
@@ -77,6 +77,12 @@ def prune(manifest: Path, source: Path, cursor: Path, opencode: Path, pi: Path, 
                 print(f"   pruned stale {label}: {name}")
 
 
+def mcp_servers_for_manifest(example):
+    if example is None or not Path(example).is_file():
+        return []
+    return sorted(mcp_owned_names(example))
+
+
 def write_manifest(
     manifest: Path,
     version: str,
@@ -86,6 +92,7 @@ def write_manifest(
     pi: Path,
     pi_agents: Path,
     mash: Path,
+    mcp_example=None,
 ):
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(
@@ -101,6 +108,7 @@ def write_manifest(
                 "pi_agents": str(pi_agents),
                 "mash": str(mash),
                 "managed": inventory(source),
+                "mcp_servers": mcp_servers_for_manifest(mcp_example),
             },
             indent=2,
         )
@@ -128,6 +136,15 @@ def mcp_owned_names(example: Path):
     return set(servers)
 
 
+def select_mcp_servers(servers, selected):
+    if not isinstance(servers, dict):
+        return {}
+    if selected is None:
+        return dict(servers)
+    chosen = {name for name in selected if isinstance(name, str)}
+    return {name: value for name, value in servers.items() if name in chosen}
+
+
 def merge_mcp_servers(existing, owned, configured):
     if not isinstance(existing, dict):
         existing = {}
@@ -145,7 +162,13 @@ def names_for_uninstall(manifest: Path, source: Path, kind: str):
 
 
 def manifest_matches(manifest: Path, source: Path):
-    return load_managed(manifest) == inventory(source)
+    if load_managed(manifest) != inventory(source):
+        return False
+    try:
+        servers = json.loads(manifest.read_text()).get("mcp_servers")
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return False
+    return isinstance(servers, list) and all(isinstance(name, str) for name in servers)
 
 
 def main():
@@ -161,6 +184,7 @@ def main():
     write_parser.add_argument("version")
     for name in ("source", "cursor", "opencode", "pi", "pi_agents", "mash"):
         write_parser.add_argument(name, type=Path)
+    write_parser.add_argument("mcp_example", nargs="?", type=Path)
 
     list_parser = commands.add_parser("list")
     list_parser.add_argument("manifest", type=Path)
@@ -191,6 +215,7 @@ def main():
             args.pi,
             args.pi_agents,
             args.mash,
+            args.mcp_example,
         )
     elif args.command == "list":
         print("\n".join(names_for_uninstall(args.manifest, args.source, args.kind)))

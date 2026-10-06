@@ -3,9 +3,63 @@ set -euo pipefail
 
 # Mash Programming Skills — machine-global installer.
 # This installer intentionally never writes into the current repository.
+# A checkout uses that checkout. Any other run downloads the master tarball
+# and re-runs the installer inside it:
+#   curl -fsSL https://raw.githubusercontent.com/LuisAlejandro/mash-programming-skills/master/install.sh | bash
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_ROOT="${MASH_PROGRAMMING_SKILLS:-$SCRIPT_DIR}"
+MASH_GITHUB_REPO="LuisAlejandro/mash-programming-skills"
+MASH_GITHUB_REF="master"
+
+if [ -n "${MASH_INSTALL_TMP:-}" ]; then
+    trap 'rm -rf "$MASH_INSTALL_TMP"' EXIT
+fi
+
+fetch_master_tarball() {
+    local tmp url token extracted=() dir
+    tmp="$(mktemp -d)"
+    token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+    if [ -n "$token" ]; then
+        url="https://api.github.com/repos/${MASH_GITHUB_REPO}/tarball/${MASH_GITHUB_REF}"
+    else
+        url="https://github.com/${MASH_GITHUB_REPO}/archive/refs/heads/${MASH_GITHUB_REF}.tar.gz"
+    fi
+    echo "-> Downloading ${MASH_GITHUB_REPO}@${MASH_GITHUB_REF}"
+    if [ -n "$token" ]; then
+        curl -fsSL -H "Authorization: Bearer ${token}" -H "Accept: application/vnd.github+json" "$url" | tar -xz -C "$tmp"
+    else
+        curl -fsSL "$url" | tar -xz -C "$tmp"
+    fi || {
+        rm -rf "$tmp"
+        echo "Error: could not download ${MASH_GITHUB_REPO}@${MASH_GITHUB_REF}." >&2
+        echo "   ${url}" >&2
+        echo "   Until the repository is public, set GITHUB_TOKEN to a token that can read it." >&2
+        exit 1
+    }
+    for dir in "$tmp"/*/; do
+        [ -d "$dir" ] || continue
+        extracted+=("$dir")
+    done
+    if [ "${#extracted[@]}" -ne 1 ] || [ ! -d "${extracted[0]}/src" ] || [ ! -f "${extracted[0]}/install.sh" ]; then
+        rm -rf "$tmp"
+        echo "Error: tarball did not contain a Mash Programming Skills tree." >&2
+        exit 1
+    fi
+    export MASH_INSTALL_TMP="$tmp"
+    chmod +x "${extracted[0]}/install.sh"
+    exec "${extracted[0]}/install.sh" "$@"
+}
+
+script_tree=""
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+    script_tree="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+if [ -n "${MASH_PROGRAMMING_SKILLS:-}" ]; then
+    SOURCE_ROOT="$MASH_PROGRAMMING_SKILLS"
+elif [ -n "$script_tree" ] && [ -d "$script_tree/src" ]; then
+    SOURCE_ROOT="$script_tree"
+else
+    fetch_master_tarball "$@"
+fi
 VERSION_FILE="$SOURCE_ROOT/VERSION"
 INSTALL_VERSION="0.1.0"
 CHECK_ONLY=false
@@ -61,6 +115,10 @@ Usage: install.sh [--check] [--version] [--write-pin|--no-write-pin]
 Installs Mash Programming Skills globally for Cursor, OpenCode, and Pi. It never writes to the
 current repository. Repository AGENTS.md, DESIGN.md, IDE trees, .mcp.json, and
 .mash/* files are not created by this command.
+
+A checkout installs from that checkout. Otherwise the master tarball is downloaded:
+
+  curl -fsSL https://raw.githubusercontent.com/LuisAlejandro/mash-programming-skills/master/install.sh | bash
 EOF
             exit 0
             ;;
@@ -71,9 +129,9 @@ EOF
     esac
 done
 
-if [ ! -d "$SOURCE_ROOT/.cursor" ]; then
-    echo "Error: Could not find .cursor directory in $SOURCE_ROOT" >&2
-    echo "   Run this script from the mash-programming-skills repository or set MASH_PROGRAMMING_SKILLS." >&2
+if [ ! -d "$SOURCE_ROOT/src" ]; then
+    echo "Error: Could not find src directory in $SOURCE_ROOT" >&2
+    echo "   MASH_PROGRAMMING_SKILLS must point at a Mash Programming Skills checkout." >&2
     exit 1
 fi
 
@@ -114,7 +172,7 @@ seed_dotenv_from_example() {
 
     mkdir -p "$(dirname "$dest")"
     {
-        echo "# Seeded by Mash Programming Skills install.sh from $(basename "$example") at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        echo "# Seeded by Mash Programming Skills install.sh at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
         while IFS= read -r line || [ -n "$line" ]; do
             if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
                 printf '%s\n' "$line"
@@ -122,7 +180,22 @@ seed_dotenv_from_example() {
             fi
             if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
                 key="${BASH_REMATCH[1]}"
-                val="$(mash_resolve_env_value "$key")"
+                if [ "${MASH_HINDSIGHT_PROMPTED:-}" = yes ]; then
+                    case "$key" in
+                        HINDSIGHT_API_LLM_PROVIDER | HINDSIGHT_API_LLM_MODEL | HINDSIGHT_API_LLM_API_KEY | HINDSIGHT_API_LLM_BASE_URL)
+                            if [ -n "${!key+x}" ] && [ -n "${!key}" ]; then
+                                val="${!key}"
+                            else
+                                val=""
+                            fi
+                            ;;
+                        *)
+                            val="$(mash_resolve_env_value "$key")"
+                            ;;
+                    esac
+                else
+                    val="$(mash_resolve_env_value "$key")"
+                fi
                 if [ -n "$val" ]; then
                     printf '%s=%s\n' "$key" "$val"
                 else
@@ -250,7 +323,7 @@ copy_global_rules() {
     local src name
     mkdir -p "$CURSOR_HOME/rules"
     rm -rf "$MASH_CONFIG_DIR/rules"
-    for src in "$SOURCE_ROOT"/.cursor/rules/*.mdc; do
+    for src in "$SOURCE_ROOT"/src/rules/*.mdc; do
         [ -f "$src" ] || continue
         name="$(basename "$src")"
         cp "$src" "$CURSOR_HOME/rules/$name"
@@ -268,10 +341,10 @@ write_global_always_on_rules() {
     {
         echo "# Mash Programming Skills — always-on rules"
         echo
-        echo "Auto-generated from .cursor/rules/*.mdc with alwaysApply: true."
+        echo "Auto-generated from src/rules/*.mdc with alwaysApply: true."
         echo "Do not edit by hand; re-run install.sh to refresh."
     } >"$bundle"
-    for mdc in "$SOURCE_ROOT"/.cursor/rules/*.mdc; do
+    for mdc in "$SOURCE_ROOT"/src/rules/*.mdc; do
         [ -f "$mdc" ] || continue
         grep -qE '^alwaysApply:[[:space:]]*true' "$mdc" || continue
         name="$(basename "$mdc" .mdc)"
@@ -305,7 +378,7 @@ write_global_always_on_rules() {
 
 copy_global_skills() {
     local src sname dest
-    for src in "$SOURCE_ROOT"/.cursor/skills/*/; do
+    for src in "$SOURCE_ROOT"/src/skills/*/; do
         [ -d "$src" ] || continue
         sname="$(basename "$src")"
         copy_tree_without_runtime "$src" "$CURSOR_HOME/skills/$sname"
@@ -318,7 +391,7 @@ copy_global_skills() {
 copy_global_agents() {
     local src name out
     mkdir -p "$CURSOR_HOME/agents" "$OPENCODE_HOME/agents" "$HOME/.agents"
-    for src in "$SOURCE_ROOT"/.cursor/agents/*; do
+    for src in "$SOURCE_ROOT"/src/agents/*; do
         [ -e "$src" ] || continue
         name="$(basename "$src")"
         copy_owned_file "$src" "$CURSOR_HOME/agents/$name"
@@ -338,7 +411,7 @@ copy_global_agents() {
 }
 
 copy_global_hooks() {
-    local src="$SOURCE_ROOT/.cursor/hooks/ensure-hindsight-daemon.sh"
+    local src="$SOURCE_ROOT/src/hooks/ensure-hindsight-daemon.sh"
     [ -f "$src" ] || return 0
     mkdir -p "$CURSOR_HOME/hooks"
     cp "$src" "$CURSOR_HOME/hooks/ensure-hindsight-daemon.sh"
@@ -375,8 +448,8 @@ PY
 }
 
 copy_global_pi_runtime() {
-    local hook_src="$SOURCE_ROOT/.cursor/hooks/ensure-hindsight-daemon.sh"
-    local ext_src="$SOURCE_ROOT/.cursor/hooks-pi/mash-hindsight-daemon.ts"
+    local hook_src="$SOURCE_ROOT/src/hooks/ensure-hindsight-daemon.sh"
+    local ext_src="$SOURCE_ROOT/src/hooks-pi/mash-hindsight-daemon.ts"
     mkdir -p "$PI_HOME/scripts" "$PI_HOME/extensions"
     if [ -f "$hook_src" ]; then
         cp "$hook_src" "$PI_HOME/scripts/ensure-hindsight-daemon.sh"
@@ -388,7 +461,7 @@ copy_global_pi_runtime() {
 }
 
 copy_global_opencode_runtime() {
-    local src="$SOURCE_ROOT/.cursor/hooks-opencode/mash-hindsight-daemon.ts"
+    local src="$SOURCE_ROOT/src/hooks-opencode/mash-hindsight-daemon.ts"
     [ -f "$src" ] || return 0
     mkdir -p "$OPENCODE_HOME/plugin"
     cp "$src" "$OPENCODE_HOME/plugin/mash-hindsight-daemon.ts"
@@ -401,12 +474,91 @@ write_global_guidance() {
     cp "$MASH_CONFIG_DIR/AGENTS.md" "$PI_HOME/AGENTS.md"
 }
 
+# Written to ~/.config/mash/hindsight-pin. The profile template and MCP catalog below are generated from here.
+HINDSIGHT_PIN_VALUE="0.8.3"
+
+mash_hindsight_embed_template() {
+    cat <<'MASH_HINDSIGHT_EMBED_TEMPLATE'
+# Hindsight Embed Configuration
+# Generated by hindsight-embed configure
+
+HINDSIGHT_EMBED_BANK_ID=
+HINDSIGHT_EMBED_DAEMON_IDLE_TIMEOUT=
+HINDSIGHT_EMBED_API_DATABASE_URL=pg0://hindsight-embed-default:15432
+
+# LLM used for memory extraction. Any OpenAI-compatible gateway works: keep
+# HINDSIGHT_API_LLM_PROVIDER=openai and point HINDSIGHT_API_LLM_BASE_URL at the
+# gateway root. For OmniRoute that is https://assistant.fundere.app/v1 with the
+# purpose-built omniroute-hindsight combo.
+# Native providers (gemini, anthropic, groq, deepseek, ...) leave BASE_URL empty.
+HINDSIGHT_API_LLM_PROVIDER=
+HINDSIGHT_API_LLM_MODEL=
+HINDSIGHT_API_LLM_API_KEY=
+HINDSIGHT_API_LLM_BASE_URL=
+
+# Daemon API port for the default profile. Leave empty for the default 8888.
+# Set it when another service already owns 8888 (for example a Stream Deck
+# install). The control center UI uses this port + 10000.
+HINDSIGHT_API_PORT=
+MASH_HINDSIGHT_EMBED_TEMPLATE
+}
+
+mash_mcp_catalog_json() {
+    cat <<'MASH_MCP_CATALOG'
+{
+  "mcpServers": {
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer $GITHUB_TOKEN"
+      }
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "sentrux": {
+      "command": "sentrux",
+      "args": [
+        "mcp"
+      ]
+    },
+    "cua-driver": {
+      "command": "cua-driver",
+      "args": [
+        "mcp"
+      ]
+    },
+    "agent-browser": {
+      "command": "agent-browser",
+      "args": [
+        "mcp",
+        "--tools",
+        "core,network,debug"
+      ]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@1.10.1",
+        "--categoryInput=false",
+        "--categoryEmulation=false",
+        "--categoryNetwork=false",
+        "--categoryPerformance=false",
+        "--memoryDebugging=true",
+        "--isolated=true"
+      ]
+    }
+  }
+}
+MASH_MCP_CATALOG
+}
+
 write_global_pins() {
     [ "$WRITE_PIN" = true ] || return 0
     mkdir -p "$MASH_CONFIG_DIR"
-    if [ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ]; then
-        cp "$SOURCE_ROOT/.cursor/hindsight-pin" "$MASH_CONFIG_DIR/hindsight-pin"
-    fi
+    printf '%s\n' "$HINDSIGHT_PIN_VALUE" >"$MASH_CONFIG_DIR/hindsight-pin"
     python3 - "$MASH_CONFIG_DIR/agentic-env.json" "$SOURCE_ROOT" "$INSTALL_VERSION" <<'PY'
 import json
 import sys
@@ -443,27 +595,29 @@ install_global_references() {
 }
 
 merge_global_mcp() {
-    local example="$SOURCE_ROOT/.cursor/mcp.json.example"
-    [ -f "$example" ] || {
-        echo "   ⚠️  No .cursor/mcp.json.example; skipping MCP seed"
-        return 0
-    }
+    local example github_token obsidian_key selected
+    example="$(mktemp)"
+    mash_mcp_catalog_json >"$example"
 
-    local github_token obsidian_key
-    # Set by prompt_github_token when the installer runs interactively; falls back
-    # to the environment so --check and scripted runs behave the same.
+    # Set by the MCP prompt when the installer has a terminal; otherwise the
+    # environment. An unattended run merges every example server.
     github_token="${MASH_GITHUB_TOKEN-$(mash_resolve_env_value GITHUB_TOKEN)}"
     obsidian_key="$(mash_resolve_env_value OBSIDIAN_API_KEY)"
-    if [ -z "$github_token" ]; then
+    if [ "${MASH_PROMPTS:-no}" = yes ]; then
+        selected="$MASH_MCP_SELECTED"
+    else
+        selected="*"
+    fi
+    if [ -z "$github_token" ] && [ "${MASH_PROMPTS:-no}" != yes ]; then
         echo "   no GitHub token; leaving the github MCP server unconfigured"
     fi
-    python3 - "$MANAGED_ARTIFACTS" "$example" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$github_token" "$obsidian_key" <<'PY'
+    python3 - "$MANAGED_ARTIFACTS" "$example" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$github_token" "$obsidian_key" "$selected" <<'PY'
 import importlib.util
 import json
 import sys
 from pathlib import Path
 
-managed_path, example, cursor_path, opencode_path, pi_shared_path, pi_settings_path, github_token, obsidian_key = sys.argv[1:]
+managed_path, example, cursor_path, opencode_path, pi_shared_path, pi_settings_path, github_token, obsidian_key, selected_raw = sys.argv[1:10]
 spec = importlib.util.spec_from_file_location("managed_artifacts", managed_path)
 managed = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(managed)
@@ -493,6 +647,8 @@ servers = {
     for name, srv in servers.items()
     if "$GITHUB_TOKEN" not in json.dumps(srv) and "$OBSIDIAN_API_KEY" not in json.dumps(srv)
 }
+selected = None if selected_raw == "*" else selected_raw.split()
+servers = managed.select_mcp_servers(servers, selected)
 
 def merge(existing, adapted=None):
     """Apply this run's servers and drop owned names that are absent."""
@@ -550,6 +706,7 @@ pi_settings = read_json(pi_settings_path)
 pi_settings["mcpServers"] = merge(pi_settings.get("mcpServers"))
 write_json(pi_settings_path, pi_settings)
 PY
+    rm -f "$example"
 
     # Add the OpenCode instruction paths in a separate pass with exact paths.
     python3 - "$OPENCODE_HOME/opencode.json" "$MASH_CONFIG_DIR/AGENTS.md" "$MASH_CONFIG_DIR/always-on-rules.md" <<'PY'
@@ -655,6 +812,12 @@ PY
 }
 
 write_global_install_markers() {
+    mkdir -p "$MASH_CONFIG_DIR"
+    cp "$SOURCE_ROOT/uninstall.sh" "$MASH_CONFIG_DIR/uninstall.sh"
+    chmod +x "$MASH_CONFIG_DIR/uninstall.sh"
+    local example
+    example="$(mktemp)"
+    mash_mcp_catalog_json >"$example"
     python3 "$MANAGED_ARTIFACTS" write \
         "$MASH_CONFIG_DIR/install-manifest.json" \
         "$INSTALL_VERSION" \
@@ -663,7 +826,9 @@ write_global_install_markers() {
         "$OPENCODE_HOME" \
         "$PI_HOME" \
         "$HOME/.agents" \
-        "$MASH_CONFIG_DIR"
+        "$MASH_CONFIG_DIR" \
+        "$example"
+    rm -f "$example"
 }
 
 run_global_check() {
@@ -692,13 +857,14 @@ run_global_check() {
         "$MASH_CONFIG_DIR/references/scoping-synthesis.md"
         "$MASH_CONFIG_DIR/references/markdown-rendering.md"
         "$MASH_CONFIG_DIR/install-manifest.json"
+        "$MASH_CONFIG_DIR/uninstall.sh"
     )
     if [ "$WRITE_PIN" = true ]; then
         required+=("$MASH_CONFIG_DIR/agentic-env.json" "$MASH_CONFIG_DIR/hindsight-pin")
     fi
     if [ "${MASH_SKIP_SKILL_DEPS:-0}" != 1 ]; then
         local dep_src dep_name
-        for dep_src in "$SOURCE_ROOT"/.cursor/skills/*/; do
+        for dep_src in "$SOURCE_ROOT"/src/skills/*/; do
             [ -d "$dep_src" ] || continue
             dep_name="$(basename "$dep_src")"
             if [ -f "$dep_src/package.json" ]; then
@@ -815,7 +981,7 @@ link_shared_skill_dep() {
 install_global_skill_deps() {
     local src sname store venv ide_root link
 
-    for src in "$SOURCE_ROOT"/.cursor/skills/*/; do
+    for src in "$SOURCE_ROOT"/src/skills/*/; do
         [ -d "$src" ] || continue
         sname="$(basename "$src")"
 
@@ -1241,47 +1407,287 @@ check_agent_harness() {
     return 0
 }
 
-# Prompt once for a GitHub token. Optional: skipping leaves the GitHub MCP server
-# unconfigured rather than writing a broken entry. Sets MASH_GITHUB_TOKEN.
-prompt_github_token() {
-    MASH_GITHUB_TOKEN="$(mash_resolve_env_value GITHUB_TOKEN)"
-    if [ -n "$MASH_GITHUB_TOKEN" ]; then
-        echo "   GitHub token found in the environment; using it for the GitHub MCP server."
+# Providers accepted by Hindsight 0.8, including none (no LLM).
+HINDSIGHT_LLM_PROVIDERS=(
+    openai
+    openai-responses
+    openai-codex
+    claude-code
+    cursor
+    github-copilot
+    anthropic
+    gemini
+    groq
+    minimax
+    deepseek
+    zai
+    opencode-go
+    meta
+    nous
+    xai-oauth
+    fireworks
+    ollama
+    ollama-cloud
+    lmstudio
+    llamacpp
+    vertexai
+    bedrock
+    litellm
+    litellmrouter
+    volcano
+    openrouter
+    requesty
+    atlas
+    none
+)
+
+# Piped stdin is the script, so prompts use /dev/tty. A device node can still
+# fail to open when this process has no controlling terminal; that keeps the
+# unattended path: Hindsight from the environment, every example MCP server.
+prompts_available() {
+    { : </dev/tty; } >/dev/null 2>&1
+}
+
+tty_read() {
+    local reply=""
+    IFS= read -r reply </dev/tty || return 1
+    printf '%s' "$reply"
+}
+
+prompt_yes() {
+    local reply
+    printf '%s' "$1" >/dev/tty
+    reply="$(tty_read)" || return 1
+    reply="$(printf '%s' "$reply" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+    case "$reply" in
+        y | yes) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+mcp_select() {
+    case " ${MASH_MCP_SELECTED} " in
+        *" $1 "*) ;;
+        *) MASH_MCP_SELECTED="${MASH_MCP_SELECTED:+$MASH_MCP_SELECTED }$1" ;;
+    esac
+}
+
+mcp_was_selected() {
+    case " ${MASH_MCP_SELECTED} " in
+        *" $1 "*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+hindsight_prompt_abort() {
+    unset HINDSIGHT_API_LLM_PROVIDER HINDSIGHT_API_LLM_MODEL HINDSIGHT_API_LLM_API_KEY HINDSIGHT_API_LLM_BASE_URL
+    unset MASH_HINDSIGHT_PROMPTED
+}
+
+prompt_hindsight_llm() {
+    local i choice provider model key base count
+    if [ -f "${HOME}/.hindsight/embed" ] || [ -f "${HOME}/.hindsight/config.env" ]; then
+        echo "-> Hindsight is already configured; leaving it in place."
         return 0
     fi
 
-    if [ ! -t 0 ]; then
-        echo "   No GITHUB_TOKEN set and no terminal to prompt on; skipping the GitHub MCP server."
-        echo "      Set GITHUB_TOKEN in $SOURCE_ROOT/.env or the environment, then re-run to enable it."
+    count="${#HINDSIGHT_LLM_PROVIDERS[@]}"
+    while true; do
+        printf '\n-> Hindsight LLM provider\n' >/dev/tty
+        printf '   none stores memories without an LLM.\n' >/dev/tty
+        i=1
+        for provider in "${HINDSIGHT_LLM_PROVIDERS[@]}"; do
+            printf '   %2d) %s\n' "$i" "$provider" >/dev/tty
+            i=$((i + 1))
+        done
+        printf '   Provider number: ' >/dev/tty
+        choice="$(tty_read)" || {
+            hindsight_prompt_abort
+            return 0
+        }
+        choice="$(printf '%s' "$choice" | tr -d '[:space:]')"
+        case "$choice" in
+            '' | *[!0-9]*)
+                printf '   Enter a number from the list.\n' >/dev/tty
+                continue
+                ;;
+        esac
+        if [ "$((10#$choice))" -ge 1 ] && [ "$((10#$choice))" -le "$count" ]; then
+            break
+        fi
+        printf '   Enter a number from the list.\n' >/dev/tty
+    done
+
+    provider="${HINDSIGHT_LLM_PROVIDERS[$((10#$choice - 1))]}"
+    unset HINDSIGHT_API_LLM_MODEL HINDSIGHT_API_LLM_API_KEY HINDSIGHT_API_LLM_BASE_URL
+    export HINDSIGHT_API_LLM_PROVIDER="$provider"
+    if [ "$provider" = none ]; then
+        MASH_HINDSIGHT_PROMPTED=yes
+        echo "   Hindsight provider: none."
         return 0
     fi
 
-    echo ""
-    echo "-> GitHub MCP server (optional)"
-    echo "   Powers PR review, issue creation, and PR description updates in mash-qa,"
-    echo "   mash-pr, and mash-dogfood. Skip it and those skills fall back to the gh CLI"
-    echo "   or local git; nothing else breaks."
-    echo ""
-    echo "   Create a fine-grained token: https://github.com/settings/personal-access-tokens/new"
-    echo "   Scopes needed (read-only is enough unless you want Mash Programming Skills to file issues):"
-    echo "     - Repository -> Contents:      Read-only"
-    echo "     - Repository -> Pull requests: Read-only  (Read and write to post PR updates)"
-    echo "     - Repository -> Issues:        Read and write  (only for issue creation)"
-    echo "     - Repository -> Metadata:      Read-only  (enabled automatically)"
-    echo "   Classic tokens work too: the 'repo' scope covers all of the above."
-    echo ""
-    printf '   Paste a GitHub token, or press Enter to skip: '
-    IFS= read -r MASH_GITHUB_TOKEN || MASH_GITHUB_TOKEN=""
-    # Strip surrounding whitespace a paste can carry.
-    MASH_GITHUB_TOKEN="$(printf '%s' "$MASH_GITHUB_TOKEN" | tr -d '[:space:]')"
+    printf '   Model (Enter for the provider default): ' >/dev/tty
+    model="$(tty_read)" || {
+        hindsight_prompt_abort
+        return 0
+    }
+    if [ -n "$model" ]; then
+        export HINDSIGHT_API_LLM_MODEL="$model"
+    fi
 
-    if [ -z "$MASH_GITHUB_TOKEN" ]; then
-        echo "   Skipped. The GitHub MCP server will not be configured."
-        echo "      To enable it later: set GITHUB_TOKEN and re-run install.sh."
+    case "$provider" in
+        ollama | lmstudio | llamacpp | vertexai) ;;
+        *)
+            while true; do
+                printf '   API key: ' >/dev/tty
+                key="$(tty_read)" || {
+                    hindsight_prompt_abort
+                    return 0
+                }
+                key="$(printf '%s' "$key" | tr -d '[:space:]')"
+                if [ -n "$key" ]; then
+                    export HINDSIGHT_API_LLM_API_KEY="$key"
+                    break
+                fi
+                printf '   An API key is required for %s.\n' "$provider" >/dev/tty
+            done
+            ;;
+    esac
+
+    printf '   Base URL (Enter to leave empty): ' >/dev/tty
+    base="$(tty_read)" || {
+        hindsight_prompt_abort
+        return 0
+    }
+    base="$(printf '%s' "$base" | tr -d '[:space:]')"
+    if [ -n "$base" ]; then
+        export HINDSIGHT_API_LLM_BASE_URL="$base"
+    fi
+    MASH_HINDSIGHT_PROMPTED=yes
+    echo "   Hindsight provider: ${provider}."
+}
+
+prompt_mcp_github() {
+    local token pasted
+    prompt_yes "   Include github? [y/N] " || return 0
+    token="$(mash_resolve_env_value GITHUB_TOKEN)"
+    if [ -n "$token" ]; then
+        printf '   Use the GITHUB_TOKEN already set? [Y/n] ' >/dev/tty
+        pasted="$(tty_read)" || return 0
+        pasted="$(printf '%s' "$pasted" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+        case "$pasted" in
+            '' | y | yes)
+                MASH_GITHUB_TOKEN="$token"
+                mcp_select github
+                echo "   GitHub MCP server will use the token from the environment."
+                return 0
+                ;;
+        esac
     else
-        echo "   Token captured. Configuring the GitHub MCP server."
+        printf '   Create a fine-grained token: https://github.com/settings/personal-access-tokens/new\n' >/dev/tty
+        printf '   Scopes: Contents read, Pull requests read (write to post updates), Issues write to file issues.\n' >/dev/tty
+        printf '   A classic token with the repo scope also works.\n' >/dev/tty
     fi
+    printf '   GitHub token (Enter to skip github): ' >/dev/tty
+    pasted="$(tty_read)" || return 0
+    pasted="$(printf '%s' "$pasted" | tr -d '[:space:]')"
+    if [ -z "$pasted" ]; then
+        echo "   Skipped github."
+        return 0
+    fi
+    MASH_GITHUB_TOKEN="$pasted"
+    mcp_select github
+    echo "   GitHub MCP server will be configured."
+}
+
+prompt_mcp_installable() {
+    local name="$1" bin="$2" flag="$3" pin reported decision
+    prompt_yes "   Include ${name}? [y/N] " || return 0
+    if [ "$bin" = sentrux ]; then
+        host_path
+        if command -v sentrux >/dev/null 2>&1 && sentrux --version >/dev/null 2>&1; then
+            mcp_select "$name"
+            return 0
+        fi
+    else
+        reported="$("$bin" --version 2>/dev/null || true)"
+        decision="$(python3 "$MANAGED_ARTIFACTS" install-needed "$bin" "$reported")"
+        if [ "$decision" != yes ]; then
+            mcp_select "$name"
+            return 0
+        fi
+        pin="$(python3 "$MANAGED_ARTIFACTS" pin "$bin")"
+    fi
+    if [ -n "${pin:-}" ]; then
+        prompt_yes "   Install ${bin} ${pin}? [y/N] " || {
+            echo "   Skipped ${name}."
+            return 0
+        }
+    else
+        prompt_yes "   Install ${bin}? [y/N] " || {
+            echo "   Skipped ${name}."
+            return 0
+        }
+    fi
+    case "$flag" in
+        sentrux) MASH_INSTALL_SENTRUX=yes ;;
+        cua-driver) MASH_INSTALL_CUA_DRIVER=yes ;;
+        agent-browser) MASH_INSTALL_AGENT_BROWSER=yes ;;
+    esac
+    mcp_select "$name"
+}
+
+prompt_mcp_chrome() {
+    prompt_yes "   Include chrome-devtools? [y/N] " || return 0
+    if ! command -v npx >/dev/null 2>&1; then
+        echo "   npx is absent. chrome-devtools will be written and will fail until Node is installed."
+    fi
+    mcp_select chrome-devtools
+}
+
+prompt_mcp_servers() {
+    local name names
+    names="$(mash_mcp_catalog_json | python3 -c 'import json,sys
+for name in json.load(sys.stdin)["mcpServers"]:
+    print(name)')"
+    printf '\n-> MCP servers\n' >/dev/tty
+    while IFS= read -r name; do
+        [ -n "$name" ] || continue
+        case "$name" in
+            github) prompt_mcp_github ;;
+            context7)
+                if prompt_yes "   Include context7? [y/N] "; then
+                    mcp_select context7
+                fi
+                ;;
+            sentrux) prompt_mcp_installable sentrux sentrux sentrux ;;
+            cua-driver) prompt_mcp_installable cua-driver cua-driver cua-driver ;;
+            agent-browser) prompt_mcp_installable agent-browser agent-browser agent-browser ;;
+            chrome-devtools) prompt_mcp_chrome ;;
+            *)
+                if prompt_yes "   Include ${name}? [y/N] "; then
+                    mcp_select "$name"
+                fi
+                ;;
+        esac
+    done <<<"$names"
     return 0
+}
+
+prompt_install_choices() {
+    MASH_PROMPTS=no
+    MASH_MCP_SELECTED=""
+    MASH_INSTALL_SENTRUX=no
+    MASH_INSTALL_CUA_DRIVER=no
+    MASH_INSTALL_AGENT_BROWSER=no
+    if ! prompts_available; then
+        echo "   No terminal for install prompts; keeping unattended Hindsight and MCP setup."
+        return 0
+    fi
+    MASH_PROMPTS=yes
+    prompt_hindsight_llm
+    prompt_mcp_servers
 }
 
 report_automation_tools() {
@@ -1312,7 +1718,7 @@ fi
 
 echo "-> Checking for an agent harness..."
 check_agent_harness
-prompt_github_token
+prompt_install_choices
 
 if [ "${MASH_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then
     host_path
@@ -1562,58 +1968,59 @@ read_hindsight_pin() {
     local pin_file="$MASH_CONFIG_DIR/hindsight-pin"
     if [ -f "$pin_file" ]; then
         tr -d '[:space:]' <"$pin_file"
-    elif [ -f "$SOURCE_ROOT/.cursor/hindsight-pin" ]; then
-        tr -d '[:space:]' <"$SOURCE_ROOT/.cursor/hindsight-pin"
     else
-        echo "0.8.2"
+        printf '%s' "$HINDSIGHT_PIN_VALUE"
     fi
 }
 
-hindsight_embed_template_path() {
-    if [ -f "$SOURCE_ROOT/.cursor/hindsight-embed.example" ]; then
-        echo "$SOURCE_ROOT/.cursor/hindsight-embed.example"
-    else
-        return 1
-    fi
-}
-
-# Seed ~/.hindsight/embed from template when missing. Fills every KEY= from SOURCE_ROOT/.env
-# (then process env). Never overwrites existing config.
+# Seed ~/.hindsight/embed from the installer template when missing. Fills every
+# KEY= from SOURCE_ROOT/.env (then process env). Never overwrites existing config.
 seed_hindsight_embed_if_needed() {
-    local template dest provider
+    local template dest provider status=0
 
     if hindsight_embed_configured; then
         return 0
     fi
 
-    if ! template="$(hindsight_embed_template_path)"; then
-        echo "   ⚠️  No hindsight-embed.example template found; cannot seed config."
-        return 1
-    fi
+    template="$(mktemp)"
+    mash_hindsight_embed_template >"$template"
 
-    provider="$(mash_resolve_env_value HINDSIGHT_API_LLM_PROVIDER)"
-    provider="${provider:-openai}"
+    if [ "${MASH_HINDSIGHT_PROMPTED:-}" = yes ]; then
+        provider="${HINDSIGHT_API_LLM_PROVIDER:-}"
+        if [ -z "$provider" ]; then
+            echo "   ⚠️  Hindsight provider was not chosen."
+            rm -f "$template"
+            return 1
+        fi
+    else
+        provider="$(mash_resolve_env_value HINDSIGHT_API_LLM_PROVIDER)"
+        provider="${provider:-openai}"
+    fi
 
     dest="${HOME}/.hindsight/embed"
     case "$provider" in
-        ollama | vertexai)
+        none | ollama | lmstudio | llamacpp | vertexai)
             if ! seed_dotenv_from_example "$template" "$dest" ""; then
-                echo "   ⚠️  Failed to seed ~/.hindsight/embed from template."
-                return 1
+                echo "   ⚠️  Failed to seed ~/.hindsight/embed."
+                status=1
             fi
             ;;
         *)
             if ! seed_dotenv_from_example "$template" "$dest" "HINDSIGHT_API_LLM_API_KEY"; then
                 echo "   Hindsight not configured yet (no API key for seed)."
-                echo "      Set HINDSIGHT_* keys in $SOURCE_ROOT/.env (see .cursor/hindsight-embed.example),"
+                echo "      Set HINDSIGHT_* keys in $SOURCE_ROOT/.env or answer the installer prompts,"
                 echo "      then re-run install.sh to seed ~/.hindsight/embed."
                 echo "      Or run interactive setup: uvx hindsight-embed@$(read_hindsight_pin) configure"
-                return 1
+                status=1
             fi
             ;;
     esac
 
-    echo "   Seeded ~/.hindsight/embed from template (provider=${provider})."
+    rm -f "$template"
+    if [ "$status" -ne 0 ]; then
+        return 1
+    fi
+    echo "   Seeded ~/.hindsight/embed (provider=${provider})."
     return 0
 }
 
@@ -1792,12 +2199,13 @@ if [ "${MASH_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then
     install_bumpversion || true
     install_gitchangelog || true
     install_git_flow || true
-    install_sentrux || true
+    if [ "${MASH_PROMPTS:-no}" != yes ] || [ "${MASH_INSTALL_SENTRUX:-no}" = yes ]; then
+        install_sentrux || true
+    fi
     install_pi_subagents || true
     install_pi_mcp_adapter || true
     install_pi_ask_user || true
     check_hindsight_embed || true
-    install_automation_tools || true
 fi
 
 # --- Automation tools (CUA Driver, agent-browser, Chrome DevTools MCP) ---
@@ -1812,44 +2220,56 @@ install_automation_tools() {
     agent_pin="$(python3 "$MANAGED_ARTIFACTS" pin agent-browser)"
     chrome_pin="$(python3 "$MANAGED_ARTIFACTS" pin chrome-devtools-mcp)"
 
-    reported="$(cua-driver --version 2>/dev/null || true)"
-    decision="$(python3 "$MANAGED_ARTIFACTS" install-needed cua-driver "$reported")"
-    if [ "$decision" = yes ]; then
-        echo "-> Installing CUA Driver ${cua_pin}..."
-        if ! CUA_DRIVER_RS_VERSION="$cua_pin" /bin/bash -c "$(curl -fsSL https://cua.ai/driver/install.sh)"; then
-            echo "   ⚠️  CUA Driver ${cua_pin} install failed."
-            echo "      Retry with CUA_DRIVER_RS_VERSION=${cua_pin} and https://cua.ai/driver/install.sh"
+    if [ "${MASH_PROMPTS:-no}" != yes ] || [ "${MASH_INSTALL_CUA_DRIVER:-no}" = yes ]; then
+        reported="$(cua-driver --version 2>/dev/null || true)"
+        decision="$(python3 "$MANAGED_ARTIFACTS" install-needed cua-driver "$reported")"
+        if [ "$decision" = yes ]; then
+            echo "-> Installing CUA Driver ${cua_pin}..."
+            if ! CUA_DRIVER_RS_VERSION="$cua_pin" /bin/bash -c "$(curl -fsSL https://cua.ai/driver/install.sh)"; then
+                echo "   ⚠️  CUA Driver ${cua_pin} install failed."
+                echo "      Retry with CUA_DRIVER_RS_VERSION=${cua_pin} and https://cua.ai/driver/install.sh"
+            fi
+        else
+            echo "-> CUA Driver ${cua_pin} already present; skipping install"
         fi
-    else
-        echo "-> CUA Driver ${cua_pin} already present; skipping install"
     fi
 
-    reported="$(agent-browser --version 2>/dev/null || true)"
-    decision="$(python3 "$MANAGED_ARTIFACTS" install-needed agent-browser "$reported")"
-    if [ "$decision" = yes ]; then
-        echo "-> Installing agent-browser ${agent_pin}..."
-        if ! command -v npm >/dev/null 2>&1; then
-            echo "   ⚠️  npm is absent. Retry: npm install -g agent-browser@${agent_pin}"
-        elif ! npm install -g "agent-browser@${agent_pin}"; then
-            echo "   ⚠️  agent-browser@${agent_pin} install failed. Retry: npm install -g agent-browser@${agent_pin}"
-        elif ! agent-browser install; then
-            echo "   ⚠️  agent-browser browser install failed. Retry: agent-browser install"
+    if [ "${MASH_PROMPTS:-no}" != yes ] || [ "${MASH_INSTALL_AGENT_BROWSER:-no}" = yes ]; then
+        reported="$(agent-browser --version 2>/dev/null || true)"
+        decision="$(python3 "$MANAGED_ARTIFACTS" install-needed agent-browser "$reported")"
+        if [ "$decision" = yes ]; then
+            echo "-> Installing agent-browser ${agent_pin}..."
+            if ! command -v npm >/dev/null 2>&1; then
+                echo "   ⚠️  npm is absent. Retry: npm install -g agent-browser@${agent_pin}"
+            elif ! npm install -g "agent-browser@${agent_pin}"; then
+                echo "   ⚠️  agent-browser@${agent_pin} install failed. Retry: npm install -g agent-browser@${agent_pin}"
+            elif ! agent-browser install; then
+                echo "   ⚠️  agent-browser browser install failed. Retry: agent-browser install"
+            fi
+        else
+            echo "-> agent-browser ${agent_pin} already present; skipping install"
         fi
-    else
-        echo "-> agent-browser ${agent_pin} already present; skipping install"
     fi
 
-    if ! command -v npx >/dev/null 2>&1; then
-        echo "   ⚠️  npx is absent. chrome-devtools-mcp@${chrome_pin} stays unresolved."
-    elif ! npm view "chrome-devtools-mcp@${chrome_pin}" version >/dev/null 2>&1; then
-        echo "   ⚠️  Cannot resolve chrome-devtools-mcp@${chrome_pin}."
-    else
-        echo "-> chrome-devtools-mcp@${chrome_pin} resolves through npx; no binary install"
+    if [ "${MASH_PROMPTS:-no}" != yes ] || mcp_was_selected chrome-devtools; then
+        if ! command -v npx >/dev/null 2>&1; then
+            echo "   ⚠️  npx is absent. chrome-devtools-mcp@${chrome_pin} stays unresolved."
+        elif ! npm view "chrome-devtools-mcp@${chrome_pin}" version >/dev/null 2>&1; then
+            echo "   ⚠️  Cannot resolve chrome-devtools-mcp@${chrome_pin}."
+        else
+            echo "-> chrome-devtools-mcp@${chrome_pin} resolves through npx; no binary install"
+        fi
     fi
 
-    echo "   On macOS, a person must grant Accessibility and Screen Recording on CuaDriver.app, then relaunch that app."
+    if [ "${MASH_PROMPTS:-no}" != yes ] || mcp_was_selected cua-driver; then
+        echo "   On macOS, a person must grant Accessibility and Screen Recording on CuaDriver.app, then relaunch that app."
+    fi
     return 0
 }
+
+if [ "${MASH_SKIP_MACHINE_TOOLS:-0}" != 1 ]; then
+    install_automation_tools || true
+fi
 
 # --- Inventory of host tools this script does not install ---
 

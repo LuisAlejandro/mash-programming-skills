@@ -90,7 +90,7 @@ Code/commits/PRs: write normal — that is caveman's boundary, not this one. Pon
 ## Modes off-switch
 
 Two always-on modes have off-switches, and they are independent. The full table lives in
-`.cursor/rules/ponytail.mdc` § Modes off-switch; the contract:
+`src/rules/ponytail.mdc` § Modes off-switch; the contract:
 
 | Say | Effect |
 |---|---|

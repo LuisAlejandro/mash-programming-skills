@@ -9,12 +9,12 @@ repositories.
 
 ### Cursor
 
-For work in this source repository, follow the local source rules in
-`.cursor/rules/*.mdc`. All seven are `alwaysApply: true`:
-`caveman`, `docker-via-make`, `gitchangelog-commits`, `hindsight-memory`,
-`ponytail`, `mash-workflow-gates`, and `save-insights`.
-
-Use `.cursor/skills/` and `.cursor/agents/` as the canonical source trees.
+For work in this source repository, follow the rules in `src/rules/*.mdc`.
+All seven are `alwaysApply: true`: `caveman`, `docker-via-make`,
+`gitchangelog-commits`, `hindsight-memory`, `ponytail`, `mash-workflow-gates`,
+and `save-insights`. `src/skills/` and `src/agents/` are the canonical source
+trees. The installer copies them to `~/.cursor/rules/`, `~/.cursor/skills/`,
+and `~/.cursor/agents/`; Cursor loads those installed paths.
 
 ### OpenCode
 
@@ -26,7 +26,7 @@ agents under `~/.config/opencode/`. Do not expect a repository-local
 ### Pi
 
 Pi receives global Mash Programming Skills context at `~/.pi/agent/AGENTS.md`, skills at
-`~/.pi/agent/skills/`, and subagents at `~/.agents/`. The local `.cursor/`
+`~/.pi/agent/skills/`, and subagents at `~/.agents/`. The local `src/`
 trees remain canonical source files in this repository.
 
 Mash Programming Skills distributes to Cursor, OpenCode, and Pi only. These three are the
@@ -58,8 +58,9 @@ them on copy, which is why consumers reference the flat global path. Do not
 restore repo-relative `.agents/shared/references/` links in global skills, and
 do not host reference documentation under `.agents/` here.
 
-Always-on rules are sourced from `.cursor/rules/*.mdc` with `alwaysApply: true`.
-Cursor reads those natively; the installer also emits them as one
+Always-on rules are sourced from `src/rules/*.mdc` with `alwaysApply: true`.
+The installer copies them to `~/.cursor/rules/`, where Cursor reads them
+natively, and also emits them as one
 frontmatter-stripped bundle at `~/.config/mash/always-on-rules.md`, referenced by
 OpenCode `config.instructions[]` and copied to Pi as
 `~/.pi/agent/APPEND_SYSTEM.md`. Do not hand-edit the bundle — regenerate it by
@@ -71,13 +72,14 @@ an npm install into `~/.config/mash/node_modules/<skill>/`; its
 IDE's copy of the skill gets a symlink to the shared store, so the documented
 `node_modules/` and `.venv/bin/python` paths keep working without installing
 dependencies three times. Never commit a real `.venv/` or `node_modules/` under
-`.cursor/skills/`.
+`src/skills/`.
 
-The install manifest records every Mash Programming Skills-owned skill, agent, rule, and shared
-dependency store. On the next install, entries owned by the previous manifest
-but absent from the current source tree are pruned from all IDE homes. The
-uninstaller uses the same recorded names, so a deleted or renamed source
-artifact remains uninstallable without touching unrelated user entries.
+The install manifest records every Mash Programming Skills-owned skill, agent, rule, shared
+dependency store, and MCP server name. On the next install, entries owned by the previous manifest
+but absent from the current source tree are pruned from all IDE homes. Install copies
+`uninstall.sh` to `~/.config/mash/uninstall.sh`. That copy reads the manifest and uninstalls
+without the source checkout, so a deleted or renamed source artifact remains uninstallable
+without touching unrelated user entries.
 
 The shared *library* references (domain, strategy, and engineering library) are
 not hosted here. They live only in the repository whose skills consume them —

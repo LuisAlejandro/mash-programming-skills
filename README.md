@@ -12,8 +12,17 @@ repository and are not installed by Mash Programming Skills. See
 
 ## Installation
 
-Run the installer from this source checkout, or point `MASH_PROGRAMMING_SKILLS` at the
-checkout:
+No checkout is required. This downloads the `master` tarball and installs from it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LuisAlejandro/mash-programming-skills/master/install.sh | bash
+```
+
+Pipe to `bash`. Flags go through as `bash -s -- --check`. Until the repository is
+public, set `GITHUB_TOKEN` to a token that can read it.
+
+A checkout installs from that checkout. `MASH_PROGRAMMING_SKILLS` points the
+same script at another checkout:
 
 ```bash
 MASH_PROGRAMMING_SKILLS=/path/to/mash-programming-skills \
@@ -84,7 +93,7 @@ one frontmatter-stripped Markdown bundle:
 | OpenCode | `~/.config/mash/always-on-rules.md` via `config.instructions[]` |
 | Pi | `~/.pi/agent/APPEND_SYSTEM.md` (appends to the system prompt) |
 
-The bundle is generated from `.cursor/rules/*.mdc`; those `.mdc` files remain
+The bundle is generated from `src/rules/*.mdc`; those `.mdc` files remain
 the single source of truth.
 
 ### Invoking a skill
@@ -112,23 +121,28 @@ checks and **warns without blocking** when none is found; `mash-parallel` also u
 these as its delegated workers, probing in that order. Pi extensions install only when
 the `pi` CLI is present, so install a harness first and re-run to finish that setup.
 
-### A GitHub token (optional)
+### MCP servers (optional)
 
-The installer prompts once for a token to configure the GitHub MCP server, which powers
-PR review, issue creation, and PR description updates in `mash-qa`, `mash-pr`, and
-`mash-dogfood`. Fine-grained token scopes:
+On a terminal, the installer asks whether to include each MCP server it
+ships. A declined server is left out, and if a previous install
+had written it, this run removes it. A later install asks again. With no
+terminal, every example server is merged, except `github` when `GITHUB_TOKEN`
+is not already set.
 
-| Scope | Level |
-|---|---|
-| Contents | Read-only |
-| Pull requests | Read-only, or Read and write to post PR updates |
-| Issues | Read and write, only for issue creation |
-| Metadata | Read-only (automatic) |
-
-A classic token with the `repo` scope also works. Press Enter to skip: the GitHub MCP
-server is then left unconfigured rather than written with an unusable credential, and
-those skills fall back to the `gh` CLI or local git. Set `GITHUB_TOKEN` in `.env` or the
-environment to skip the prompt, and re-run the installer later to enable the server.
+- `github` powers PR review, issue creation, and PR description updates in
+  `mash-qa`, `mash-pr`, and `mash-dogfood`. Including it asks for a token.
+  Enter drops the server instead of writing a broken entry; those skills then
+  fall back to the `gh` CLI or local git. A token already in the environment
+  can be reused. Fine-grained scopes: Contents read-only, Pull requests
+  read-only (read and write to post updates), Issues read and write to file
+  issues, Metadata read-only. A classic token with the `repo` scope also works.
+- `context7` has no credential.
+- `sentrux`, `cua-driver`, and `agent-browser` ask for permission to install
+  when the program is missing. Refusing drops the server, and the installer
+  does not install the program. With no terminal, those installs still run
+  when the tools are missing.
+- `chrome-devtools` has no installer. It stays an `npx` package. If `npx` is
+  absent, the installer says so and still writes the server when you include it.
 
 GitHub is the only issue tracker Mash Programming Skills writes to.
 
@@ -149,14 +163,17 @@ GitHub is the only issue tracker Mash Programming Skills writes to.
 7. Installs the three shared contract references in
    `~/.config/mash/references/` and updates global skill call sites to use
    those paths.
-8. Merges Mash Programming Skills's MCP servers into the global Cursor, OpenCode, and Pi config
-   files. Same-name Mash Programming Skills entries overwrite existing entries; this accepted
-   risk has no backup or rollback.
+8. Merges the MCP servers you accepted into the global Cursor, OpenCode, and Pi
+   config files. Owned names you declined are removed. Same-name Mash Programming Skills
+   entries overwrite existing entries; this accepted risk has no backup or rollback.
+   With no terminal, every example server is merged (except `github` without a token).
 9. Installs skill runtime dependencies once under `~/.config/mash/` (npm for
    skills with `package.json`, a virtualenv for skills with `requirements.txt`)
    and symlinks them into each IDE copy.
 10. Installs optional machine tools and Pi extensions only when enabled and
-    missing. Existing commands are not reinstalled.
+    missing. On a terminal, Sentrux, CUA Driver, and agent-browser install only
+    after you agree. With no terminal, those installs still run when the tools
+    are missing. Existing commands are not reinstalled.
 11. Updates the machine-global Git excludes file so only Mash Programming Skills working-output
     directories and the maintainer manifest remain ignored. `AGENTS.md` and
     `DESIGN.md` are not ignored.
@@ -179,35 +196,45 @@ does not ship a design-to-code pipeline; design skills and their `DESIGN.md` /
 
 ## Uninstallation
 
-Uninstallation is global-only and dry-run by default:
+Install copies `uninstall.sh` to `~/.config/mash/uninstall.sh`. That copy reads
+`~/.config/mash/install-manifest.json` and does not need this repository.
+`./uninstall.sh` in a checkout is the same script. Uninstallation is global-only
+and dry-run by default:
 
 ```bash
-./uninstall.sh                 # show what would be removed
-./uninstall.sh --check         # exit 0 if global Mash Programming Skills artifacts exist
-./uninstall.sh --apply         # remove Mash Programming Skills global payload
-./uninstall.sh --apply --force # also remove edited Mash Programming Skills guidance files
+~/.config/mash/uninstall.sh                 # show what would be removed
+~/.config/mash/uninstall.sh --check         # exit 0 if global Mash Programming Skills artifacts exist
+~/.config/mash/uninstall.sh --apply         # remove Mash Programming Skills global payload
+~/.config/mash/uninstall.sh --apply --force # also remove edited Mash Programming Skills guidance files
 ```
 
-It removes the exact Mash Programming Skills-owned global skills, agents, and rules recorded by
-the last install manifest, plus hooks, plugins, guidance, pins, contract
-references, shared dependency stores, the manifest, and MCP entries. It
-preserves unrelated user entries in shared JSON files, machine tools, Hindsight
-memory, and all repositories.
+It removes the Mash Programming Skills-owned global skills, agents, rules, and
+MCP servers recorded by the last install manifest, plus hooks, plugins,
+guidance, pins, contract references, shared dependency stores, and the manifest.
+It preserves unrelated user entries in shared JSON files, machine tools,
+Hindsight memory, and all repositories. A manifest with no `managed` inventory
+leaves skills, agents, and rules in place.
 
 ## Optional Hindsight local memory
 
-Hindsight is optional and machine-global. Configure keys in this checkout's
-`.env` or the process environment; never commit secrets.
+Hindsight is optional and machine-global. On a terminal, when neither
+`~/.hindsight/embed` nor `~/.hindsight/config.env` exists, the installer asks
+which LLM provider to use. The choices are the providers Hindsight 0.8 accepts,
+including `none` (no LLM). Any choice other than `none` then asks for the
+model (optional; Enter uses the provider default), an API key (required except
+for `ollama`, `lmstudio`, `llamacpp`, and `vertexai`), and a base URL
+(optional; Enter leaves it empty). Native providers do not need a base URL; an
+OpenAI-compatible gateway is `openai` plus that URL. An existing
+`~/.hindsight/embed` or `~/.hindsight/config.env` is never overwritten.
+
+With no terminal, the installer does not ask. It seeds from the environment or
+this checkout's `.env`. Never commit secrets. After a successful seed it still
+installs the pinned Hindsight CLI.
 
 ```bash
 uv tool install "hindsight-embed@$(tr -d '[:space:]' < ~/.config/mash/hindsight-pin)" \
   --with "hindsight-api@$(tr -d '[:space:]' < ~/.config/mash/hindsight-pin)"
 ```
-
-The installer seeds `~/.hindsight/embed` from
-`.cursor/hindsight-embed.example` when configured and starts the daemon when
-possible. Every active `KEY=` line in that template is filled from this
-checkout's `.env`, so a fresh machine inherits the configured provider.
 
 ### Pointing Hindsight at an OpenAI-compatible gateway
 
@@ -221,8 +248,9 @@ HINDSIGHT_API_LLM_API_KEY=<gateway key>
 HINDSIGHT_API_LLM_BASE_URL=https://assistant.fundere.app/v1
 ```
 
-Set those four keys in `.env` and re-run `install.sh` on an unconfigured
-machine. Existing `~/.hindsight/embed` files are never overwritten, so a machine
+Enter those four values at the prompts, or set them in `.env` for an
+unattended install, and re-run `install.sh` on an unconfigured machine.
+Existing `~/.hindsight/embed` files are never overwritten, so a machine
 already configured for another provider must be updated by hand (or removed) and
 the daemon restarted with `hindsight-embed daemon restart`. Use a purpose-built
 combo such as `omniroute-hindsight` rather than a generic routing alias such as
@@ -256,7 +284,7 @@ Warm-start locations are:
 
 Routine Mash Programming Skills commands use `hindsight-embed` with
 `PATH="${HOME}/.local/bin:${PATH}"`. See
-`.cursor/skills/mash-hindsight/SKILL.md` for the full Hindsight contract.
+`src/skills/mash-hindsight/SKILL.md` for the full Hindsight contract.
 
 ## Repository files
 

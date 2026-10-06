@@ -40,7 +40,7 @@ The CLI subcommand **`sentrux scan`** (and bare **`sentrux`** / **`sentrux /path
 When MCP is unavailable but the binary is installed:
 
 ```bash
-cd src/   # repo root
+# From the workspace root (.), not a subdirectory such as src/.
 sentrux gate --save .                    # once: saves .sentrux/baseline.json, prints Quality (0–10000 scale)
 sentrux gate .                           # after edits: compares baseline, exits 0/1, no GUI
 ```
@@ -198,7 +198,7 @@ Build from `sentrux-review-brief.json` and topology:
 ## Sentrux summary
 
 | Repo | Session | Signal | Test gaps |
-| src/ | pass (6772 → 6810) | equality | src/.../handler.ts |
+| . | pass (6772 → 6810) | equality | src/.../handler.ts |
 
 **Override:** none
 ```

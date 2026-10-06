@@ -427,7 +427,7 @@ def _default_integration_gate(integration_worktree):
     import subprocess as _sp
     import sys as _sys
 
-    skill_rel = Path(".cursor") / "skills" / "mash-parallel"
+    skill_rel = Path("src") / "skills" / "mash-parallel"
     tests_dir = Path(integration_worktree) / skill_rel / "tests"
     if not tests_dir.is_dir():
         print(
