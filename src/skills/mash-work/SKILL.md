@@ -10,7 +10,7 @@ Execute implementation work efficiently while maintaining quality.
 
 ## Communication while using this skill
 
-**Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors and code unchanged. Drop lite only for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or when the user asks for normal or long-form wording.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 ## Mash Programming Skills gates
 
@@ -73,8 +73,8 @@ A plan path is required. Do not implement from a prose description, a requiremen
 ### Phase 0.0: Hindsight gate (hard)
 
 1. Read [`mash-hindsight`](../mash-hindsight/SKILL.md)
-2. Run `hindsight-embed daemon status` (prepend `~/.local/bin` to PATH; see [`mash-hindsight`](../mash-hindsight/SKILL.md))
-3. Run `memory recall` OR emit `Hindsight: unavailable (<reason>)` before any file edits. First status line: `Hindsight: recalled (<brief useful context>)` or `Hindsight: unavailable (<reason>)`.
+2. Run its availability check — daemon status **and** the `/version` fingerprint (prepend `~/.local/bin` to PATH)
+3. When available, run `memory recall`; OR emit `Hindsight: unavailable (<reason>)` before any file edits. First status line: `Hindsight: recalled (<brief useful context>)` or `Hindsight: unavailable (<reason>)`. The skill owns the procedure — do not restate it.
 4. At handoff: `memory retain` session summary OR document why retain was skipped
 
 Do not proceed to Phase 0 triage or Phase 1 until step 3 completes.

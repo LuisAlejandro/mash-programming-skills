@@ -49,23 +49,23 @@ The ideation artifact is produced **automatically** — persistence is not opt-i
 
 ### 4.1 Write the Deliverable (automatic, both modes)
 
-`OUTPUT_FORMAT` (resolved per `references/output-mode.md`; default `html`) sets the extension. Write the file every run — do not wait for the user to ask.
+`OUTPUT_FORMAT` is `md` (`references/output-mode.md`). Write the file every run — do not wait for the user to ask.
 
 1. **Resolve the target directory and extension.**
-   - Extension follows `OUTPUT_FORMAT` (`.html` default, `.md` on override).
+   - Extension is `.md`.
    - **Repo mode:** ensure `<repo-root>/.mash/ideation/` exists (create if absent).
    - **Elsewhere mode with `<repo-root>/.mash/ideation/` already present:** use it.
    - **Otherwise (no repo, or elsewhere with no `<repo-root>/.mash/ideation/`):** write into the run's scratch area — the `<scratch-dir>` resolved in Phase 1 (`<repo-root>/.mash/ideation/scratch/<run-id>/`). Do **not** write into the user's current working directory, and do **not** create a `<repo-root>/.mash/ideation/` tree for a subject unrelated to the repo. Announce the absolute path.
 2. **Choose the file path:** `<dir>/YYYY-MM-DD-<topic>-ideation.<ext>` (or `<dir>/YYYY-MM-DD-open-ideation.<ext>` when no focus exists).
-3. **Load the section contract and rendering reference** (deferred from Phase 0.0): read `references/ideation-sections.md` and the format-rendering reference matching `OUTPUT_FORMAT` — `references/markdown-rendering.md` for `md`, `references/html-rendering.md` for `html`.
-4. **Write the document** per those references. `ideation-sections.md` defines the section contract (metadata, Grounding Context, Topic Axes, Ranked Ideas with per-idea fields, Rejection Summary); the rendering reference defines how the resolved format presents it. Content is identical across formats; only presentation differs.
+3. **Load the section contract and rendering reference** (deferred from Phase 0.0): read `references/ideation-sections.md` and `references/markdown-rendering.md`.
+4. **Write the document** per those references. `ideation-sections.md` defines the section contract (metadata, Grounding Context, Topic Axes, Ranked Ideas with per-idea fields, Rejection Summary); `markdown-rendering.md` defines how markdown presents it.
    - **On write failure** (no writable path, permissions): announce the failure and offer a custom path (validate writable; create parent dirs). Never lose the survivors silently.
 
-**Resume:** update the existing file in place, in its existing format (per the resume precedence in `references/output-mode.md`); carry the prior ideas and rejection summary forward, adding to them rather than overwriting.
+**Resume:** a `.md` file is updated in place. An `.html` file is left in place and the update is written as a new `.md` file (`references/output-mode.md`). Carry the prior ideas and rejection summary forward, adding to them rather than overwriting.
 
 ### 4.2 Present a Concise Summary (not the full deliverable)
 
-The full cards, rationale, downsides, diagrams, and the rejection table live in the file. Do **not** reproduce them in the session — reprinting the whole deliverable as chat text defeats the rich format and leads the reader through plain text before they ever see it. Show a tight orientation instead:
+The full cards, rationale, downsides, diagrams, and the rejection table live in the markdown file. Do **not** reproduce them in the session. Show a tight orientation instead:
 
 - One line with counts and the path: e.g. `Wrote 7 ranked ideas (36 raw, 13 cut) across 5 axes → <absolute path>`.
 - A ranked list, **one line per survivor**: `1. <Title> · <axis> · Conf <High/Med/Low> · Cx <S/M/L>`.
@@ -76,8 +76,7 @@ This ranked list doubles as the index the user references when choosing an idea 
 
 ### 4.3 Open It
 
-- **HTML:** in an interactive session, best-effort open the file in the browser via the platform's open primitive (`open` on macOS, `xdg-open` on Linux, `start` on Windows); always print the absolute path so it can be reopened or shared. Skip auto-open in headless / pipeline runs (no interactive surface).
-- **Markdown:** print the absolute path.
+Print the absolute path of the markdown file.
 
 ## Phase 5: Next Steps
 
@@ -100,8 +99,7 @@ If the user already named what they want to work on inline (e.g. "brainstorm the
 
 ### 5.1 Open the Deliverable
 
-- **HTML.** (Re)open the saved file via the platform primitive where available; otherwise print the absolute path. Return to the Phase 5 menu.
-- **Markdown.** Print the absolute path. Return to the Phase 5 menu.
+Print the absolute path of the markdown file. Return to the Phase 5 menu.
 
 ### 5.2 Develop One Idea Further
 
@@ -110,7 +108,7 @@ If the user already named what they want to work on inline (e.g. "brainstorm the
    - Do **not** pass a whole file anywhere or re-extract what the orchestrator already holds — the substance is already in context.
    - Treat each idea as feature-description-shaped (`<title> — <description>. Basis: <basis/evidence>. Why it matters: <rationale>. Known tradeoffs: <downsides>.`) so a later round of development can pick it up without re-deriving it.
    - Append a one-line provenance pointer where useful: `(Seeded from mash-ideate: <path>, idea "<title>")`.
-3. **No extra write step.** Because this stays inside mash-ideate, `OUTPUT_FORMAT` is whatever this run resolved — there is no separate handoff format to reconcile. A user who wants HTML output for a deeper doc gets it by default; there is no config to set.
+3. **No extra write step.** Because this stays inside mash-ideate, the document stays markdown. There is no separate handoff format to reconcile.
 
 **Repo mode:** developing an idea further does not commit it to any plan or skip onward to an implementation chain. In elsewhere modes, ideation is a legitimate terminal state; deeper development of one idea is optional, not a required next rung on an implementation ladder that does not exist in these modes.
 

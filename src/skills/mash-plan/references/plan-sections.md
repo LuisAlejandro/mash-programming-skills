@@ -99,15 +99,9 @@ Every plan carries a small set of stable metadata fields that downstream tooling
 - **`title`** — verbatim plan title. Matches the H1 so file metadata and visible heading don't drift.
 - **`type`** — conventional-commit-prefix-aligned classification (`feat`, `fix`, `refactor`, `chore`, `docs`, `perf`, `test`, etc.). Carries the intent the eventual commit message should reflect. The filename `<type>` token is this same value.
 - **`date`** — creation date in ISO 8601 (`YYYY-MM-DD`), ASCII digits only.
-- **`origin`** — required on **software** plans: repo-relative path to the upstream brainstorm requirements doc (e.g., `.mash/brainstorms/2026-05-12-pagination-requirements.md`). Carried for traceability and re-resolved when `mash-plan` re-deepens. **Absent on universal / non-software plans** (those use `# Title` + `Created:` and have no YAML origin).
+- **`origin`** — required: repo-relative path to the upstream brainstorm requirements doc (e.g., `.mash/brainstorms/2026-05-12-pagination-requirements.md`). Carried for traceability.
 
 No `status` or lifecycle field. A plan is a point-in-time record, not a tracked work item — whether the work shipped is derived from git, not stored in the doc.
-
-### Optional but well-known
-
-These fields are not required, but when set they have fixed names and semantics so downstream tooling can rely on them:
-
-- **`deepened`** — ISO 8601 date marking the first time the confidence check substantively strengthened the plan. Presence affects Phase 0.1 resume fast-path logic (see `references/deepening-workflow.md`).
 
 Field names are stable across plan revisions — never rename a field or repurpose its semantics. Agents composing new plans MUST use these exact names; adding new fields is fine, but renaming `title` to `name` or `origin` to `source` breaks the downstream consumers above.
 

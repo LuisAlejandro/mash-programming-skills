@@ -13,7 +13,7 @@ Brainstorming answers **WHAT** to build through collaborative dialogue; `mash-pl
 | Route | Artifact |
 | --- | --- |
 | Software | Always write `*-requirements.md` |
-| Non-software | Chat summary required; write a file when the user saves or chooses Create a plan |
+| Non-software | Stop. This skill covers software work. |
 | Neither | Not a brainstorm run; answer and stop |
 
 **Done:** Interactive: the requirements document is written, its Phase 3 checks pass, the Phase 4 menu is presented, and the selected action is executed. Non-interactive: the document is written and `MASH_BRAINSTORM_HANDOFF` is emitted, with blockers and assumptions.
@@ -24,9 +24,7 @@ Brainstorming answers **WHAT** to build through collaborative dialogue; `mash-pl
 
 ## Communication while using this skill
 
-**Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors and code unchanged. Drop lite only for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or when the user asks for normal or long-form wording.
-
-Caveman lite applies to chat and status prose, not to the requirements document, which stays clear enough for humans to review.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 ## Mash Programming Skills gates
 
@@ -67,7 +65,7 @@ When `INTERACTION_MODE=non-interactive`:
 - Do not use blocking question tools or prompt for clarification.
 - Infer conservatively from the prompt, repo scan, and issue context supplied by the caller.
 - Record material assumptions in the requirements document.
-- Skip Phase 1.3 dialogue, Phase 2 approach menus, Phase 2.5 confirmation, and Phase 4 handoff menus.
+- Skip Phase 1.3 dialogue, Phase 2 approach menus, the Phase 3 file confirmation, and Phase 4 handoff menus.
 - On the **software** route, a requirements document is always written — it is the only channel back to the caller. If one cannot be written safely, stop with a concise blocker. Non-software non-interactive runs return the chat summary and stop; they are not a software pipeline handoff.
 
 **If the feature description above is empty:** In interactive mode, ask the user: "What would you like to explore? Please describe the feature, problem, or improvement you're thinking about." In non-interactive mode, stop with a blocker.
@@ -80,15 +78,15 @@ Phases run in this order. Each names the files it cannot run correctly without: 
 
 | Phase | Read first | What only those files carry |
 |---|---|---|
-| before anything, and for the whole run — non-software route included | `references/phase-0.md` | the Caveman-lite communication rule; the Hindsight memory gate and what "unavailable" means; Phase 0 itself |
-| before the first question, and for the whole run — non-software route included | `references/interaction-rules.md` | the Core Principles, and the Interaction Rules: one question per turn, the blocking-question-tool table and the resolve-by-capability rule that overrides it, when a question is genuinely open-ended, and the ask-only-decisions rule |
-| 0.0–0.3 output, resume, classify, route, scope | `references/phase-0.md` | markdown output and token parsing; resume; the software / non-software / neither classification; the clear-requirements fast path; scope tiers and the Deep feature-vs-product sub-mode; the coherent-work gate; the unfamiliarity tripwire |
+| before anything, and for the whole run | `references/phase-0.md` | the Hindsight memory gate and what "unavailable" means; Phase 0 itself |
+| before the first question, and for the whole run | `references/interaction-rules.md` | the Core Principles, and the Interaction Rules: one question per turn, the blocking-question-tool table and the resolve-by-capability rule that overrides it, when a question is genuinely open-ended, and the ask-only-decisions rule |
+| 0.0–0.3 output, resume, classify, route, scope | `references/phase-0.md` | markdown output and token parsing; resume; the software / non-software / neither classification and the non-software stop; the clear-requirements fast path; the scope floor; the coherent-work gate; the unfamiliarity tripwire |
 | 1 understand the idea | `references/dialogue.md` | context scan with verify-before-claiming; the grounding-scout dispatch and its lazily-created scratch path; the conflict and blindspot gates; rigor-probe firing discipline; the integration check; the six-clause Phase 1.3 exit condition |
-| 1.2 pressure test | `references/product-pressure-test.md` | the per-tier gap lenses and the synthesis questions the agent weighs privately |
+| 1.2 pressure test | `references/product-pressure-test.md` | the gap lenses, the product-shape questions, and the questions the agent weighs privately |
 | whenever a sub-agent is dispatched (1.1, 2.6) | `~/.config/mash/references/model-tiers.md` | the extraction / generation / ceiling tiers; blocking-dispatch and resolved-path rules; the degradation ladder down to inline |
 | when the unfamiliarity tripwire or the mid-dialogue signal fires | `references/blindspot-pass.md` | the territory-scoped gate and its can't-evaluate guard; the offer wording; the 3–7 item decision map and how mapped decisions re-enter dialogue |
-| 2–2.6 approaches, synthesis, verification | `references/approaches.md`, plus `references/synthesis-summary.md` before composing the synthesis | approach generation and granularity; the anti-genericness test; the scoping synthesis contract and its confirmation gate; the independent claim verifier |
-| 3 write the requirements | `references/plan-write.md`, then `references/brainstorm-sections.md` and `references/markdown-rendering.md` | write-tight discipline; the section contract; the markdown format |
+| 2–2.6 approaches and verification | `references/approaches.md` | approach generation and granularity; the anti-genericness test; the independent claim verifier |
+| 3 write the requirements | `references/plan-write.md`, then `references/brainstorm-sections.md` and `references/markdown-rendering.md` | write-tight discipline; the section contract; the markdown format; the one-question confirmation of the written file |
 | 4 handoff | `references/handoff.md` | the option set and its visibility conditions, per-selection dispatch, the dossier pass-through, the non-interactive `MASH_BRAINSTORM_HANDOFF` envelope, and the closing summary format |
 
 **Read a reference on phase entry, completely.** A read made before that phase does not satisfy it, and a reference is re-read at its phase even when it is already in context.

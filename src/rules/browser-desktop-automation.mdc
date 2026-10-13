@@ -1,0 +1,22 @@
+---
+description: Route browser and desktop automation to the agent-browser, cua-driver, and chrome-devtools skills
+alwaysApply: true
+---
+
+# Browser and desktop automation
+
+Web-page and native-desktop work runs through a skill, not an ad-hoc command. Pick the surface, then invoke its skill.
+
+| Surface | Skill | Capabilities |
+|---|---|---|
+| Web page or app content | `agent-browser` | Navigation, snapshots, click/fill, uploads, downloads, screenshots, console, network |
+| Native desktop, browser chrome, permission dialogs, file pickers, webviews with no page endpoint | `cua-driver` | Native apps and OS-level surfaces |
+| One Lighthouse audit or one memory diagnostic | `chrome-devtools` | Diagnostics only |
+
+Rules:
+
+- Page content belongs to `agent-browser`. Never drive page content with `cua-driver`.
+- Native dialogs, permission prompts, and file pickers belong to `cua-driver`. Hand only that surface over, then observe again with `agent-browser` and continue on the page.
+- `chrome-devtools` is diagnostics only: it never substitutes for a page journey, and a page journey never substitutes for its diagnostic.
+- Use a named `agent-browser` session. Refuse a profile named `Default` and refuse auto-connect. Never attach to the human's default browser profile, and never shell out to `npx` as a browser.
+- The skills own the pinned versions, prerequisites, and remediation. A missing binary or schema mismatch stops that path with the skill's install remediation named — do not swap to another browser or desktop tool.

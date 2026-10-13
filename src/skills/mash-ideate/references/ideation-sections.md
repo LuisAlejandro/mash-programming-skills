@@ -1,8 +1,8 @@
 # Ideation Sections
 
-This is the section contract for the mash-ideate artifact — it describes *what* a persisted ideation document contains, independent of output format. It is paired with a format-rendering reference (`references/markdown-rendering.md` or `references/html-rendering.md`) that describes *how* the resolved format presents these sections. The same content renders in either format; only presentation differs.
+This is the section contract for the mash-ideate artifact — it describes *what* a persisted ideation document contains. It is paired with `references/markdown-rendering.md`, which describes how markdown presents these sections.
 
-Load this file at save time alongside the rendering reference matching `OUTPUT_FORMAT` (see `references/post-ideation-workflow.md` §4.1).
+Load this file at save time alongside `references/markdown-rendering.md` (see `references/post-ideation-workflow.md` §4.1).
 
 ## What the artifact contains
 
@@ -13,10 +13,9 @@ An ideation artifact is a ranked, critiqued candidate set, the grounding the can
 - **date** — composition date (YYYY-MM-DD).
 - **topic** — kebab-case topic slug.
 - **focus** — the focus hint, when one was given. Omit when open-ended.
-- **mode** — `repo-grounded`, `elsewhere-software`, or
-  `elsewhere-non-software`.
+- **mode** — `repo-grounded` or `elsewhere-software`.
 
-Markdown renders metadata as YAML frontmatter at the top of the file. HTML renders it as visible header text (per the html-rendering hard invariant: one visible source of truth per value, no hidden machine-readable copy).
+Metadata is YAML frontmatter at the top of the file.
 
 **No status field — not on the doc, not per idea.** An ideation doc is a point-in-time discovery artifact, not a tracked work item: it carries no `active → completed` lifecycle and no per-idea "explored" marker. Tracking mutable workflow progress inside the artifact would create a second source of truth that drifts — whether an idea was later pursued is knowable from downstream artifacts (a brainstorm or plan that picked it up), so it is not duplicated here.
 
@@ -43,7 +42,7 @@ The surviving candidates, ranked. Each idea carries:
 - **confidence** — 0-100%.
 - **complexity** — Low / Medium / High.
 
-**Keep idea cards expanded; add a jump-list when the section is long.** Unlike plan Implementation Units, ideation idea cards are meant to be read in full to choose a direction — do not hide their substance behind default-closed `<details>`. But the Ranked Ideas section is typically 5-7 cards and runs long in HTML, so add a within-section jump-list of the ranked titles (anchor links to each card) at the top of the section, per the rendering reference's within-section sub-nav affordance.
+**Keep idea cards expanded; add a jump-list when the section is long.** Unlike plan Implementation Units, ideation idea cards are meant to be read in full to choose a direction. The Ranked Ideas section is typically 5-7 cards, so add a within-section jump-list of the ranked titles (anchor links to each card) at the top of the section when it runs long.
 
 **Illustrative visuals — decide on the idea's shape, not on how clear the prose reads.** A well-placed visual can make a direction land faster for a human scanning a set of candidates. Decide per survivor — none, a few, or most may warrant one; there is no quota and no cap.
 
@@ -65,7 +64,7 @@ Two constraints on any visual you do add:
 - **Keep the prose standing alone.** A reader who ignores the visual
   still gets the complete idea and its basis. The visual accelerates understanding; it never carries content found nowhere else.
 
-Rendering mechanics (inline SVG in HTML with the layout-legibility and halo rules; a fenced mermaid block in markdown when the shape suits it) follow the rendering reference's Diagrams section — but that section's plan-centric, authoritative-diagram framing is overridden here by the illustrative, decide-per-idea stance above.
+A fenced mermaid block is the visual, per `references/markdown-rendering.md`. That reference's plan-centric, authoritative-diagram framing is overridden here by the illustrative, decide-per-idea stance above.
 
 ### Rejection Summary
 
@@ -73,14 +72,14 @@ A table of considered-and-cut ideas with a one-line reason each. When an axis en
 
 ## Markdown skeleton
 
-The section shape both formats carry. In markdown it is written literally (omit clearly irrelevant fields only when necessary); in HTML the same sections render per `html-rendering.md`.
+Write this shape literally. Omit a clearly irrelevant field only when necessary.
 
 ```markdown
 ---
 date: YYYY-MM-DD
 topic: <kebab-case-topic>
 focus: <optional focus hint>
-mode: <repo-grounded | elsewhere-software | elsewhere-non-software>
+mode: <repo-grounded | elsewhere-software>
 ---
 
 # Ideation: <Title>
@@ -114,4 +113,4 @@ mode: <repo-grounded | elsewhere-software | elsewhere-non-software>
 
 ## No process exhaust
 
-Keep engineering-process metadata out of the artifact — no "captured at Phase X" notes, no skill-pointer "next steps", no italic provenance lines. The reader wants the ideas and their basis. (HTML carries a single visible composition-signal footer per the html-rendering invariant; that is the one provenance element that belongs in the doc.)
+Keep engineering-process metadata out of the artifact — no "captured at Phase X" notes, no skill-pointer "next steps", no italic provenance lines. The reader wants the ideas and their basis.

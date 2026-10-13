@@ -6,21 +6,21 @@ Phase 1 of `mash-plan`. Read this before gathering context or dispatching any re
 
 #### 1.1 Local Research
 
-**A Lightweight plan does not dispatch the research agents below.** Ground it from bounded inline reads of the files the request names and their tests, plus any `.mash/solutions/` entry whose title matches the topic, then continue to 1.1b. The reclassification at 1.4b still applies when those reads surface an external contract surface.
+Dispatch the research agents below when the origin and the files it names do not already show where the code changes and which patterns to follow. When they do, read those files and their tests inline, plus any `.mash/solutions/` entry whose title matches the topic, and skip the dispatch.
 
-The skip is about **dispatch, not reading**. A grounding dossier handed off at Phase 0.2 is still read on every tier — it costs one file read and is the cheapest grounding available.
+The skip is about **dispatch, not reading**. A grounding dossier handed off at Phase 0.2 is still read — it costs one file read and is the cheapest grounding available.
 
-For Standard and Deep, prepare a concise planning context summary (a paragraph or two) to pass as input to the research agents:
+When dispatching, prepare a concise planning context summary (a paragraph or two) to pass as input to the research agents:
 - Summarize the problem frame, requirements, and key decisions from the origin document
 - If `STRATEGY.md` exists, read it and include the relevant pieces (target problem, approach, active tracks) in the summary so downstream research and planning decisions are anchored to product strategy
 - If `CONCEPTS.md` exists at the repo root, read it — its definitions are the canonical names for domain entities, named processes, and status concepts. Plan in those terms rather than synonyms.
 
 If the Phase 0 gate already ran, fold that recall into planning context; do not recall again. If Hindsight was unavailable at Phase 0, record it and do not retry because research begins. Treat useful recall output as additional planning context, alongside but separate from `.mash/solutions/` institutional learnings. If Hindsight is unavailable or not configured, continue Phase 1 and note memory unavailability only when it materially affects the plan context.
 
-Run these agents in parallel:
+When the inline read was not enough, run these agents in parallel:
 
 - Task mash-repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
-- Task mash-learnings-researcher(planning context summary)
+- Task mash-learnings-researcher(planning context summary). Skip when both `.mash/solutions/` and `.mash/insights/` are missing or contain no markdown files.
 
 Dispatch tiering and the degradation ladder (no model override → inherit and keep the read budgets; no subagent primitive → run the work inline) follow `~/.config/mash/references/model-tiers.md`; the win is context isolation, not cost, so the budgets matter more than the tier.
 
@@ -118,27 +118,13 @@ Summarize:
 - Related issues, PRs, or prior art
 - Any constraints that should materially shape the plan
 
-**Land external findings in decisions, not an appendix.** Any external research that ran must surface where it changes a choice — Key Technical Decisions rationale, Alternatives, Risks, or Sources & Research — not as a detached list with no bearing on the plan. If a finding shaped nothing, it was not load-bearing; do not pad the plan with it.
-
-**Mark whether external research was load-bearing.** Record a single internal flag: did external findings materially shape a KTD, Alternative, Scope boundary, or Risk? This flag answers only that question — it does **not** gate whether research runs (Phase 1.2 owns that decision). Phase 5.3.2 reads it to decide whether to enter a confidence-scoring pass.
+**Land external findings in decisions, not an appendix.** Any external research that ran must surface where it changes a choice — Key Technical Decisions rationale, Alternatives, Risks, or Sources & Research — not as a detached list with no bearing on the plan. If a finding shaped nothing, do not pad the plan with it.
 
 **Record requested-but-unavailable.** If the user explicitly requested external research but it could not run (web tools unavailable, researcher failed), state that in the plan as an assumption or open question rather than presenting the plan as externally grounded.
 
-#### 1.4b Reclassify Depth When Research Reveals External Contract Surfaces
-
-If the current classification is **Lightweight** and Phase 1 research found that the work touches any of these external contract surfaces, reclassify to **Standard**:
-
-- Environment variables consumed by external systems, CI, or other repositories
-- Exported public APIs, CLI flags, or command-line interface contracts
-- CI/CD configuration files (`.github/workflows/`, `Dockerfile`, deployment scripts)
-- Shared types or interfaces imported by downstream consumers
-- Documentation referenced by external URLs or linked from other systems
-
-This ensures flow analysis (Phase 1.5) runs and the confidence check (Phase 5.3) applies critical-section bonuses. Announce the reclassification briefly: "Reclassifying to Standard — this change touches [environment variables / exported APIs / CI config] with external consumers."
-
 #### 1.5 Flow and Edge-Case Analysis (Conditional)
 
-For **Standard** or **Deep** plans, or when user flow completeness is still unclear, run:
+When user flow completeness is still unclear, run:
 
 - Task mash-spec-flow-analyzer(planning context summary, research findings)
 

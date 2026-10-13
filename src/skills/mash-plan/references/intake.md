@@ -1,6 +1,6 @@
 # Plan Intake: Memory Gate, Resume, Classify, and Scope
 
-All of Phase 0 of `mash-plan` — read this before anything else on a software planning run. It carries the Hindsight gate, output and token parsing, the resume and deepen fast paths, the domain split, upstream-requirements discovery, the missing-origin stop, question classification, and depth.
+All of Phase 0 of `mash-plan` — read this before anything else on a software planning run. It carries the Hindsight gate, output and token parsing, resume, the review-intent handoff, the domain split, upstream-requirements discovery, the missing-origin stop, and question classification.
 
 The Core Principles and Plan Quality Bar in SKILL.md govern every phase from here on.
 
@@ -8,7 +8,7 @@ The Core Principles and Plan Quality Bar in SKILL.md govern every phase from her
 
 **Hindsight gate (hard):** Before any Phase 0 subsection, run the always-on Hindsight gate. CLI contract: [`mash-hindsight`](../../mash-hindsight/SKILL.md). First status line: `Hindsight: recalled (<brief useful context>)` or `Hindsight: unavailable (<reason>)`. Envelope field `HINDSIGHT:` stays separate. Do not search requirements or dispatch research until the gate completes.
 
-Non-interactive mode: still run `daemon status`; if recall fails, record `HINDSIGHT: unavailable -- <reason>` in plan assumptions.
+Non-interactive mode: still run the gate; if the availability check or recall fails, record `HINDSIGHT: unavailable -- <reason>` in plan assumptions.
 
 #### 0.0 Markdown Output
 
@@ -27,33 +27,27 @@ If the user references an existing plan file or there is an obvious recent match
 
 **Non-interactive mode**: do not ask. Update in place when the caller supplied the plan path explicitly — naming a plan is the instruction to work on that plan. When the plan was matched by recency rather than named, start fresh and record the choice as an assumption; silently rewriting a document the caller did not name is the worse failure.
 
-**Deepen intent:** The word "deepen" (or "deepening") in reference to a plan is the primary trigger for the deepening fast path. When the user says "deepen the plan", "deepen my plan", "run a deepening pass", or similar, the target document is a **plan** in `.mash/plans/`, not a requirements document. Use any path, keyword, or context the user provides to identify the right plan. If a path is provided, verify it is actually a plan document. If the match is not obvious, confirm with the user before proceeding — or, in non-interactive mode, stop with a blocker naming the candidates rather than guessing which plan to deepen.
+**Review intent:** "Deepen the plan", "deepen my plan", "run a deepening pass", or the same words aimed at a plan mean run `mash-doc-review` on that plan. The target is a plan in `.mash/plans/`, not a requirements document. Identify it from the path, keyword, or context. If a path is provided, verify it is a plan document. If the match is not obvious, confirm with the user — or, in non-interactive mode, stop with a blocker naming the candidates. Then invoke `mash-doc-review` on the plan path without `mode:headless`, and do not continue the planning phases.
 
-Words like "strengthen", "confidence", "gaps", and "rigor" are NOT sufficient on their own to trigger deepening. These words appear in normal editing requests ("strengthen that section about the diagram", "there are gaps in the test scenarios") and should not cause a holistic deepening pass. Only treat them as deepening intent when the request clearly targets the plan as a whole and does not name a specific section or content area to change — and even then, prefer to confirm with the user before entering the deepening flow. In non-interactive mode, treat an unconfirmable signal as **not** deepening intent and follow the standard resume flow — an unrequested holistic pass is the more expensive mistake.
+Words like "strengthen", "confidence", "gaps", and "rigor" are a normal edit when they name a section ("strengthen that section about the diagram", "there are gaps in the test scenarios"). Follow the resume flow. In non-interactive mode, an unconfirmable "deepen" is not a review request — follow the resume flow.
 
-Once the plan is identified and appears complete (all major sections present, implementation units defined):
-- **`.md` plan WITH YAML frontmatter:** short-circuit to Phase 5.3 (Confidence Check and Deepening). In `mode:interactive` this uses the **review-each-finding** posture, so the user adjudicates each agent's findings. In `mode:non-interactive` the short-circuit still fires but uses **integrate-directly** — 5.3.6b is skipped and all findings integrate, per `references/deepening-workflow.md`.
-- **`.md` plan WITHOUT YAML frontmatter** (non-software plans use a simple `# Title` heading with `Created:` date instead): route to `references/universal-planning.md` for editing or deepening instead of Phase 5.3. Non-software plans do not use the software confidence check.
+If the plan being resumed has no YAML frontmatter, it is not a software plan. Stop. In `mode:non-interactive`, emit the handoff envelope with `BLOCKERS: non-software plan` and leave `PLAN PATH:` empty.
 
-The Phase 5.3 short-circuit avoids re-running the full planning workflow and, in interactive mode, gives the user control over which findings are integrated.
-
-Normal editing requests (e.g., "update the test scenarios", "add a new implementation unit", "strengthen the risk section") should NOT trigger the fast path — they follow the standard resume flow.
-
-If the plan already has a `deepened: YYYY-MM-DD` frontmatter field and there is no explicit user request to re-deepen, the fast path still applies the same confidence-gap evaluation — it does not force deepening.
+Normal editing requests (e.g., "update the test scenarios", "add a new implementation unit", "strengthen the risk section") follow the standard resume flow.
 
 #### 0.1b Classify Task Domain
 
-**Classify by task-type, not by topic.** If the task asks to build, modify, refactor, debug, architect, or deploy software (code, schemas, infrastructure), continue to Phase 0.2. A request that merely *references* code, a repo, an API, or a database is not automatically software work — building or modifying it is software; investigating or analyzing it is answer-seeking.
+**Classify by task-type, not by topic.** If the task asks to build, modify, refactor, debug, architect, or deploy software (code, schemas, infrastructure), continue to Phase 0.2 and do not apply the stops below. A request that merely *references* code, a repo, an API, or a database is not automatically software work — building or modifying it is software; investigating or analyzing it is answer-seeking.
 
-**Software origin shape.** A `*-requirements.md` is a software origin only when its body includes `## Requirements` (the brainstorm hard floor). A wrap-up from the non-software brainstorm route has YAML `date` / `topic` plus a chat summary and does **not** include that heading — it is not a software origin.
+**Software origin shape.** A `*-requirements.md` is a software origin only when its body includes `## Requirements` (the brainstorm hard floor). A file with YAML `date` / `topic` and no `## Requirements` heading is not a software origin.
 
 **Named origin wins only when it is software-shaped.** If remaining args, an `origin:` token, or prose names a readable software origin, treat the run as software and continue to Phase 0.2. The artifact controls routing even when the prompt sounds like research.
 
-If the named file is readable but **not** software-shaped, do **not** continue to Phase 0.2. Read `references/universal-planning.md` and follow that workflow, using the named file as the wrap-up source. A universal "Create a plan" handoff takes this path.
+If the named file is readable but **not** software-shaped, stop. Say that mash-plan covers software work and this document is not a software origin. In `mode:non-interactive`, emit the handoff envelope with `BLOCKERS: non-software origin` and leave `PLAN PATH:` empty.
 
-If the domain is genuinely ambiguous (e.g., "plan a migration" with no other context and no origin path), ask the user before routing.
+If the domain is genuinely ambiguous (e.g., "plan a migration" with no other context and no origin path), ask the user before continuing. In `mode:non-interactive`, stop with `BLOCKERS: ambiguous domain` rather than guessing.
 
-Otherwise, read `references/universal-planning.md` and follow that workflow instead. Skip all subsequent phases. Named tools or source links don't change this routing — they're inputs, handled per Core Principle 8.
+Otherwise the task is not software. Stop with the same non-software message. Skip all subsequent phases.
 
 
 #### 0.2 Find Upstream Requirements Document
@@ -68,13 +62,13 @@ Discover an origin **before** asking planning questions. Named paths win; direct
 
 If any of those names a readable **software** origin (`## Requirements` present, per 0.1b), use it as the origin. **Do not apply the 30-day filter.** Do not search. Do not ask which document. Continue at Phase 0.3.
 
-If the named path is readable but **not** software-shaped, stop using it as a software origin — route to `references/universal-planning.md` (0.1b should already have done this; this is the backstop).
+If the named path is readable but **not** software-shaped, stop as in 0.1b (non-software origin).
 
 If the named path is unreadable or is not a `*-requirements.md` file:
 - Interactive: ask for a corrected path. Do not invent an origin from the prompt.
 - Non-interactive: emit the handoff envelope with the named path in `BLOCKERS:` (e.g. `named origin unreadable: <path>`). Leave `PLAN PATH:` empty.
 
-**Directory search only when no explicit path was given.** Search the **flat** `.mash/brainstorms/` directory for `*-requirements.md` files that are software-shaped (`## Requirements` present). Skip wrap-up saves from the non-software brainstorm route. Match that directory only — never `.mash/brainstorms/scratch/` (per-run scout artifacts), never `.mash/parallel/` (projected origins). `.mash/parallel/` is never a search root.
+**Directory search only when no explicit path was given.** Search the **flat** `.mash/brainstorms/` directory for `*-requirements.md` files that are software-shaped (`## Requirements` present). Skip files that lack that heading. Match that directory only — never `.mash/brainstorms/scratch/` (per-run scout artifacts), never `.mash/parallel/` (projected origins). `.mash/parallel/` is never a search root.
 
 **Relevance criteria (search only):** A software origin is relevant if:
 - The topic semantically matches the feature description
@@ -111,7 +105,7 @@ If a relevant requirements document exists:
 
 **If Phase 0.2 found no relevant requirements document, stop here.** Planning does not proceed from the user's request directly — `mash-brainstorm` owns WHAT to build, and inventing product scope at plan time is the failure this gate exists to prevent.
 
-This gate is reached only on the normal path. It does **not** fire when a Phase 0.1 fast path fired (resume-normal and deepen-intent operate on an existing plan and never look for an origin), and it does **not** fire on the Phase 0.1b non-software route (which replaces Phases 0.2–5.1 with `references/universal-planning.md` and never reaches this step).
+This gate is reached only on the normal path. It does **not** fire when Phase 0.1 is updating an existing plan, when review intent has already handed that plan to `mash-doc-review`, or after the Phase 0.1b non-software stop.
 
 In `mode:interactive`, name the gap and offer the route:
 
@@ -159,13 +153,3 @@ If true product blockers remain:
   1. Resume `mash-brainstorm` to resolve them
   2. Convert them into explicit assumptions or decisions and continue
 - Do not continue planning while true blockers remain unresolved
-
-#### 0.6 Assess Plan Depth
-
-Classify the work into one of these plan depths:
-
-- **Lightweight** - small, well-bounded, low ambiguity
-- **Standard** - normal feature or bounded refactor with some technical decisions to document
-- **Deep** - cross-cutting, strategic, high-risk, or highly ambiguous implementation work
-
-If depth is unclear, ask one targeted question and then continue.

@@ -1,7 +1,7 @@
 ---
 name: mash-plan
-description: "Create structured plans for multi-step tasks -- software features, research workflows, events, study plans, or any goal that benefits from breakdown. Also deepens existing plans with interactive sub-agent review. Use when the user says 'plan this', 'create a plan', 'how should we build', 'break this down', or when a brainstorm doc is ready for planning. Use 'deepen the plan' or 'deepening pass' for the deepening flow. For exploratory requests, prefer mash-brainstorm first."
-argument-hint: "[optional: feature description, requirements doc path, plan path to deepen, or any task to plan]"
+description: "Create structured plans for software work. Use when the user says 'plan this', 'create a plan', 'how should we build', 'break this down', or when a brainstorm doc is ready for planning. 'Deepen the plan' runs mash-doc-review on that plan. For exploratory requests, prefer mash-brainstorm first."
+argument-hint: "[optional: feature description or requirements doc path]"
 ---
 
 # Mash Programming Skills Plan
@@ -12,9 +12,9 @@ argument-hint: "[optional: feature description, requirements doc path, plan path
 
 **Outcome:** a durable plan under `.mash/plans/` that an implementer can act on without re-deciding what was already settled.
 
-**Done:** that result is delivered **and** its handoff has fired — the Phase 5.4 menu presented and the selected action actually executed; in `mode:non-interactive`, the handoff envelope emitted. Writing the file and running the confidence check are **intermediate milestones, not completion**. Document review runs only when the user selects it from the handoff menu. Rendering the menu, receiving a selection, or announcing a route is not completion either — execute the selected action.
+**Done:** that result is delivered **and** its handoff has fired — the Phase 5.4 menu presented and the selected action actually executed; in `mode:non-interactive`, the handoff envelope emitted. Writing the file is an intermediate milestone, not completion. Document review runs only when the user selects it from the handoff menu, or when the user asked to deepen the plan. Rendering the menu, receiving a selection, or announcing a route is not completion either — execute the selected action.
 
-**Once an origin document is in hand, always plan.** Never classify such an invocation as "not a planning task" and abandon the workflow. If the origin leaves something unclear, ask clarifying questions — but stay in the workflow. Sanctioned stops: missing origin (0.3b), unreadable required reference, non-software route, or an ambiguous deepen target in non-interactive mode.
+**Once an origin document is in hand, always plan.** Never classify such an invocation as "not a planning task" and abandon the workflow. If the origin leaves something unclear, ask clarifying questions — but stay in the workflow. Sanctioned stops: missing origin (0.3b), unreadable required reference, non-software stop (0.1b), or an ambiguous review target in non-interactive mode.
 
 **Research, decide, and write the plan — never implement.** No production code, no test runs, no learning from execution-time results. Directional pseudo-code may communicate design; changing code to see what happens belongs in `mash-work`.
 
@@ -41,9 +41,7 @@ This skill follows the Mash Programming Skills-native plan workflow, with Mash P
 
 ## Communication while using this skill
 
-**Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors and code unchanged. Drop lite only for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or when the user asks for normal or long-form wording.
-
-Caveman lite applies to chat and status prose, not to the plan document, which stays clear enough for humans to review.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 ## Interaction Method
 
@@ -86,7 +84,7 @@ BLOCKERS: empty input; supply a requirements document path or feature descriptio
 END_MASH_PLAN_HANDOFF
 ```
 
-If the input is a path to a `*-requirements.md` file (or an `origin:` token names one), Phase 0.1b classifies it: a software origin (`## Requirements` present) continues to Phase 0.2, which uses that path; a wrap-up without that heading routes to `references/universal-planning.md`. Do not ask which document first.
+If the input is a path to a `*-requirements.md` file (or an `origin:` token names one), Phase 0.1b classifies it: a software origin (`## Requirements` present) continues to Phase 0.2, which uses that path; a wrap-up without that heading is a non-software stop. Do not ask which document first.
 
 If the input is present but is not a path and is unclear or underspecified, ask one or two clarifying questions to identify which requirements document the user means. Phase 0.2 then searches for it, and Phase 0.3b stops the run when none is found.
 
@@ -95,7 +93,7 @@ If the input is present but is not a path and is unclear or underspecified, ask 
 1. **Use the origin as the source of truth** - Use the origin requirements document as the source of truth. Do not reinvent behavior, scope, or success criteria. If no origin exists, stop at Phase 0.3b.
 2. **Decisions, not code** - Capture approach, boundaries, files, dependencies, risks, and test scenarios. Do not pre-write implementation code or shell choreography. Pseudo-code is fine only as directional design guidance.
 3. **Research before structuring** - Explore the codebase, institutional learnings, and external guidance when warranted before finalizing the plan.
-4. **Right-size the artifact** - Small software work that reached this skill gets a Lightweight plan. Large work gets more structure. The philosophy stays the same at every depth.
+4. **Right-size the artifact** - Include a section when it has something to say. The hard floor stays on every plan.
 5. **Separate planning from execution discovery** - Resolve planning-time questions here. Explicitly defer execution-time unknowns to implementation.
 6. **Keep the plan portable** - The plan should work as a living document, review artifact, or issue body without embedding tool-specific executor instructions.
 7. **Carry execution posture lightly when it matters** - Note test-first, characterization-first, or smoke-first posture when clearly implied. Do not turn it into execution choreography.
@@ -130,17 +128,14 @@ Phases run in order unless an owner routes out or short-circuits.
 
 | Phase | Read first | What only those files carry |
 |---|---|---|
-| 0 — memory gate, resume, classify, source, scope | `references/intake.md` | the Hindsight gate and what "unavailable" means; markdown output and token parsing; the resume and deepen fast paths; the software / non-software split; upstream requirements discovery, the missing-origin stop, and the dossier input; blocking-question classification; depth tiers |
-| non-software route (from 0.1b) | `references/universal-planning.md` | the domain-agnostic workflow that replaces Phases 0.2–5.1; the non-interactive hard-stop |
-| 1 — gather context | `references/research.md` | local research and what Lightweight skips; execution-direction signals; the external-research decision and its three stages; consolidation; depth reclassification on external contract surfaces; flow analysis |
-| 2–4 — resolve questions, structure, write | `references/structure.md` | planning-question classification; title and file naming; the Sentrux topology baseline; Implementation Units and stable U-IDs; high-level technical design; depth guidance; planning rules |
+| 0 — memory gate, resume, classify, source, scope | `references/intake.md` | the Hindsight gate and what "unavailable" means; markdown output and token parsing; resume; the review-intent handoff to mash-doc-review; the non-software stop; upstream requirements discovery, the missing-origin stop, and the dossier input; blocking-question classification |
+| 1 — gather context | `references/research.md` | when to read files inline and when to dispatch research agents; execution-direction signals; the external-research decision and its three stages; consolidation; flow analysis |
+| 2–4 — resolve questions, structure, write | `references/structure.md` | planning-question classification; title and file naming; the Sentrux topology baseline; Implementation Units and stable U-IDs; high-level technical design; optional sections; planning rules |
 | 4.2 — compose | `references/plan-sections.md`, then `references/markdown-rendering.md` | what the plan contains (hard floor, include-when-material catalog, ID rules); how markdown presents it |
-| 5.1–5.3.2 — review, write, confidence gate | `references/final-review.md` | the pre-write checklist; the scoping synthesis; write-path mechanics and the handoff envelope; confidence classification and the deepening gate |
-| 5.3.3–5.3.7 — deepening (when the gate fires) | `references/deepening-workflow.md` | confidence scoring checklists; section-to-agent dispatch; execution modes; interactive finding review; plan synthesis |
-| 5.3.8–5.4 — final checks and handoff | `references/plan-handoff.md` | the ponytail sanity-check; final checks; the user-selected document-review option; menu rendering and per-selection routing; issue creation |
-| the scoping synthesis (5.1.5) | `references/synthesis-summary.md` | the affirmability and keep tests; summary shape budgets; anti-patterns; the literal templates; non-interactive routing |
+| 5.1–5.2 — review and write | `references/final-review.md` | the pre-write checklist; write-path mechanics; the one-question confirmation of the written file |
+| after the file is confirmed | `references/plan-handoff.md` | the ponytail sanity-check; final checks; the user-selected document-review option; menu rendering and per-selection routing; issue creation; the non-interactive handoff envelope |
 
-**Before Phase 5.3.8, read `references/plan-handoff.md`.** Ponytail checks, final checks, and Phase 5.4 remain part of this skill. Done means the selected Phase 5.4 action executed in interactive mode or the handoff envelope emitted in non-interactive mode. Document review is never automatic: interactive runs offer it as a menu option, while non-interactive runs skip it. Without that reference the menu renders and the run stops without firing the routed action. If the selection arrives after a user turn, reload that reference before acting.
+**After the plan file is written, read `references/plan-handoff.md`.** Interactive runs read it after the user answers the file confirmation. Ponytail checks, final checks, and the Phase 5.4 menu remain part of this skill. Done means the selected Phase 5.4 action executed in interactive mode or the handoff envelope emitted in non-interactive mode. Document review is never automatic on a planning run: interactive runs offer it as a menu option, "deepen the plan" invokes it directly, and non-interactive runs skip it. Without that reference the menu renders and the run stops without firing the routed action. If the selection arrives after a user turn, reload that reference before acting.
 
 **Phase 5.4 routing (concise; details in `references/plan-handoff.md`):**
 - **Start `mash-work`** — invoke `mash-work` with the plan path now. Do not only tell the user to type the command.

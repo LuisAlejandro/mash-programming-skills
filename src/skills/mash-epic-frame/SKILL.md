@@ -20,9 +20,7 @@ Framing answers **WHAT the areas are** for an epic; `mash-epic-decompose` then a
 
 ## Communication while using this skill
 
-**Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors and code unchanged. Drop lite only for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or when the user asks for normal or long-form wording.
-
-**Artifact boundary:** Caveman lite applies to chat and status prose, not to the requirements documents, which stay clear enough for humans to review.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 ## Epic Description
 

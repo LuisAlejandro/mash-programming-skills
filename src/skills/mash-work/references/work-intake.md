@@ -10,7 +10,7 @@ Branch setup does not exist in this skill — work happens in place on the curre
 
 0. **Blank input — latest software plan.** After stripping `mode:`, if the remaining input is empty:
    1. Glob `.mash/plans/*-plan.md`.
-   2. Keep only **software** plans: YAML frontmatter is present. Skip universal plans that start with `# Title` plus a `Created:` date and have no YAML frontmatter.
+   2. Keep only plans with YAML frontmatter. Skip a file that starts with `# Title` plus a `Created:` date and has no YAML frontmatter.
    3. Pick the newest remaining file by mtime.
    4. Interactive: if more than one software plan was modified today, confirm which one. Otherwise announce the chosen path and use it.
    5. Non-interactive: use that unique latest match. If none exist, use the no-plan envelope below (`BLOCKERS: no plan path supplied or resolvable`).
@@ -96,6 +96,7 @@ END_MASH_WORK_HANDOFF
    2. Otherwise inspect Makefile targets (`make test`, `make lint`) and Compose services.
    3. Otherwise resolve through [`mash-lint`](../../mash-lint/SKILL.md) discovery and the Docker-via-Make always-on guideline.
    4. Prefer Docker-via-Make (containers when a working Compose + Make setup exists); otherwise use host commands per the always-on guideline.
+   5. These resolved commands are the per-unit checks inside the Phase 2 loop. They feed the single deduped `VERIFY:` list built at handoff ([`handoff.md`](handoff.md) step 2) — do not maintain a second verification list.
 
 3. **Create Task List**
    - Use the harness's task-tracking tool (its todo/plan primitive — match by capability) to break the plan into actionable tasks. When the harness exposes none, keep the task list in your own working context rather than simulating one in chat

@@ -130,7 +130,7 @@ False-positive categories to actively suppress. Do NOT emit a finding when any o
 **Precedence over the false-positive catalog.** The false-positive catalog above is stricter than the advisory rule — if a shape matches the FP catalog, it is a non-finding and must be suppressed entirely. Do NOT route it to anchor `50` / advisory. The advisory rule applies only to shapes that are NOT in the FP catalog.
 
 Rules:
-- You are a leaf reviewer inside an already-running Mash Programming Skills review workflow. Do not invoke Mash Programming Skills skills or agents unless this template explicitly instructs you to. Perform your analysis directly and return findings in the required output format only.
+- You are a leaf reviewer inside an already-running Mash Programming Skills review workflow. Do not invoke Mash Programming Skills or agents unless this template explicitly instructs you to. Perform your analysis directly and return findings in the required output format only.
 - Suppress any finding you cannot honestly anchor at `50` or higher (the actionable floor is `50`; anchors `0` and `25` are suppressed by synthesis anyway, so emitting them only adds noise). If your persona's domain description sets a stricter floor (e.g., anchor `75` minimum), honor it.
 - Every finding in the full artifact file MUST include at least one evidence item grounded in the actual code. The compact return omits evidence -- the evidence requirement applies to the disk artifact only.
 - Set `pre_existing` to true ONLY for issues in unchanged code that are unrelated to this diff. If the diff makes the issue newly relevant, it is NOT pre-existing.

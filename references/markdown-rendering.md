@@ -58,7 +58,7 @@ This gives the bullet structure without needing H4/H5 headings that would clutte
 
 ### Section separators
 
-For substantial artifacts, use horizontal rules (`---`) between top-level H2 sections. Standard and Deep plans: use them when the artifact is substantial. Lightweight plans: omit them when they add ceremony. Brainstorm documents: use them when the document is substantial; omit them for sparse documents.
+For substantial artifacts, use horizontal rules (`---`) between top-level H2 sections. Omit them when the document fits on a single screen.
 
 ### Tables for genuinely comparative info only
 
@@ -139,7 +139,7 @@ Before declaring the markdown file written, scan it for these common slips:
 - No fixed-width wrapping — no paragraph hard-wrapped to a column.
 - No box-drawing characters; tables are pipe-delimited.
 - All file paths are repo-relative.
-- Horizontal rule separators between H2s when the artifact is substantial: Standard and Deep plans use them; Lightweight plans omit them when they add ceremony; brainstorm documents use them when substantial and omit them when sparse.
+- Horizontal rule separators between H2s when the artifact is substantial. Omit them when the document fits on a single screen.
 - No process exhaust (Phase X notes, Next Steps pointers, provenance lines).
 - Tables only where 5+ uniform-shape items justify them.
 - Frontmatter has all the per-skill required fields with reasonable values.

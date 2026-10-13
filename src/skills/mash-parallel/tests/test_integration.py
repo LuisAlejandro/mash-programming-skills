@@ -238,11 +238,14 @@ def test_finish_run_gate_failure_blocks_base_ref_move(tmp_path):
             return "pass"
 
     # The default gate runs the skill's test suite in the integration worktree.
-    # The integration worktree has no src/skills/mash-parallel/tests, so
-    # the default gate returns (True, []) and the base ref moves. To exercise
-    # the gate-failure path, monkeypatch the default gate to fail.
+    # The integration worktree has no src/skills/mash-parallel/tests, so the
+    # default gate reports "not configured" (not a pass) and the base ref moves.
+    # To exercise the gate-failure path, monkeypatch the default gate to fail.
     rp.finish_run(state, tracks, PassVerify(), run, repo)
     assert run["integration"]["status"] == "success"
+    # C13: "not configured" must survive into the report so a success status is
+    # never read as "integration checks passed".
+    assert rp.GATE_NOT_CONFIGURED in run["integration"]["gates_not_configured"]
     assert _branch_point(repo) != base_before
 
     # Now force a gate failure: base ref must NOT move.

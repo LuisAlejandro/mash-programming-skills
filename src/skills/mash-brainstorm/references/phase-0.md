@@ -1,16 +1,16 @@
 # Phase 0: Communication, Memory Gate, Resume, Classify, and Scope
 
-Read this before anything else on every run, including the non-software route — it carries the communication rule and the memory gate as well as Phase 0 itself.
+Read this before anything else on every run. It carries the memory gate as well as Phase 0 itself.
 
 ## Communication while using this skill
 
-**Caveman lite** is defined in [`SKILL.md`](../SKILL.md). Follow that kernel wording; do not restate it here.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule. Do not restate them here.
 
 ## Phase 0: Resume, Assess, and Route
 
 **Memory gate (hard):** Run this **before any Phase 0 subsection** — before 0.0, resume, classification, or the Phase 1.1 grounding scout. Do not search the repo or dispatch research until the gate completes.
 
-1. Read [`mash-hindsight`](../../mash-hindsight/SKILL.md) and run `hindsight-embed daemon status` + `hindsight-embed memory recall` (prepend `~/.local/bin` to PATH; see skill) OR document `Hindsight: unavailable (<reason>)`.
+1. Read [`mash-hindsight`](../../mash-hindsight/SKILL.md), run its availability check (daemon status **and** the `/version` fingerprint), then `memory recall`; OR document `Hindsight: unavailable (<reason>)`. The skill owns the procedure — do not restate it.
 2. First status line: `Hindsight: recalled (<brief useful context>)` or `Hindsight: unavailable (<reason>)`. Envelope field `HINDSIGHT:` stays separate.
 3. Do not write the requirements doc until step 1 completes or is explicitly marked unavailable.
 
@@ -41,16 +41,14 @@ Before proceeding to Phase 0.2, classify whether this is a software task. The ke
 
 **Software** (continue to Phase 0.2) -- the user asks to build, modify, refactor, debug, architect, or deploy software. Always write `*-requirements.md`. A request that merely *references* code, a repo, an API, or a database is not software by itself.
 
-**Non-software brainstorming** (route to universal brainstorming) -- BOTH conditions must be true:
+**Non-software** -- BOTH conditions must be true:
 
 - The user is not asking to build, modify, refactor, debug, architect, or deploy software
 - The task describes something the user wants to explore, decide, or think through in a non-software domain
 
-Chat summary is required. Write a requirements file only when the user saves or chooses Create a plan (see `references/universal-brainstorming.md`).
+Stop. Say that mash-brainstorm covers software work and this request does not. Do not write a requirements file.
 
 **Neither** (not a brainstorm run) -- the input is a quick-help request, error message, factual question, or single-step task that doesn't need a brainstorm. Answer and stop; skip all brainstorming phases.
-
-**If non-software brainstorming is detected:** Read `references/universal-brainstorming.md` and use those facilitation principles. Skip Phases 0.2–4 below — the **Core Principles and Interaction Rules in `references/interaction-rules.md` still apply unchanged**, including one-question-per-turn, asking only decisions the environment cannot settle, and the default to the platform's blocking question tool.
 
 ### 0.2 Assess Whether Brainstorming Is Needed
 
@@ -61,18 +59,13 @@ Chat summary is required. Write a requirements file only when the user saves or 
 - Described exact expected behavior
 - Constrained, well-defined scope
 
-**If requirements are already clear:** Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Skip Phase 1.1 and 1.2 entirely — still classify tier in Phase 0.3, then go straight to Phase 1.3 or Phase 2.5 and compose the full scoping synthesis per `references/synthesis-summary.md`. A pre-loaded prompt does not earn a thinner checkpoint: the synthesis and its confirmation gate fire on every interactive run.
+**If requirements are already clear:** Skip Phase 1.1 and 1.2. If one direction is already settled, skip Phase 2 and write the requirements document. If more than one plausible direction remains, do Phase 2, then write. The confirmation is the written file, in Phase 3.
 
-### 0.3 Assess Scope
+### 0.3 Scope floor
 
-Use the feature description plus a light repo scan to classify the work:
+Work too small for a requirements document does not belong in this skill — see the scope floor in `SKILL.md`. If it is unclear whether the work is large enough, ask one targeted question and then proceed. When it stays uncertain, stay in the skill and write the requirements document.
 
-- **Standard** - normal feature or bounded refactor with some decisions to make
-- **Deep** - cross-cutting, strategic, or highly ambiguous
-
-Standard is the floor. Work too small for a requirements document does not belong in this skill at all — see the scope floor in `SKILL.md`. If the scope is unclear, ask one targeted question to disambiguate and then proceed; when it stays uncertain, take the heavier tier.
-
-In non-interactive mode, do not ask. Classify conservatively from the supplied feature description and record the classification as an assumption when it materially affects the document.
+In non-interactive mode, do not ask. A software request that reached this skill writes a requirements document.
 
 **Every software run writes a requirements document.** `mash-plan` requires it as origin. There is no software-route chat-only outcome.
 
@@ -81,13 +74,6 @@ In non-interactive mode, do not ask. Classify conservatively from the supplied f
 - The Phase 1.1 grounding scout runs only when Phase 1.1 runs.
 - Approach generation follows the gates in `references/approaches.md`.
 - The claim verifier runs only for checkable repo claims (see `references/approaches.md`).
-
-**Deep sub-mode: feature vs product.** For Deep scope, also classify whether the brainstorm must establish product shape or inherit it:
-
-- **Deep — feature** (default): existing product shape anchors decisions. Primary actors, core outcome, positioning, and primary flows are already established in the product or repo. The brainstorm extends or refines within that shape.
-- **Deep — product**: the brainstorm must establish product shape rather than inherit it. Primary actors, core outcome, positioning against adjacent products, or primary end-to-end flows are materially unresolved. Existing code lowers the odds of product-tier but does not by itself rule it out — a half-built tool with ambiguous shape is still product-tier.
-
-Product-tier triggers additional Phase 1.2 questions and additional sections in the requirements document. Feature-tier uses the current Deep behavior unchanged.
 
 **Coherent-work gate.** Before entering Phase 1, check whether the request contains more than one independently plannable product outcome: each has its own user value or acceptance boundary and could be delivered without completing the others. Shared actors, one end-to-end outcome, or coverage across named devices, providers, or data sources do not by themselves justify a split — that is Core Principle 7.
 

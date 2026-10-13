@@ -410,31 +410,54 @@ def _drop_worktree(repo_root: str | os.PathLike, wt_path: str | os.PathLike) -> 
 
 MAX_FIX_UP_ROUNDS = 2
 
+# Sentinel a gate returns in its ``failures`` list to mean "nothing was
+# configured to run". It is deliberately NOT a failure: a repo with no
+# integration suite must still be able to integrate. It exists so the run
+# report can distinguish "checks passed" from "checks never ran".
+GATE_NOT_CONFIGURED = "integration gate not configured"
 
-def _default_integration_gate(integration_worktree):
-    """Default gate: run a skill test suite present in the integration worktree.
 
-    The suite is looked up inside ``integration_worktree`` because the gate
-    validates the merged tree, not the installed skill. Under a global install
-    the skill lives in the user's IDE home, so no suite is present in the tree
-    and the gate reports a visible skip rather than passing silently.
+def _default_integration_gate(integration_worktree, command=None):
+    """Default integration gate.
 
-    The skill's own suite is deliberately NOT run here: it exercises this
-    orchestrator, so invoking it from inside a gate recurses.
+    Prefers the run's explicit ``options.integration_command``: that is the
+    only gate that can validate an arbitrary application repo, and it is what
+    the operator should set for a real epic. Falls back to the skill's own
+    suite when one is present in the merged tree, which exercises this
+    orchestrator (useful only when this repo is the target).
 
-    Returns (ok, failures). A failing gate blocks the base-ref move (R17/R26).
+    When neither exists, the gate does not pass silently and does not block:
+    it returns :data:`GATE_NOT_CONFIGURED` in ``failures`` so the report says
+    plainly that no integration checks ran. The skill's own suite is never
+    run as a universal gate — invoking it from inside a gate recurses.
+
+    Returns (ok, failures). A real failure blocks the base-ref move (R17/R26).
     """
     import subprocess as _sp
     import sys as _sys
+
+    if command:
+        res = _sp.run(
+            command, shell=True, cwd=str(integration_worktree),
+            capture_output=True, text=True,
+        )
+        if res.returncode == 0:
+            return True, []
+        return False, [
+            res.stdout.strip() or res.stderr.strip()
+            or f"integration command failed: {command}"
+        ]
 
     skill_rel = Path("src") / "skills" / "mash-parallel"
     tests_dir = Path(integration_worktree) / skill_rel / "tests"
     if not tests_dir.is_dir():
         print(
-            f"[mash-parallel] integration gate skipped: no test suite at {tests_dir}",
+            f"[mash-parallel] integration gate NOT CONFIGURED: no "
+            f"integration_command set and no test suite at {tests_dir} — "
+            f"no integration checks ran",
             file=_sys.stderr,
         )
-        return True, []
+        return True, [GATE_NOT_CONFIGURED]
     venv_python = Path(integration_worktree) / skill_rel / ".venv" / "bin" / "python"
     interpreter = str(venv_python) if venv_python.exists() else _sys.executable
     res = _sp.run(
@@ -470,10 +493,17 @@ def finish_run(state, tracks, driver, run, repo_root=None) -> None:
                 if trk.get("branch") not in merged_branches
             ]
             if mergeable:
+                gate_cmd = run.get("integration_command")
+                # Resolve the gate at call time so a test/monkeypatch of the
+                # module-level default still takes effect.
+                gates = (
+                    (lambda tree: _default_integration_gate(tree, gate_cmd))
+                    if gate_cmd else _default_integration_gate
+                )
                 integ = integrate(
                     repo_root, mergeable,
                     base_branch=run.get("base_branch") or "develop",
-                    gates=_default_integration_gate,
+                    gates=gates,
                 )
                 run["integration"] = integ
                 merged_branches.update(integ.get("merged_tracks") or [])
@@ -485,7 +515,11 @@ def finish_run(state, tracks, driver, run, repo_root=None) -> None:
                     continue
             tip = (integ or {}).get("integrated_tip")
             if tip and callable(getattr(driver, "verify_phase", None)):
-                ver = run_parallel_verification(driver, tip)
+                # Pass the pre-integration base so the verifiers review a
+                # defined range rather than an unanchored tip (C12).
+                ver = run_parallel_verification(
+                    driver, tip, base_sha=run.get("base_sha_snapshot"),
+                )
                 run["verification"] = ver
                 verified_ok = bool(ver.get("passed"))
                 if not verified_ok:
@@ -1452,7 +1486,7 @@ def load_worker_prompt() -> str:
 def orchestrate_run(
     repo_root, tasks, footprints, driver,
     base_branch="develop", base_sha=None, resume=None, max_parallel=4,
-    gate=True,
+    gate=True, integration_command=None,
 ):
     """Drive an epic's tasks through plan -> work -> qa -> lint.
 
@@ -1504,6 +1538,8 @@ def orchestrate_run(
             base_sha or (resume.get("base_sha_snapshot") if resume else None),
         ),
     }
+    if integration_command:
+        run["integration_command"] = integration_command
     # Fingerprint-keyed resume (hardening U3: R5). Compute fingerprints with
     # dependency folding; reuse unchanged completed tasks, re-run changed/added.
     for tid, t in state.items():
@@ -2023,7 +2059,17 @@ def run_scaffold(driver, tasks: dict) -> dict:
     One architect worker defines shared contracts (interfaces, types, schemas,
     stubs) before executors fan out. Returns a scaffold record with the
     contract doc path and any blockers.
+
+    The task goals are handed to the worker so its contract reflects the epic
+    it is scaffolding for. Without them the scaffold worker receives a
+    placeholder task id and a bare phase label (C12).
     """
+    # Optional hook: real drivers take context; the test fakes do not.
+    if hasattr(driver, "set_task_context"):
+        driver.set_task_context(
+            "__scaffold__",
+            task_goals=[t.get("goal") or tid for tid, t in tasks.items()],
+        )
     outcome = driver.scaffold_phase()
     return {
         "phase": "scaffold",
@@ -2135,16 +2181,27 @@ def write_task_origin_docs(repo_root, tasks: dict) -> dict[str, str]:
     return out
 
 
-def run_parallel_verification(driver, integrated_tip: str | None) -> dict:
+def run_parallel_verification(driver, integrated_tip: str | None,
+                              base_sha: str | None = None) -> dict:
     """Parallel verification after integration (hardening U5: R9).
 
     Fans out 3 verifiers concurrently (code review + test runner +
     architecture/contract check) on the integrated result. Returns a record
     of per-verifier outcomes and any rejections.
+
+    ``base_sha`` is the pre-integration base; when supplied the verifiers are
+    told the exact ``base_sha..integrated_tip`` range to inspect, so the stage
+    reviews a defined target instead of a bare tip (C12).
     """
     import concurrent.futures as _cf
 
     verifiers = ["code_review", "test_runner", "architecture"]
+
+    # Record the review base on each synthetic verify id before dispatch.
+    # verify_phase merges rather than overwrites, so this survives.
+    if base_sha and hasattr(driver, "set_task_context"):
+        for v in verifiers:
+            driver.set_task_context(f"__verify__/{v}", review_base=base_sha)
 
     def _run(v: str) -> tuple[str, str]:
         return v, driver.verify_phase(v, integrated_tip)
@@ -2179,7 +2236,6 @@ def integrate(repo_root, tracks, base_branch="develop", gates=None):
     status: "success" | "fixup".
     """
     import subprocess as _sp
-
     repo = Path(repo_root)
     integration_wt = repo / "mash-parallel-integration"
     ok, failures = True, []
@@ -2215,13 +2271,23 @@ def integrate(repo_root, tracks, base_branch="develop", gates=None):
                 }
             merged.append(branch)
         # Gates on the merged result.
+        gates_not_configured: list[str] = []
         if gates is not None:
             ok, failures = gates(integration_wt)
+            # A gate signals "nothing to run" through this sentinel. It is not
+            # a failure, but it must survive into the report so "passed" is
+            # never reported for checks that never executed.
+            if GATE_NOT_CONFIGURED in failures:
+                gates_not_configured = [
+                    f for f in failures if f == GATE_NOT_CONFIGURED
+                ]
+                failures = [f for f in failures if f != GATE_NOT_CONFIGURED]
         if not ok:
             return {
                 "status": "fixup",
                 "reason": "gates failed: " + "; ".join(failures),
                 "gates_failed": failures,
+                "gates_not_configured": gates_not_configured,
                 "merged_tracks": merged,
                 "integrated_tip": None,
             }
@@ -2238,6 +2304,7 @@ def integrate(repo_root, tracks, base_branch="develop", gates=None):
             "status": "success",
             "merged_tracks": merged,
             "integrated_tip": integrated_tip,
+            "gates_not_configured": gates_not_configured,
             # Stringify the worktree path — a PosixPath leaks into the run
             # record and crashes save_run's json.dumps.
             "leftover_worktrees": [str(integration_wt)],
@@ -2359,7 +2426,7 @@ class HarnessPhaseDriver:
                 "ORIGIN DOC: {origin_doc}\nPhase: {phase}\n"
                 "track_branch: {track_branch}\nqa_diff_base: {qa_diff_base}\n"
             )
-        return template.format(
+        prompt = template.format(
             goal=ctx.get("goal", task_id),
             plan_path=plan,
             origin_doc=ctx.get("origin_doc") or "",
@@ -2367,6 +2434,53 @@ class HarnessPhaseDriver:
             phase=phase,
             qa_diff_base=qa_base,
         )
+        extra = self._phase_context(task_id, phase)
+        return f"{prompt}\n{extra}" if extra else prompt
+
+    def _phase_context(self, task_id: str, phase: str) -> str:
+        """Explicit success contract for phases the base template omits.
+
+        The worker template's PHASE CONTRACT covers plan/work/qa/lint only.
+        scaffold and verify run through the same driver, so without this they
+        reach the worker as a bare phase label with a placeholder task id and
+        no statement of what output means success (C12). Appended after
+        ``.format`` so the template's placeholder set stays fixed.
+        """
+        ctx = self._task_ctx.get(task_id, {})
+        if phase == "scaffold":
+            lines = [
+                ""
+                "PHASE CONTEXT (scaffold — you are the single architect worker):",
+                "- Define the shared contracts the epic's tasks depend on (interfaces, types, schemas, stubs) BEFORE executors fan out. Your output is what every task worker codes against.",
+                "- Contracts come from the task list below; do not invent a surface the tasks do not require.",
+                "- Write the contract to .mash/parallel/scaffold-contract.md.",
+                "- Success = that file exists and enumerates the shared surface. A contract you cannot define is a blocker, not a guess: emit it in BLOCKERS and stop.",
+            ]
+            goals = ctx.get("task_goals") or []
+            if goals:
+                lines.append("- Epic tasks:")
+                lines.extend(f"  - {g}" for g in goals)
+            return "\n".join(lines)
+        if phase == "verify":
+            verifier = ctx.get("verifier") or task_id.rsplit("/", 1)[-1]
+            tip = ctx.get("integrated_tip") or ""
+            base = ctx.get("review_base") or ""
+            lines = [
+                "",
+                "PHASE CONTEXT (integrated verification — review the merged result, not one task):",
+                f"- Verifier role: {verifier}",
+            ]
+            if tip:
+                lines.append(f"- Integrated tip (exact commit under review): {tip}")
+            if tip and base:
+                lines.append(f"- Diff range to inspect: {base}..{tip}")
+                lines.append(f"  Run: git diff --stat {base}..{tip}  then review that diff and the merged tree.")
+            elif tip:
+                lines.append(f"  Inspect it with: git show --stat {tip}")
+            lines.append("- Cross-task interaction is in scope: this is the only stage that sees the merged tree.")
+            lines.append("- Success = terminal `done` with any finding stated explicitly. A rejection MUST be emitted as populated `BLOCKERS:` naming the file and the problem; an empty `BLOCKERS:` means you found nothing, so never omit a real finding.")
+            return "\n".join(lines)
+        return ""
 
     def _invoke(self, task_id: str, phase: str) -> str:
         """Run the harness, return the interpreted outcome string."""
@@ -2457,7 +2571,13 @@ class HarnessPhaseDriver:
         return self._invoke("__scaffold__", "scaffold")
 
     def verify_phase(self, verifier: str, tip: str | None) -> str:
-        return self._invoke(f"__verify__/{verifier}", "verify")
+        tid = f"__verify__/{verifier}"
+        # Merge, not overwrite: run_parallel_verification may have recorded the
+        # review base on this same synthetic id before dispatch.
+        ctx = dict(self._task_ctx.get(tid, {}))
+        ctx.update({"verifier": verifier, "integrated_tip": tip or ""})
+        self._task_ctx[tid] = ctx
+        return self._invoke(tid, "verify")
 
 
 def _load_run_inputs(path: str) -> tuple[list[dict], dict]:
@@ -2559,6 +2679,7 @@ def _cmd_run(argv: list[str]) -> int:
         base_branch=options.get("base_branch", "develop"),
         base_sha=options.get("base_sha"),
         resume=resume, max_parallel=max_parallel, gate=gate,
+        integration_command=options.get("integration_command"),
     )
     save_run(repo_root, run)
     print(json.dumps(run, indent=2, sort_keys=False))
@@ -2585,16 +2706,23 @@ def _cmd_scaffold(argv: list[str]) -> int:
 
 
 def _cmd_verify(argv: list[str]) -> int:
-    """verify <integrated-tip> [--harness NAME]"""
+    """verify <integrated-tip> [--base SHA] [--harness NAME]"""
     if not argv:
-        print("usage: mash_parallel.py verify <integrated-tip> [--harness NAME]", file=sys.stderr)
+        print(
+            "usage: mash_parallel.py verify <integrated-tip> [--base SHA] [--harness NAME]",
+            file=sys.stderr,
+        )
         return 2
     tip = argv[0]
     harness = None
+    base_sha = None
     i = 1
     while i < len(argv):
         if argv[i] == "--harness" and i + 1 < len(argv):
             harness = argv[i + 1]
+            i += 2
+        elif argv[i] == "--base" and i + 1 < len(argv):
+            base_sha = argv[i + 1]
             i += 2
         else:
             i += 1
@@ -2603,7 +2731,7 @@ def _cmd_verify(argv: list[str]) -> int:
             None, lambda n: HarnessDriver.from_name(n).probe()
         )
     driver = HarnessPhaseDriver(harness, Path.cwd(), new_run_id())
-    result = run_parallel_verification(driver, tip)
+    result = run_parallel_verification(driver, tip, base_sha=base_sha)
     print(json.dumps(result, indent=2, sort_keys=False))
     return 0
 

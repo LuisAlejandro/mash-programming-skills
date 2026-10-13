@@ -76,21 +76,21 @@ For specified subjects, make two sequential binary decisions:
 
 Contrast pair: "Improve conversion on our sign-up page" → elsewhere-software (the subject is a page, even though the ideas may be copy or CRO); "Name my new coffee shop" → elsewhere-non-software (the subject is a brand with no software surface).
 
-State the inferred approach in one sentence, in plain language, adapting a domain word from the topic itself ("landing page", "onboarding flow", "naming", "career decision"). **Never print the internal taxonomy label** (`repo-grounded`, `elsewhere-software`, `elsewhere-non-software`) — those are for routing only.
+State the inferred approach in one sentence, in plain language, adapting a domain word from the topic itself ("landing page", "onboarding flow"). **Never print the internal taxonomy label** (`repo-grounded`, `elsewhere-software`). Non-software is a stop, not a mode you announce.
 
 - **Repo-grounded:** "Treating this as a topic in this codebase — about X."
 - **Elsewhere-software:** "Treating this as a product/software topic outside this repo — about X."
-- **Elsewhere-non-software:** "Treating this as a [naming | narrative | business | personal] topic — about X."
+- **Elsewhere-non-software:** do not state a mode and proceed. Apply the non-software stop below.
 
-Do not prescribe correction phrases ("say X to switch"). State the mode and proceed; if the user disagrees they will correct in their own words, and you reclassify and re-run any affected routing.
+Do not prescribe correction phrases ("say X to switch"). For the two software modes, state the mode and proceed; if the user disagrees they will correct in their own words, and you reclassify and re-run any affected routing.
 
 **Active confirmation on mode ambiguity.** Most subjects settled in 0.2 classify cleanly — ask only when the mode is genuinely ambiguous afterward (e.g., "our docs" could be repo docs or public marketing docs). Then ask one blocking question whose two labels name the candidate interpretations in plain language ("Treat as repo docs in this codebase" vs "Treat as public marketing docs") — never leaking internal mode names.
 
-**Routing rule (non-software mode).** When Decision 2 = non-software: run Phase 1 elsewhere-mode grounding (user-context synthesis + web research; skip phrases honored, learnings skipped by default), never the repo codebase scan. Then read `references/universal-ideation.md` and follow it in place of Phase 2's frame dispatch and the Phase 5 menu — the domain-agnostic frames, critique rubric, and wrap-up menu for this mode live only there. The deliverable is still auto-written per `references/post-ideation-workflow.md` Phase 4.
+**Non-software stop.** When Decision 2 = non-software, stop. mash-ideate covers software subjects: a product, app, page, feature, or service, including copy and UX for that product. Say that in one sentence. Do not dispatch grounding and do not write an artifact.
 
 #### 0.4 Context-Substance Gate (Elsewhere Modes Only)
 
-Skip in repo mode — the repo provides the substance Phase 1 agents work from. In elsewhere modes (both software and non-software), Phase 1 agents depend on user-supplied context for substance. A bare prompt with no description, URL, or artifact leaves the user-context-synthesis agent with nothing to synthesize and weakens web research's relevance.
+Skip in repo mode — the repo provides the substance Phase 1 agents work from. In elsewhere-software, Phase 1 agents depend on user-supplied context for substance. Non-software topics already stopped in 0.3. A bare prompt with no description, URL, or artifact leaves the user-context-synthesis agent with nothing to synthesize and weakens web research's relevance.
 
 Apply the discrimination test: would swapping one piece of the user's stated context for a contrasting alternative materially change which ideas survive? If yes, context is load-bearing — proceed. If no, ask 1-3 narrowly chosen questions focused on **supplying substance, not characterizing the subject**:
 
@@ -131,7 +131,7 @@ Use reasonable interpretation rather than formal parsing.
 
 **Tactical's dials — the complete list.** 3-4 ideas per frame; 2-3 verification reads per agent; 3 axes; 3 scouts; meeting-test floor waived at both layers. **Tactical changes nothing else** — not the agent count, not the frame set, not the model tier. Everywhere below and in the references, "tactical's dials" means exactly this list; state it by that name rather than re-enumerating it, so the set cannot drift between sites.
 
-**Detecting a tactical signal is not the same as tactical scope being active.** Resolve overrides against each other first; everything downstream — the fleet, the dials, and every waiver — keys on what ends up **active**, never on what was merely spotted. `go deep` beats a tactical signal outright and suppresses it entirely. When a signal collides with a mode that owns the *surface* (issue-tracker themes, or the universal path's depth), that mode keeps the frames and the agent count while tactical still contributes its dials.
+**Detecting a tactical signal is not the same as tactical scope being active.** Resolve overrides against each other first; everything downstream — the fleet, the dials, and every waiver — keys on what ends up **active**, never on what was merely spotted. `go deep` beats a tactical signal outright and suppresses it entirely. When a signal collides with issue-tracker themes, that mode keeps the frames and the agent count while tactical still contributes its dials.
 
 #### 0.6 Cost Transparency Notice
 
@@ -141,7 +141,7 @@ Derive it from the dispatch decisions already made in this phase — do not carr
 
 Include the conditional legs when they apply: issue intelligence adds its scan call **plus a cluster call only if that scan returns usable signal**, opt-in Slack research adds one, one distiller per user-supplied research artifact **large enough to need distilling** (a small one folds into the grounding summary inline and costs no agent), and up to 2 axis-coverage recovery agents in Phase 2. Subtract the web researcher when the user issued a skip phrase — that much is readable from the prompt right now.
 
-**Say "conditional" for anything this phase cannot yet resolve; do not pre-subtract it.** The V15 cache check happens in Phase 1, after `<scratch-dir>` exists, so a reuse that skips the web dispatch is unknowable here. The same holds for the issue cluster call and the depth-dependent count in elsewhere-non-software.
+**Say "conditional" for anything this phase cannot yet resolve; do not pre-subtract it.** The V15 cache check happens in Phase 1, after `<scratch-dir>` exists, so a reuse that skips the web dispatch is unknowable here. The same holds for the issue cluster call.
 
 **Where a number depends on a decision a later phase makes — a scan result, a depth choice, a dispatch spec not yet loaded — name the leg and say it is conditional rather than guessing.** Reaching for the ordinary five-agent figure to fill such a gap is the one answer certain to be wrong.
 

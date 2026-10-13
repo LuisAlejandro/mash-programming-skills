@@ -8,9 +8,7 @@ argument-hint: "[issue reference, error message, test path, or description of br
 
 ## Communication while using this skill
 
-**Caveman lite** for status and phase-transition prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors, code, logs, and command output unchanged. Drop lite for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, careful root-cause explanation, or when the user asks for normal or long-form wording.
-
-**Evidence boundary:** Do not compress causal chains, reproduction steps, hypothesis predictions, root-cause explanations, test evidence, or handoff summaries just to satisfy Caveman lite.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 Find root causes, then fix them. This skill investigates bugs systematically — tracing the full causal chain before proposing a fix — and optionally implements the fix with test-first discipline.
 

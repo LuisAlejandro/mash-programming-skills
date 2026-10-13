@@ -69,7 +69,7 @@ Match the epic's scale. `mash-parallel` is tuned for **2–5 tasks typical, ~20�
 
 Each task must be independently qa-able, so `mash-parallel`'s evidence gate can actually gate it. A task is not "done" until it emits evidence.
 
-When several tasks share a contract (interface, types, schema, stubs), emit a **contract task** first that owns that shared surface, and make the consumers depend on it. This mirrors `mash-parallel`'s scaffold phase (R10) — the contract is defined once before executors fan out.
+When several tasks share a contract (interface, types, schema, stubs), emit a **contract task** first that owns that shared surface, and make the consumers depend on it. This skill **owns** contract tasks: `mash-parallel`'s scaffold phase (R10) only materializes the surface they declare — it never invents a contract that is not in the task list.
 
 ## Workflow
 

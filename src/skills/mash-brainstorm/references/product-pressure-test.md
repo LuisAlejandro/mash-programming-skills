@@ -1,12 +1,12 @@
 # Phase 1.2: Product Pressure Test
 
-Before generating approaches, scan the user's opening for rigor gaps. Match depth to the Phase 0.3 scope.
+Before generating approaches, scan the user's opening for rigor gaps. Ask a gap only when it is present in the opening.
 
 This is agent-internal analysis, not a user-facing checklist. Read the opening, note which gaps actually exist, and raise only those as questions during Phase 1.3 — folded into the normal flow of dialogue, not fired as a pre-flight gauntlet. A fuzzy opening may earn three or four probes; a concrete, well-framed one may earn zero because no scope-appropriate gaps were found.
 
 Phase 1.3 in `references/dialogue.md` owns how each found gap fires as a probe.
 
-**Standard — scan for these gaps:**
+**Scan for these gaps:**
 
 - **Duplication gap.** The opening proposes building something the product may already cover — an existing feature, entity, or flow that solves the same user problem under a different name. When present, name the existing thing and ask whether this should extend it rather than sit alongside it.
 
@@ -16,8 +16,6 @@ Phase 1.3 in `references/dialogue.md` owns how each found gap fires as a probe.
 
 - **Counterfactual gap.** The opening doesn't make visible what users do today when this problem arises, nor what changes if nothing ships. When present, ask what the current workaround is, even if it's messy — and what it costs them.
 
-- **Attachment gap.** The opening treats a particular solution shape as the thing being built, rather than the value that shape is supposed to deliver, and hasn't been examined against smaller forms that might deliver the same value. When present, ask what the smallest version that still delivers real value would look like.
-
 Plus these synthesis questions — not gap lenses, product-judgment the agent weighs in its own reasoning:
 
 - Is there a nearby framing that creates more user value without more carrying cost? If so, what complexity does it add?
@@ -25,18 +23,20 @@ Plus these synthesis questions — not gap lenses, product-judgment the agent we
 
 Favor moves that compound value, reduce future carrying cost, or make the product meaningfully more useful or compelling. Use the result to sharpen the conversation, not to bulldoze the user's intent.
 
-**Deep** — Standard lenses and synthesis questions plus:
+If the opening is attached to one solution shape, do not ask the user what the smallest version is. A smaller form that delivers the same value is something they do not already know — if they did, they would have started with it. When you see one, offer it as your own alternative. When you do not, say nothing about it.
 
-- Is this a local patch, or does it move the broader system toward where it wants to be?
+Weigh this privately, and ask it only when the answer would change a product decision: is this a local patch, or does it move the broader system toward where it wants to be?
 
-**Deep — product** — Deep plus:
+**When product shape is unresolved** — primary actors, core outcome, positioning, or primary flows are not already established in the product or repo — also scan:
 
 - **Durability gap.** The opening's value proposition rests on a current state of the world that may shift in predictable ways within the horizon the user cares about. When present, ask how the idea fares under the most plausible near-term shifts — and push past rising-tide answers every competitor could make.
+
+And weigh these privately:
 
 - What adjacent product could we accidentally build instead, and why is that the wrong one?
 - What would have to be true in the world for this to fail?
 
-These questions force an explicit product thesis and feed the Scope Boundaries subsections ("Deferred for later" and "Outside this product's identity") and Dependencies / Assumptions in the requirements document.
+When those questions settle a boundary, record it in Scope Boundaries ("Deferred for later" and "Outside this product's identity") and in Dependencies / Assumptions. When product shape is already established, skip this block.
 
 **A decision the conversation already settled counts as already-probed** — it is not a gap. Spend the pressure test's scrutiny on unexamined assertions instead: each gets its one examination here rather than being re-litigated downstream.
 

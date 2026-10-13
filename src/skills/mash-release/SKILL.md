@@ -12,7 +12,7 @@ This skill owns release publishing for app repos. It does not plan feature work,
 
 ## Communication while using this skill
 
-**Caveman lite** for workflow status prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; commands, issue titles, GitHub output, and release script output unchanged. Drop lite for release confirmation, destructive or irreversible warnings, user confusion, or when the user asks for normal wording.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 ## Mash Programming Skills Overlay
 
@@ -62,8 +62,8 @@ In `mode:non-interactive`:
 Before release work:
 
 1. Read [`mash-hindsight`](../mash-hindsight/SKILL.md).
-2. Run `hindsight-embed daemon status` (see [`mash-hindsight`](../mash-hindsight/SKILL.md)).
-3. If available, recall release context for the current repo.
+2. Run its availability check — daemon status **and** the `/version` fingerprint.
+3. If available, run `memory recall` for release context for the current repo.
 4. If unavailable, record `HINDSIGHT: unavailable` in the handoff.
 
 ## Release Workflow

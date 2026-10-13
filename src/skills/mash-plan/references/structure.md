@@ -37,7 +37,7 @@ Ask the user only when the answer materially affects architecture, scope, sequen
 
 #### 3.2 Stakeholder and Impact Awareness
 
-For **Standard** or **Deep** plans, briefly consider who is affected by this change — end users, developers, operations, other teams — and how that should shape the plan. For cross-cutting work, note affected parties in the System-Wide Impact section.
+Briefly consider who is affected by this change — end users, developers, operations, other teams — and how that should shape the plan. When more than one group is affected, note them in the System-Wide Impact section.
 
 #### 3.2b Sentrux Topology Baseline
 
@@ -103,7 +103,7 @@ The tree is a scope declaration showing the expected output shape. It is not a c
 
 Each unit is a level-3 heading carrying a stable U-ID prefix matching the format used for R/A/F/AE in requirements docs: `### U1. [Name]`. Number sequentially within the plan starting at U1. Do not render units as bulleted list items or prefix them with `- [ ]` / `- [x]` checkbox markers. List-based unit titles fragment in every standard renderer because the per-unit fields (`**Goal:**`, `**Files:**`, `**Approach:**`, etc.) are written flush-left, which terminates CommonMark list continuation and detaches the fields from the unit they describe. Headings render correctly everywhere, are the right semantic match for sections containing multi-block content, and give each unit an anchor link. The plan is a decision artifact; execution progress is derived from git by `mash-work` rather than stored in the plan body.
 
-**Stability rule.** Once assigned, a U-ID is never renumbered. Reordering units leaves their IDs in place (e.g., U1, U3, U5 in their new order is correct; renumbering to U1, U2, U3 is not). Splitting a unit keeps the original U-ID on the original concept and assigns the next unused number to the new unit. Deletion leaves a gap; gaps are fine. This rule matters most during deepening (Phase 5.3), which is the most likely accidental-renumber vector.
+**Stability rule.** Once assigned, a U-ID is never renumbered. Reordering units leaves their IDs in place (e.g., U1, U3, U5 in their new order is correct; renumbering to U1, U2, U3 is not). Splitting a unit keeps the original U-ID on the original concept and assigns the next unused number to the new unit. Deletion leaves a gap; gaps are fine. This rule holds on later edits of the same plan, which is the most likely accidental-renumber.
 
 For each unit, include:
 - **Goal** - what this unit accomplishes
@@ -141,35 +141,17 @@ Examples:
 
 Distinct from 3.6 (which is about *unknowns* at plan time): 3.7 is about *known but tangential* work that the agent notices while planning but that falls outside the user's confirmed scope. When research surfaces an adjacent refactor, a "while we're here" cleanup, or a scope-adjacent nice-to-have ("we could also add rate limiting"), route it to the existing `### Deferred to Follow-Up Work` subsection in Scope Boundaries (Phase 4.2 Core Plan Template), not into active Implementation Units.
 
-This reinforces the synthesis discipline established at Phase 5.1.5 — the user's confirmed scope is what the active plan executes; everything else is deferred. Does NOT impose architectural bias on extend-vs-invent decisions within confirmed scope — that judgment stays with the agent (and is surfaced via the Phase 5.1.5 synthesis when material). The user's explicit ask overrides this default — if the user explicitly requested a refactor, it's in-scope, not deferred.
+The origin's scope is what the active plan executes. Everything else is deferred. This does not bias extend-versus-invent decisions inside that scope. The user's explicit ask overrides this default — if the user explicitly requested a refactor, it is in scope.
 
 ### Phase 4: Write the Plan
 
 **NEVER CODE during this skill.** Research, decide, and write the plan — do not start implementation.
 
-Use one planning philosophy across all depths. Change the amount of detail, not the boundary between planning and execution.
+Change the amount of detail, not the boundary between planning and execution. Include a section when it has something to say. Omit a section that would only hold a placeholder.
 
-#### 4.1 Plan Depth Guidance
+#### 4.1 Optional sections
 
-**Lightweight**
-- Keep the plan compact
-- Usually 2-4 implementation units
-- Omit optional sections that add little value
-
-**Standard**
-- Use the full core template, omitting optional sections (including High-Level Technical Design) that add no value for this particular work
-- Usually 3-6 implementation units
-- Include risks, deferred questions, and system-wide impact when relevant
-
-**Deep**
-- Use the full core template plus optional analysis sections where warranted
-- Usually 4-8 implementation units
-- Group units into phases when that improves clarity
-- Include alternatives considered, documentation impacts, and deeper risk treatment when warranted
-
-#### 4.1b Optional Deep Plan Extensions
-
-For sufficiently large, risky, or cross-cutting work, add the sections that genuinely help:
+Add a section when it genuinely helps:
 - **Alternative Approaches Considered**
 - **Success Metrics**
 - **Dependencies / Prerequisites**
@@ -196,7 +178,7 @@ Omit "include when material" sections that don't carry information for this spec
 
 #### 4.3 Planning Rules
 
-- **Horizontal rules (`---`) between top-level sections** in Standard and Deep plans, mirroring the `mash-brainstorm` requirements doc convention. Improves scannability of dense plans where many H2 sections sit close together. Omit for Lightweight plans where the whole doc fits on a single screen.
+- **Horizontal rules (`---`) between top-level sections** when the plan has more than a screen of sections. A short plan does not need them.
 - **All file paths must be repo-relative** — never use absolute paths like `/Users/name/Code/project/src/file.ts`. Use `src/file.ts` instead. Absolute paths make plans non-portable across machines, worktrees, and teammates. When a plan targets a different repo than the document's home, state the target repo once at the top of the plan (e.g., `**Target repo:** my-other-project`) and use repo-relative paths throughout
 - Prefer path plus class/component/pattern references over brittle line numbers
 - Do not include implementation code — no imports, exact method signatures, or framework-specific syntax

@@ -1,6 +1,6 @@
 ---
 name: mash-hindsight
-description: Shared Hindsight embed CLI contract for Mash Programming Skills cross-session memory. Use only when /mash-brainstorm, /mash-plan, /mash-work, or /mash-qa is active — not for generic planning, implementation, or diff review.
+description: Shared Hindsight embed CLI contract for Mash Programming Skills cross-session memory. Use only when a gated skill is active — the hindsight-memory rule lists them — not for generic planning, implementation, or diff review.
 ---
 
 # Mash Programming Skills Hindsight
@@ -16,9 +16,7 @@ No line → gate not run. "Unavailable" requires a failed `daemon status` — no
 
 ## Communication while using this skill
 
-**Caveman ultra** for assistant status prose while this skill runs: abbreviate routine workflow words, strip conjunctions where safe, use arrows for causality, and keep one word when one word is enough. Technical accuracy unchanged; CLI commands, bank IDs, quoted errors, memory content, and command output unchanged. Drop ultra for setup instructions, security/privacy warnings, user confusion, or when the user asks for normal or long-form wording.
-
-**Memory boundary:** Caveman ultra applies to chat/status prose, not memory recall text, retain payloads, handoff fields, or instructions the user must run exactly.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 Mash Programming Skills uses Hindsight through the local `hindsight-embed` CLI. This is a CLI-only integration: do not add Hindsight to the workspace MCP config.
 
@@ -40,6 +38,8 @@ Hindsight memory complements, but does not replace, curated `.mash/solutions/` l
 - Sentrux is structural and session topology signal.
 
 ## Availability
+
+This skill owns the **single executable availability-and-recall procedure**. The hindsight-memory rule points here; gated skills name only their gate point, and must not restate the sequence.
 
 Before relying on memory, check whether the local embed daemon is running:
 
@@ -95,14 +95,7 @@ This keeps memory scoped to the current cloned repository by default.
 
 ## Recall
 
-Recall only when `mash-brainstorm`, `mash-plan`, `mash-work`, or `mash-qa` is active:
-
-- Before `mash-brainstorm` gathers research
-- Before `mash-plan` gathers local research
-- Before `mash-work` starts implementation
-- Before `mash-qa` reviews a known diff scope, when memory may affect risk assessment
-
-Do not recall for generic planning, implementation, or diff review outside those skills.
+Recall at the gate point in the hindsight-memory rule, and only while one of those skills is active. Do not recall for generic planning, implementation, or diff review outside them.
 
 Use a task-specific query with the plan path, feature summary, relevant modules, PR scope, and stable IDs when present:
 

@@ -4,7 +4,7 @@ Required read before dispatching any grounding agent. Owns the scratch-directory
 
 ### Phase 1: Mode-Aware Grounding
 
-Before generating ideas, gather grounding. The dispatch set depends on the mode chosen in Phase 0.3. Web research and user-supplied research handling run in all modes (skip phrases honored). Learnings runs in repo mode and elsewhere-software, and is **skipped by default in elsewhere-non-software** — `<repo-root>/.mash/solutions/` holds engineering patterns that do not transfer to naming, narrative, personal, or non-digital business topics.
+Before generating ideas, gather grounding. The dispatch set depends on the mode chosen in Phase 0.3. Web research and user-supplied research handling run in repo mode and elsewhere-software (skip phrases honored). Skip `mash-learnings-researcher` when both `.mash/solutions/` and `.mash/insights/` are missing or contain no markdown files. Non-software topics already stopped in Phase 0.
 
 **Surprise-me grounding depth.** In surprise-me mode, grounding goes deeper than specified mode — apply the 0.2 table's `1 grounding` row, and pass issue themes as first-class input rather than a footnote when issue intelligence runs. Specified mode keeps the shallower scan: the user's named subject anchors what is relevant.
 
@@ -53,7 +53,7 @@ Run grounding agents in parallel in the **foreground** (do not background — re
    >
    > Research artifacts (gist-only under `Additional context` — do not fully read; a separate agent distills these): {research_artifact_files, or "none"}
 
-2. **Learnings search** — dispatch `mash-learnings-researcher` with a brief summary of the ideation focus plus the **ideation invocation contract** (see below).
+2. **Learnings search** — dispatch `mash-learnings-researcher` with a brief summary of the ideation focus plus the **ideation invocation contract** (see below). Skip when both `.mash/solutions/` and `.mash/insights/` are missing or contain no markdown files.
 
 3. **Web research** (always-on; see "Web research" subsection below for skip-phrase and V15 cache handling).
 
@@ -73,7 +73,7 @@ Run grounding agents in parallel in the **foreground** (do not background — re
 
 1. **User-context synthesis** — dispatch a general-purpose sub-agent (cheapest capable model) to read the user-supplied context from Phase 0.4 intake plus any rich-prompt material — **excluding any file the routing test above classified as evidence**, which goes to a distiller instead and must not also reach synthesis — and return a structured grounding summary that mirrors the codebase-context shape (project shape → topic shape; notable patterns → stated constraints; pain points → user-named pain points; leverage points → opportunity hooks the context implies). This keeps Phase 2 sub-agents agnostic to grounding source.
 
-2. **Learnings search** *(elsewhere-software only; skipped by default in elsewhere-non-software)* — dispatch `mash-learnings-researcher` with the topic summary plus the **ideation invocation contract** (see below), in case relevant institutional knowledge exists (skill-design patterns, prior solutions in similar shape). Skip for elsewhere-non-software: the CWD's `<repo-root>/.mash/solutions/` is unlikely to be topically relevant for non-digital topics, and running it risks polluting generation with unrelated engineering patterns.
+2. **Learnings search** — dispatch `mash-learnings-researcher` with the topic summary plus the **ideation invocation contract** (see below). Skip when both `.mash/solutions/` and `.mash/insights/` are missing or contain no markdown files.
 
 3. **Web research** — same as repo mode (see subsection below).
 

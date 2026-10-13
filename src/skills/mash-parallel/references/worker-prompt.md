@@ -15,7 +15,7 @@ REPO CONVENTIONS: read AGENTS.md at the repo root.
 CONSTRAINTS:
 - Branch is pre-created ({track_branch}): `mash-work` works in place on the current branch and never runs branch setup, so no override argument is needed. Stay on it: do not create `feature/<slug>` or switch branches. The orchestrator verifies the worktree's branch after each committed phase and fails the task on a mismatch.
 - Skip Sentrux session gating. Record SENTRUX: unavailable for this phase.
-- Phase: {phase}  (one of: plan | work | qa | lint)
+- Phase: {phase}  (one of: plan | work | qa | lint | scaffold | verify)
 
 PHASE CONTRACT:
 - plan:    run mash-plan in mode:non-interactive for this task, using
@@ -40,6 +40,15 @@ PHASE CONTRACT:
 - lint:   run mash-lint mode:non-interactive (delegates tooling discovery to
            the skill). Emit LINT_HANDOFF with LINT_STATUS: pass|failed. Record
            any files lint modified; a pass requires LINT_STATUS: pass.
+- scaffold: (orchestrator-level single architect; not a per-task phase) Define
+           the shared contracts the epic's tasks depend on and write
+           .mash/parallel/scaffold-contract.md. The PHASE CONTEXT block below
+           names the tasks and the contract's source of truth.
+- verify:  (orchestrator-level integrated verification; not a per-task phase)
+           Review the merged result at the integrated tip, over the diff range
+           named in the PHASE CONTEXT block. Report a pass as terminal `done`;
+           report any rejection as populated `BLOCKERS:` naming file and
+           problem. An empty BLOCKERS means nothing was found.
 
 FINISH:
 - Emit the handoff envelope exactly when done.
@@ -54,6 +63,31 @@ FINISH:
 | `sentrux` | `skip` | N concurrent workers would contend on repo-scoped Sentrux session state |
 | `qa_diff_base` | previous task end SHA / track branch point | deterministic per-task QA diff range |
 | `branch` | `mash-parallel/<run-id>/track-<n>` | all tasks in a track accumulate commits on one branch |
+
+## Phase context block (scaffold and verify only)
+
+`scaffold` and `verify` are orchestrator-level phases, not per-task ones, so
+they are rendered by the same driver but with no task goal or origin document.
+The driver therefore appends a `PHASE CONTEXT` block after the template:
+
+- **scaffold** — names the epic's task goals, states that contracts come from
+the task list (not invention), and fixes the output path
+(`.mash/parallel/scaffold-contract.md`) and its success condition.
+- **verify** — names the verifier role, the exact integrated tip under review,
+and the `base..tip` diff range to inspect.
+
+Without this block those phases reached the worker as a bare phase label and a
+placeholder task id (`__scaffold__`, `__verify__/<verifier>`), so "success" was
+whatever the harness's generic non-empty-output signal said. The block is the
+phase's actual contract.
+
+## Integration gate
+
+`options.integration_command` is the epic-level integration check, run in the
+merged integration worktree. When it is absent and the target repo has no
+`src/skills/mash-parallel/tests` suite, the gate reports
+`integration gate not configured` in the run report rather than reporting a
+pass for checks that never ran.
 
 (There is no `branch_setup` override. `mash-work` no longer has a branch setup step — it works in place on the pre-created track branch unconditionally.)
 

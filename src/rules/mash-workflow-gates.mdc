@@ -1,5 +1,5 @@
 ---
-description: Hard gates for Mash Programming Skills skills — Hindsight only on the gated skills; Ponytail, Caveman, Docker-via-Make, and safe git stay as scoped
+description: Hard gates for Mash Programming Skills — Hindsight only on the gated skills; Ponytail, Caveman, Docker-via-Make, and safe git stay as scoped
 alwaysApply: true
 ---
 
@@ -7,11 +7,11 @@ alwaysApply: true
 
 ## Trigger
 
-**Hindsight** only when the user invokes a gated skill, or that skill is already active in this conversation. The hindsight-memory rule owns the list and is authoritative; it currently gates mash-brainstorm, mash-plan, mash-work, mash-qa, mash-epic-frame, and mash-release.
+**Hindsight** only when the user invokes a gated skill, or that skill is already active in this conversation. The hindsight-memory rule owns the gated-skill list and is authoritative.
 
 Generic planning, implementation, code review, or "implement this" / "review this diff" does **not** trigger Hindsight.
 
-Ponytail, Docker-via-Make, and the git rules below stay always-on. Caveman lite applies while those Mash Programming Skills skills (and `mash-hindsight`) are active — see the caveman rule. Caveman also covers terse "Done X, next Y" workflow messages and tool-run narration outside those skills; conceptual answers stay normal prose. The caveman rule owns that scope, and its "does NOT apply" list wins on overlap.
+Ponytail, Docker-via-Make, and the git rules below stay always-on. Caveman level while a Mash Programming Skills skill is active is in the caveman rule. Caveman also covers terse "Done X, next Y" workflow messages and tool-run narration outside those skills; conceptual answers stay normal prose. The caveman rule owns that scope, and its "does NOT apply" list wins on overlap.
 
 ## Git (safe by default)
 
@@ -21,15 +21,16 @@ Ponytail, Docker-via-Make, and the git rules below stay always-on. Caveman lite 
 - Never `git restore` / `checkout --` files this session did not change.
 - Never open a worktree in the pipeline skills (`mash-work`/`mash-plan`/`mash-qa`/`mash-lint`). Worktree and branch orchestration for parallel tasks belongs to explicitly invoked `mash-parallel`; branch creation for PRs belongs to explicitly invoked `mash-pr`. Note this pipeline list is **five** skills — `mash-lint` is included here but is **not** Hindsight-gated.
 - `mash-pr`, `mash-parallel`, and `mash-epic-decompose` are **explicit user invocations** — no other skill auto-calls them. If a plan is too large for one run, suggest the user invoke one of them; do not invoke it yourself.
+- **Epic-chain exception:** invoking `mash-epic-frame` is the explicit user authorization for that epic's chain — it loads `mash-epic-decompose`, which invokes `mash-parallel`. No other skill inherits that authorization, and `mash-pr` is authorized only by its own explicit invocation.
 
 ## Before code, plans, or review reports (gated skills only)
 
 1. **Hindsight gate** — see the hindsight-memory rule
 2. **Ponytail ladder** — see the ponytail rule (YAGNI → codebase reuse → stdlib → platform native → existing dep → one-line → minimum code)
-3. **Caveman lite** for status prose — see the caveman rule
+3. **Caveman level** for status prose — see the caveman rule
 4. **Docker via Make** — see the docker-via-make rule (prefer containers when the repo has a working Compose + Make setup; otherwise use host commands)
 
-Order during a gated skill (`mash-lint` is not among them): Hindsight → Ponytail ladder → caveman-lite status → edits (with Docker-via-Make for any run/install/test).
+Order during a gated skill (`mash-lint` is not among them): Hindsight → Ponytail ladder → caveman status → edits (with Docker-via-Make for any run/install/test).
 
 ## Forbidden
 
@@ -37,7 +38,7 @@ Order during a gated skill (`mash-lint` is not among them): Hindsight → Ponyta
 - Treating "Memory (optional)" as permission to skip recall during a gated skill
 - Adding unrequested abstractions, extra dependencies, or skipping the Ponytail ladder
 - Silent speculative extras beyond the stated request
-- Long-form essay-style status updates during Mash Programming Skills skills
+- Long-form essay-style status updates during Mash Programming Skills
 - Creating branches, stashing, `git add .`, or opening worktrees outside an explicit `mash-pr` (see Git)
 - Running `brew` install/upgrade/uninstall without confirming with the user first
 

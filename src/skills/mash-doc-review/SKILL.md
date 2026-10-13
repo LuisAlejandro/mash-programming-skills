@@ -8,9 +8,7 @@ argument-hint: "[mode:headless] [path/to/document.md]"
 
 ## Communication while using this skill
 
-**Caveman lite** for orchestration prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted findings, document text, and code unchanged. Drop lite for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, per-finding walkthroughs that need careful wording, or when the user asks for normal or long-form wording.
-
-**Artifact boundary:** Caveman lite applies to chat and status prose, not reviewer findings, synthesis reports, open questions, auto-applied edits, or structured headless output.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 Review requirements or plan documents through multi-persona analysis. Dispatches specialized reviewer agents in parallel, auto-applies `safe_auto` fixes, and routes remaining findings through a four-option interaction (per-finding walk-through, auto-resolve with best judgment, Append-to-Open-Questions, Report-only) for user decision.
 
@@ -120,7 +118,7 @@ Analyze the document content to determine which conditional personas to activate
 - The document is a **requirements document** with 2+ challengeable claims (problem framing, solution selection, prioritization, predicted outcomes) -- premise scrutiny is core to the brainstorm phase
 - The document touches a **high-stakes domain** -- auth, payments, billing, data migrations, privacy/compliance, external integrations, cryptography -- regardless of doc type or size
 - The document **proposes a new abstraction, framework, or significant architectural pattern** -- regardless of doc type
-- The document is a **software plan missing `origin:`** — that is a defect (the origin was required), not an intentional greenfield bootstrap. Do not treat it as a validated greenfield. Universal / non-software plans have no YAML `origin:` and are not this case.
+- The document is a **software plan missing `origin:`** — that is a defect (the origin was required), not an intentional greenfield bootstrap. Do not treat it as a validated greenfield. A document that is not a software requirements doc or software plan is outside this review and is not this case.
 - The document is a **plan that explicitly extends scope** beyond its origin requirements doc (new actors, new flows, deferred-then-restored features)
 - The document contains an **explicit alternatives section** or unresolved tradeoffs -- adversarial helps stress-test the chosen direction
 

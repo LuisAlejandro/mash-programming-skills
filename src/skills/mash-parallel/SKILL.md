@@ -8,7 +8,7 @@ argument-hint: "[run-inputs.json] or [--resume <run-id>]"
 
 ## Communication while using this skill
 
-**Caveman lite** for status prose during the run: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted plans, worker output, and handoffs unchanged.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 ## What this skill does
 
@@ -28,6 +28,7 @@ A run receives:
 - `base_branch` (default `develop`)
 - optional harness override (`pi` | `opencode` | `cursor-agent` | `codex` | `claude`)
 - optional tunables: `max_parallel`, `timeout_budget`
+- optional `integration_command`: the epic-level integration check run in the merged integration worktree. Set this for a real application repo; without it and without a skill-local test suite, the gate reports **not configured** rather than passing.
 
 The epic-level brainstorm that produced the validated task list happens **outside** the run (origin 5.1). The task list arrives as a pre-existing input.
 
@@ -56,21 +57,21 @@ All state transitions, validation, footprint parsing, sequencing, worktree ops, 
 # scaffold phase only
 .venv/bin/python scripts/mash_parallel.py scaffold run-inputs.json
 
-# parallel verification on an integrated tip
-.venv/bin/python scripts/mash_parallel.py verify <integrated-tip>
+# parallel verification on an integrated tip (--base anchors the diff range)
+.venv/bin/python scripts/mash_parallel.py verify <integrated-tip> [--base <pre-integration-sha>]
 ```
 
 ## Flow
 
 1. **Validate** the task list fail-fast (R2): duplicate ids, unknown deps, self-deps, cycles, empty list all named in one error.
-2. **Scaffold** (hardening R10): one architect worker defines shared contracts (interfaces, types, schemas, stubs) before executors fan out, so parallel workers code against a stable surface.
+2. **Scaffold** (hardening R10): one architect worker materializes the shared contracts (interfaces, types, schemas, stubs) before executors fan out, so parallel workers code against a stable surface. Contracts are **owned by `mash-epic-decompose`**, which emits a contract task whenever tasks share a surface; scaffold does not invent contracts, and when no contract task exists it materializes only the surface the tasks already imply.
 3. **Snapshot base** SHA; create per-task planning worktrees+branches (R4).
 4. **Plan in parallel**: one delegated harness worker per task, plan-only. Each plan yields a machine-readable file footprint (R5) parsed from the plan's `**Files:**` sections.
 5. **Sequence** (deterministic, U4): overlap graph → connected components = tracks; within a track, topological order over declared deps; tracks ordered by smallest id. Empty-footprint tasks default to singleton tracks. Track membership is footprint-overlap only; dependency edges are handled by frontier admission (hardening R3).
-6. **Batched human gate** (R10): review all N plans + the track grouping/ordering in one sitting. Per-plan: drop / re-plan (then re-sequence) / abort. Dropping a task others depend on is rejected at the gate. **Sequencing is file-footprint-only, so the gate is where non-file contention gets caught** — scan the batch for tasks that share a contract (types, APIs, interfaces), a migration (ordering is global even when files differ), a lockfile or generated artifact, a registry/config/schema surface two tasks both append to, or an environment singleton (one dev server or port, a shared database, a browser session, a package install, a rate limit). None of these appear in a `**Files:**` footprint. When two tasks contend on one of them, merge their tracks or re-order at the gate rather than discovering it at integration.
+6. **Batched human gate** (R10): review all N plans + the track grouping/ordering in one sitting. The gate is **approve-or-abort**: the first invocation stops after planning, and `--resume <run-id> --approve` promotes the plans and starts execution. To drop or re-plan a task, edit `run-inputs.json` and re-run planning — the helper implements approval and abort only, and dropping a task others depend on fails validation rather than being caught interactively at the gate. **Sequencing is file-footprint-only, so the gate is where non-file contention gets caught** — scan the batch for tasks that share a contract (types, APIs, interfaces), a migration (ordering is global even when files differ), a lockfile or generated artifact, a registry/config/schema surface two tasks both append to, or an environment singleton (one dev server or port, a shared database, a browser session, a package install, a rate limit). None of these appear in a `**Files:**` footprint. When two tasks contend on one of them, merge their tracks or re-order at the gate rather than discovering it at integration.
 7. **Execute tracks** (hardening R3/R4): dependency-frontier admission — a task runs the moment its deps are done and a slot is free; file-overlap tasks stay serialized on a track; oversubscribed tasks park in a FIFO denied queue. One harness worker per task: work (mash-work non-interactive) → qa (mash-qa headless, base = previous task's end SHA) → lint. A task is `done` only when it emits an evidence artifact (hardening R7). Worker outcomes: `done` / `blocker` / `timeout` / `failure`; a failure carries a corrective fix hint (hardening R8). A blocker/timeout/failure halts that track only, and its dependents cascade to `skipped` at quiescence (hardening R6). **Drift check** at every task boundary (R16): a task touching files another live track declared pivots that other track to the fix-up path.
-8. **Integrate locally** (R19): dedicated integration worktree, `merge-tree` dry-run, merge tracks in order, lint+test gates, base ref moves only when gates pass. Residual issues become fix-up rounds (cap 2, R20).
-9. **Parallel verification** (hardening R9): after integration, three verifiers (code review + test runner + architecture/contract check) fan out concurrently on the integrated result; a rejection sends the task back to fix-and-re-verify (bounded rounds).
+8. **Integrate locally** (R19): dedicated integration worktree, `merge-tree` dry-run, merge tracks in order, run the integration gate (`integration_command` when set, else the skill's own suite when present, else **not configured** — reported distinctly, never as a pass), base ref moves only when the gate does not fail. Residual issues become fix-up rounds (cap 2, R20).
+9. **Parallel verification** (hardening R9): after integration, three verifiers (code review + test runner + architecture/contract check) fan out concurrently on the **integrated result**, each told the exact `base..integrated_tip` range to inspect; a rejection sends the task back to fix-and-re-verify (bounded rounds).
 10. **Final report** (U9): per-track status, blocker/timeout/failure detail, integrated commit list, base SHA vs integration tip, leftover worktrees/branches, outstanding fix-ups or human blockers, and fast-forward instruction for the user's live base checkout.
 
 ## Resume

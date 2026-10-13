@@ -13,7 +13,7 @@ Use this **exact format** when presenting synthesized review findings. Findings 
 
 **Scope:** merge-base with the review base branch -> working tree (14 files, 342 lines)
 **Intent:** Add order export endpoint with CSV and JSON format support
-**Mode:** autofix
+**Mode:** interactive
 
 **Reviewers:** correctness, testing, maintainability, security, api-contract
 - security -- new public endpoint accepts user-provided format parameter
@@ -123,12 +123,12 @@ This fails because: no pipe-delimited tables, no severity-grouped `###` headers,
 - **Route column** shows the synthesized handling decision as ``<autofix_class> -> <owner>``.
 - **Issue column is compact** -- use a short path-anchored failure clause, not the full `why_it_matters`. Put deeper rationale in walkthroughs, headless enrichment, or artifacts.
 - **Header includes** scope, intent, and reviewer team with per-conditional justifications
-- **Mode line** -- include `interactive`, `autofix`, `report-only`, or `headless`
+- **Mode line** -- include `interactive`, `report-only`, or `headless`
 - **Applied Fixes section** -- include only when a fix phase ran in this review invocation
 - **Residual Actionable Work section** -- include only when unresolved actionable findings were handed off for later work
 - **Pre-existing section** -- separate table, no confidence column (these are informational)
-- **Learnings & Past Solutions section** -- results from mash-learnings-researcher, with links to .mash/solutions/ files
-- **Agent-Native Gaps section** -- results from mash-agent-native-reviewer. Omit if no gaps found.
+- **Learnings & Past Solutions section** -- results from mash-learnings-researcher, with links to .mash/solutions/ or .mash/insights/ files. Omit when that agent did not run.
+- **Agent-Native Gaps section** -- results from mash-agent-native-reviewer. Omit when that agent did not run or no gaps were found.
 - **Deployment Notes section** -- key checklist items from mash-deployment-verification-agent. Omit if the agent did not run. Schema drift surfaces as `data-migration` findings — no separate section.
 - **Coverage section** -- suppressed count, residual risks, testing gaps, failed reviewers
 - **Summary uses blockquotes** for verdict, reasoning, and fix order

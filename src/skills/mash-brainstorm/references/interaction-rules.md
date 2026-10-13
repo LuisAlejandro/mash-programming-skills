@@ -1,6 +1,6 @@
 # Core Principles, Interaction Rules, and Output Guidance
 
-Read this before the first question of any brainstorm, including the non-software route.
+Read this before the first question of any brainstorm.
 
 ## Core Principles
 
@@ -15,7 +15,7 @@ Read this before the first question of any brainstorm, including the non-softwar
 
 ## Interaction Rules
 
-These rules apply to every brainstorm, including the universal (non-software) flow routed to `references/universal-brainstorming.md`.
+These rules apply to every software brainstorm.
 
 1. **Ask one question at a time** - Pick the single most useful question each turn.
 2. **Prefer single-select multiple choice** - Use single-select when choosing one direction, one priority, or one next step.
@@ -44,5 +44,5 @@ These rules apply to every brainstorm, including the universal (non-software) fl
 - **Keep outputs concise** - Prefer short sections, brief bullets, and only enough detail to support the next decision.
 - **Prioritize decision-relevant detail** - Preserve the facts, tradeoffs, and caveats needed for the next decision; trim introductions, repetition, and optional background first.
 - **Use repo-relative paths** - When referencing files, use paths relative to the repo root (e.g., `src/models/user.rb`), never absolute paths. Absolute paths make documents non-portable across machines and teammates.
-- **Artifact boundary** - Caveman lite applies to chat and status prose, not to requirements documents by default. Requirements remain clear enough for humans to review.
+- **Artifact boundary** - Requirements documents stay normal prose. The caveman rule owns that boundary.
 - **Compact non-interactive artifacts** - When `mode:non-interactive` is active, keep the markdown requirements lean: preserve actors, flows, acceptance examples, requirements, scope boundaries, IDs, assumptions, and blockers; trim explanatory prose, duplicate rationale, and narrative setup that downstream automation does not need.

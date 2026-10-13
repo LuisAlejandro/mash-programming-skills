@@ -8,7 +8,7 @@ Read this when checking the V15 cache before dispatching `web-researcher`, or wh
 [
   {
     "key": {
-      "mode": "repo|elsewhere-software|elsewhere-non-software",
+      "mode": "repo|elsewhere-software",
       "focus_hint_normalized": "<lowercase, whitespace-collapsed focus hint or empty string>",
       "topic_surface_hash": "<short hash of the user-supplied topic surface>"
     },
@@ -32,7 +32,7 @@ find "$SCRATCH_ROOT" -maxdepth 2 -name 'web-research-cache.json' -type f 2>/dev/
 
 `find` exits 0 with empty output when no cache files exist, so the first-run case does not abort the reuse-check step.
 
-Read each matching file. If any entry's `key` matches the current dispatch (same full mode variant — `repo`, `elsewhere-software`, or `elsewhere-non-software` — plus same case-insensitive normalized focus hint plus same topic surface hash), skip the dispatch and pass the cached `result` to the consolidated grounding summary. Mode variants must match exactly: `elsewhere-software` and `elsewhere-non-software` are distinct domains and must not cross-reuse. Note in the summary: "Reusing prior web research from this session — say 're-research' to refresh."
+Read each matching file. If any entry's `key` matches the current dispatch (same mode — `repo` or `elsewhere-software` — plus same case-insensitive normalized focus hint plus same topic surface hash), skip the dispatch and pass the cached `result` to the consolidated grounding summary. Mode variants must match exactly. Note in the summary: "Reusing prior web research from this session — say 're-research' to refresh."
 
 On `re-research` override, delete the matching entry and dispatch fresh.
 
@@ -43,7 +43,7 @@ After a fresh dispatch, append the new result to the current run's cache file at
 ## Topic surface hash
 
 The topic surface is the user-supplied content the web research is grounded on:
-- **Elsewhere modes (`elsewhere-software`, `elsewhere-non-software`):** the user's topic prompt plus any Phase 0.4 intake answers (the actual subject the agent is researching). The two sub-modes are keyed separately — a reclassification between software and non-software for the same topic hash must force a fresh dispatch, since the research domain differs.
+- **Elsewhere-software:** the user's topic prompt plus any Phase 0.4 intake answers (the actual subject the agent is researching). A reclassification between repo and elsewhere-software for the same topic hash forces a fresh dispatch.
 - **Repo mode:** the focus hint plus a stable repo discriminator. This keeps the cache key meaningful when focus is empty — two bare-prompt invocations in the same repo legitimately share research, but the key still differentiates repos. Since cache files from every repo's runs now live under the shared OS-temp root, a bare basename like `app` or `frontend` would collide across unrelated repos. Resolve the discriminator with this fallback chain and hash the result (first 8 hex chars of sha256 is sufficient):
     1. `git remote get-url origin` — stable across machines, correct for collaborators on the same remote.
     2. `git rev-parse --show-toplevel` — absolute repo path; machine-local but always available in a git checkout.

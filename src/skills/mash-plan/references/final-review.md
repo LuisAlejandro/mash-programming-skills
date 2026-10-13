@@ -1,6 +1,6 @@
 # Final Review and Plan Write
 
-Phase 5.1 through 5.3.2 of `mash-plan`. Read this before the pre-write review.
+Phase 5.1 through 5.2 of `mash-plan`. Read this before the pre-write review.
 
 ### Phase 5: Final Review, Write File, and Handoff
 
@@ -33,21 +33,7 @@ If the plan originated from a requirements document, re-read that document and v
 - Blocking questions were either resolved, explicitly assumed, or sent back to `mash-brainstorm`
 - Every section of the origin document is addressed in the plan — scan each section to confirm nothing was silently dropped
 - If origin supplies A/F/AE IDs: every origin R/F/AE that *affects implementation* is referenced in Requirements, a U-ID unit, test scenarios, verification, scope boundaries, or explicitly deferred. Actors are carried forward when they affect behavior, permissions, UX, orchestration, handoff, or verification. The standard is preservation of product intent, not mandatory ID spam — irrelevant origin IDs may be omitted
-- If origin was Deep-product (origin contains an `Outside this product's identity` subsection): the plan's Scope Boundaries preserves the three-way split — `Deferred for later` and `Outside this product's identity` carried verbatim from origin, `Deferred to Follow-Up Work` reserved for plan-local implementation sequencing
-
-#### 5.1.5 Scoping Synthesis
-
-Surface plan-time call-outs to the user before Phase 5.2 commits the plan to disk — the latest cheap moment to catch plan-time scope errors. The brainstorm already validated WHAT to build; this phase surfaces HOW the plan will execute on the forks that matter.
-
-Fires on every run except the Phase 0.1 fast paths (resume normal, deepen-intent). Resume and deepen fast paths do not re-run the scoping synthesis. Every plan is brainstorm-sourced — the missing-origin stop at Phase 0.3b guarantees an origin document.
-
-**Read `references/synthesis-summary.md` before composing the scoping synthesis** — and the shared reference it points to. Between them they carry the two-stage shape, the affirmability and keep tests, the detail test, budgets, granularity rules, anti-patterns, both literal templates, the auto-proceed guard, soft-cut behavior, self-redirect, the worked compression example, and non-interactive routing. Composing without them reliably produces malformed output.
-
-**Required gate output — do not skip; silent proceeding is not allowed.** Compose the internal three-bucket draft, derive call-outs, then emit the reference's confirmation template (or its auto-proceed template, which fires only for Lightweight depth with zero call-outs surviving) before continuing to Phase 5.2. On the confirmation path, wait for the user.
-
-**Synthesis is pre-plan-write.** The agent does NOT yet know how plan-write will sequence the work. Do not claim PR count ("one PR"), commit/branch shape, effort or time estimates, Implementation Unit boundaries, or exact file paths. The synthesis surfaces decisions knowable at THIS point (brainstorm + research + agent posture); plan-write produces the rest. This holds even when the agent formed plan-write opinions earlier in the session — those stay internal until plan-write.
-
-**Do NOT enumerate the touch surface.** Sentences like "The touch surface is...", "This plan touches...", "The implementation reaches into...", "Files modified include..." are plan-pitch leaks. File paths, module names, directory introductions, and per-file change descriptions belong in the plan body (Implementation Units at Phase 5.2). The synthesis names *what* the plan targets, not *where* the code lives.
+- If the origin contains an `Outside this product's identity` subsection: the plan's Scope Boundaries preserves the three-way split — `Deferred for later` and `Outside this product's identity` carried verbatim from origin, `Deferred to Follow-Up Work` reserved for plan-local implementation sequencing
 
 #### 5.2 Write Plan File
 
@@ -79,69 +65,6 @@ Confirm (use absolute path so the reference is clickable in modern terminals):
 Plan written to <absolute path to plan>
 ```
 
-**Non-interactive mode:** When `mode:non-interactive` is active, skip interactive questions. Make the needed choices automatically and proceed to writing the plan. Then emit the handoff envelope below in place of the confirmation line above.
+**Interactive confirmation.** After the file is on disk, ask one question, using the blocking question tool when it exists: the plan is at that path. Does this match what you want, or what should change? If the user confirms, continue. If they name a change, edit the file and continue. Do not ask a second time. Then read `references/plan-handoff.md`.
 
-##### Handoff envelope (`mode:non-interactive` only)
-
-Emit a compact, stable envelope so an automated caller can consume the result without parsing prose. [`mash-parallel`](../../mash-parallel/SKILL.md)'s `plan:` phase reads `PLAN PATH:` from this block and passes it to the `work:` phase that follows.
-
-```text
-MASH_PLAN_HANDOFF
-PLAN PATH: <repo-relative path to the plan, empty when blocked>
-FILES: <union of the per-unit Files lists, repo-relative, one per line>
-BLOCKERS: <none | one-line blocker>
-END_MASH_PLAN_HANDOFF
-```
-
-- **Paths are repo-relative**, matching `FILES_CHANGED` in `mash-work`'s envelope and this skill's never-absolute-paths rule. A worker runs with its worktree as `cwd` while the orchestrator resolves against the repo root, and the value is interpolated into the *next* phase's prompt — an absolute path would point outside that phase's own worktree.
-- **`FILES` comes from every unit body's `**Files:**` field, not from the large-plan Unit Index.**
-- **`BLOCKERS:` is the only failure channel.** When the run cannot safely produce a plan, leave `PLAN PATH:` empty and state the reason in one line. A caller that receives a blocker stops the task legibly instead of timing out.
-- Emit the envelope in non-interactive mode only. Interactive runs keep the `Plan written to <absolute path>` confirmation above, which is for a human reading chat.
-
-#### 5.3 Confidence Check and Deepening
-
-After writing the plan file, automatically evaluate whether the plan needs strengthening.
-
-**Two deepening postures** — this is a separate axis from `mode:interactive` / `mode:non-interactive`, which govern the run as a whole:
-
-- **Integrate-directly** (default during plan generation): Runs without asking the user for approval. The user sees what is being strengthened but does not need to make a decision. Sub-agent findings are synthesized directly into the plan.
-- **Review-each-finding** (activated by the re-deepen fast path in Phase 0.1, interactive runs only): The user explicitly asked to deepen an existing plan. Sub-agent findings are presented individually for review before integration. The user can accept, reject, or discuss each agent's findings. Only accepted findings are synthesized into the plan.
-
-Review-each-finding exists because on-demand deepening is a different user posture — the user already has a plan they are invested in and wants to be surgical about what changes. This applies whether the plan was generated by this skill, written by hand, or produced by another tool.
-
-`mash-doc-review` and this confidence check are different:
-- Use the `mash-doc-review` skill when the document needs clarity, simplification, completeness, or scope control
-- This confidence check strengthens rationale, sequencing, risk treatment, and system-wide thinking when the plan is structurally sound but still needs stronger grounding
-
-**Non-interactive mode:** This phase always uses the integrate-directly posture when `mode:non-interactive` is active — there is no synchronous user to review findings with.
-
-##### 5.3.1 Classify Plan Depth and Topic Risk
-
-Determine the plan depth from the document:
-- **Lightweight** - small, bounded, low ambiguity, usually 2-4 implementation units
-- **Standard** - moderate complexity, some technical decisions, usually 3-6 units
-- **Deep** - cross-cutting, high-risk, or strategically important work, usually 4-8 units or phased delivery
-
-Build a risk profile. Treat these as high-risk signals:
-- Authentication, authorization, or security-sensitive behavior
-- Payments, billing, or financial flows
-- Data migrations, backfills, or persistent data changes
-- External APIs or third-party integrations
-- Privacy, compliance, or user data handling
-- Cross-interface parity or multi-surface behavior
-- Significant rollout, monitoring, or operational concerns
-
-##### 5.3.2 Gate: Decide Whether to Deepen
-
-- **Lightweight** plans usually do not need deepening unless they are high-risk
-- **Standard** plans often benefit when one or more important sections still look thin
-- **Deep** or high-risk plans often benefit from a targeted second pass
-- **Thin local grounding override:** If Phase 1.2 triggered external research because local patterns were thin (fewer than 3 direct examples or adjacent-domain match), always proceed to scoring regardless of how grounded the plan appears. When the plan was built on unfamiliar territory, claims about system behavior are more likely to be assumptions than verified facts. The scoring pass is cheap — if the plan is genuinely solid, scoring finds nothing and exits quickly
-- **Load-bearing external research override:** If Phase 1.4 marked external research as load-bearing (it materially shaped a KTD, Alternative, Scope boundary, or Risk), always proceed to scoring — **even when local implementation patterns are strong**. A landscape or prior-art finding can shape recommendations the local codebase cannot verify, and the thin-grounding override above would miss it. This enters the scoring pass only; it does not force deepening
-
-If the plan already appears sufficiently grounded and neither the thin-grounding nor the load-bearing-external-research override applies, report "Confidence check passed — no sections need strengthening", then **load `references/plan-handoff.md` now and execute 5.3.8 → 5.3.9 → 5.4 in sequence**. Document review is a user-selected option in Phase 5.4, not an automatic gate.
-
-
-##### 5.3.3 onward
-
-When deepening is warranted, read `references/deepening-workflow.md` and execute 5.3.3 through 5.3.7 from that file. Then read `references/plan-handoff.md` for 5.3.8 (ponytail sanity-check), 5.3.9 (final checks), and 5.4 (post-generation handoff, including the optional document-review choice).
+**Non-interactive mode:** Do not ask. Read `references/plan-handoff.md`, which emits the handoff envelope after the ponytail check.

@@ -10,9 +10,9 @@ repositories.
 ### Cursor
 
 For work in this source repository, follow the rules in `src/rules/*.mdc`.
-All seven are `alwaysApply: true`: `caveman`, `docker-via-make`,
-`gitchangelog-commits`, `hindsight-memory`, `ponytail`, `mash-workflow-gates`,
-and `save-insights`. `src/skills/` and `src/agents/` are the canonical source
+All eight are `alwaysApply: true`: `browser-desktop-automation`, `caveman`,
+`docker-via-make`, `gitchangelog-commits`, `hindsight-memory`, `ponytail`,
+`mash-workflow-gates`, and `save-insights`. `src/skills/` and `src/agents/` are the canonical source
 trees. The installer copies them to `~/.cursor/rules/`, `~/.cursor/skills/`,
 and `~/.cursor/agents/`; Cursor loads those installed paths.
 
@@ -50,13 +50,13 @@ reference table in `README.md`.
 | Skill runtime deps | `~/.config/mash/node_modules/`, `~/.config/mash/venvs/` | Per-skill npm store and virtualenv, symlinked into each IDE home |
 | Hindsight memory | Hindsight (`hindsight-embed`) | Cross-session memory |
 
-The three contract references (`model-tiers.md`, `scoping-synthesis.md`,
-`markdown-rendering.md`) are sourced from `references/` in this repo and
-installed at `~/.config/mash/references/`. The source nests two of them one
-level deep (`references/model-tiers/model-tiers.md`); the installer flattens
-them on copy, which is why consumers reference the flat global path. Do not
-restore repo-relative `.agents/shared/references/` links in global skills, and
-do not host reference documentation under `.agents/` here.
+The two contract references (`model-tiers.md`, `markdown-rendering.md`) are
+sourced from `references/` in this repo and installed at
+`~/.config/mash/references/`. The source nests `model-tiers` one level deep
+(`references/model-tiers/model-tiers.md`); the installer flattens it on copy,
+which is why consumers reference the flat global path. Do not restore
+repo-relative `.agents/shared/references/` links in global skills, and do not
+host reference documentation under `.agents/` here.
 
 Always-on rules are sourced from `src/rules/*.mdc` with `alwaysApply: true`.
 The installer copies them to `~/.cursor/rules/`, where Cursor reads them
@@ -91,9 +91,12 @@ non-agent documentation there is a latent phantom-agent hazard.
 ## Scope: what Mash Programming Skills does not own
 
 Mash Programming Skills ships planning, implementation, review, and release skills. It does **not**
-ship a design-to-code pipeline. Design skills, their `DESIGN.md`, and
-`.mash/designs/` artifacts belong to whichever repository installs them. Do not
-reintroduce design skills, design agents, or design paths here.
+ship a design-to-code pipeline. That pipeline lives in the sibling repository
+`mash-design-skills`. The two packs share `~/.config/mash/` and the three IDE
+homes, and they keep separate manifests: this repo writes `install-manifest.json`,
+and mash-design-skills writes `design-install-manifest.json`. Design skills write
+`.mash/designs/` and `.mash/design-system/` in the app. Do not reintroduce design
+skills, design agents, or design paths here.
 
 Personal, site-specific, or single-repository skills also do not belong in this
 source tree. They live in their owning repository's local (untracked) skill

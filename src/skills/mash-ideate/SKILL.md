@@ -1,7 +1,7 @@
 ---
 name: mash-ideate
 description: "Generate and evaluate grounded ideas. Use when the user wants ideas, improvements, or surprising directions before choosing one to develop."
-argument-hint: "[feature, focus area, or constraint] [output:md]"
+argument-hint: "[feature, focus area, or constraint]"
 
 ---
 
@@ -19,7 +19,7 @@ Use the current calendar year when dating documents and checking recent artifact
 2. **Generate many, critique all, explain survivors only.** Generate the full candidate list before critiquing any of it. Rejection is explicit and carries a reason; this is not optimistic ranking.
 3. **End at a next-steps menu.** Ideation output is an evaluated candidate set; the deliverable ends with a menu of what to do next and never skips onward to planning.
 4. **Never dispatch on an unidentified subject.** Ask instead, through the host's blocking question tool already in the current tool list (match by capability, not by a host-specific name). Presence in the current tool list is proof the tool exists; never call a user-facing question tool to discover whether it exists. If a matching tool is listed but unloaded, use the host's tool-discovery primitive to load that capability — do not search for another host's tool name. Where no such tool is in the list, offer numbered options on the user-visible surface. Never skip a question silently. Keep "Surprise me" a real option, alongside a Cancel that exits cleanly. If it takes more than 3 questions, ideation is the wrong workflow.
-5. **Never print the internal taxonomy label.** The labels `repo-grounded`, `elsewhere-software`, and `elsewhere-non-software` route dispatch only. Describe the mode to the user in the topic's own words.
+5. **Never print the internal taxonomy label.** The labels `repo-grounded` and `elsewhere-software` route dispatch only. Describe the mode to the user in the topic's own words. A topic with no software surface stops in Phase 0.
 6. **Warn and proceed when grounding fails.**
 7. **Surface the cost line before dispatching.**
 
@@ -39,13 +39,11 @@ Artifacts go under `<repo-root>/.mash/ideation/`, and learnings are read from `<
 
 Both reads this phase names are required, even when the subject, mode, and format look clear. They own the resume check, the format decision, and the scope classification, and nothing here is resolved before them.
 
-**Output mode is exclusive.** A run produces HTML (`.html`) or markdown (`.md`), never both. A pipeline or `disable-model-invocation` context forces `md`. Otherwise `OUTPUT_FORMAT` is always `html` — it is hardcoded and not configurable.
+**Output is markdown.** `OUTPUT_FORMAT` is `md`. Read `references/output-mode.md` whenever a format is resolved. The read is required. It owns the 30-day recent-work check that decides whether this run updates an existing doc instead of writing a new one.
 
-Read `references/output-mode.md` whenever a format is resolved. The read is required. It owns each step of the decision, and the 30-day recent-work check that decides whether this run updates an existing doc instead of writing a new one.
+**No yaml config is read.** `mash-ideate` reads no config file. The artifact root is hardcoded to `<repo-root>/.mash/ideation/`.
 
-**No yaml config is read.** `mash-ideate` reads no config file. The artifact root is hardcoded to `<repo-root>/.mash/ideation/` and `OUTPUT_FORMAT` is hardcoded to `html` (pipeline mode still forces `md`).
-
-**Non-software routing.** A topic with no software surface runs elsewhere-mode grounding rather than the repo scan. It then follows `references/universal-ideation.md` in place of Phase 2's frames and the Phase 5 menu. The deliverable is still written automatically.
+**Non-software stop.** A topic with no software surface stops in Phase 0. `references/scope-gates.md` owns that stop. Elsewhere-software (a product or page outside this repo) still runs.
 
 **The gates.** `references/scope-gates.md` owns every Phase 0 gate, plus the surprise-me and tactical deltas. Ask when the subject is not identifiable. `go deep` beats a tactical signal.
 

@@ -1,7 +1,7 @@
 # Mash Programming Skills
 
 Mash Programming Skills is a machine-global agent environment for Cursor, OpenCode, and Pi. The
-installer distributes Mash Programming Skills skills, rules, agents, guidance, MCP configuration,
+installer distributes Mash Programming Skills, rules, agents, guidance, MCP configuration,
 and Hindsight hooks into each IDE's global home. It does **not** write IDE trees,
 `AGENTS.md`, `DESIGN.md`, MCP files, pins, or `.mash/*` directories into the
 current repository.
@@ -12,10 +12,10 @@ repository and are not installed by Mash Programming Skills. See
 
 ## Installation
 
-No checkout is required. This downloads the `master` tarball and installs from it:
+No checkout is required. This downloads the `develop` tarball and installs from it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LuisAlejandro/mash-programming-skills/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LuisAlejandro/mash-programming-skills/develop/install.sh | bash
 ```
 
 Pipe to `bash`. Flags go through as `bash -s -- --check`. Until the repository is
@@ -150,7 +150,7 @@ GitHub is the only issue tracker Mash Programming Skills writes to.
 
 1. Prunes skills, agents, rules, and shared dependency stores that the previous
    install manifest owned but the current source tree no longer contains.
-2. Copies every Mash Programming Skills skill in this source tree into the Cursor, OpenCode, and
+2. Copies every one of the Mash Programming Skills in this source tree into the Cursor, OpenCode, and
    Pi global skill homes. Repository-scoped skills are absent from Mash Programming Skills's
    source and remain local untracked files in their owning repositories.
 3. Copies specialist agents to Cursor, OpenCode, and the Pi-subagents home.
@@ -179,8 +179,10 @@ GitHub is the only issue tracker Mash Programming Skills writes to.
     `DESIGN.md` are not ignored.
 
 Skills create `.mash/*` working files and directories lazily as needed. Mash Programming Skills
-does not ship a design-to-code pipeline; design skills and their `DESIGN.md` /
-`.mash/designs/` artifacts belong to the repository that installs them.
+does not ship a design-to-code pipeline. The sibling repository `mash-design-skills`
+installs those skills, shares `~/.config/mash/` through `design-install-manifest.json`,
+and writes `.mash/designs/` and `.mash/design-system/` in the app. Root `DESIGN.md`
+stays in the app.
 
 ## Verification and flags
 

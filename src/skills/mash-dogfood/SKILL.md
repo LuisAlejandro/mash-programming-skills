@@ -18,9 +18,7 @@ This is **window-scoped**, not whole-app exploration. Merged PRs locate the chan
 
 ## Communication while using this skill
 
-**Caveman lite** for all assistant prose while this skill runs: strip filler and hedging; keep articles and full sentences; stay professional and tight. Technical accuracy unchanged; quoted errors, URLs, and matrix rows unchanged. Drop lite only for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or when the user asks for normal or long-form wording.
-
-Caveman lite applies to orchestrator chat and status. The report on disk is normal prose.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 ## Interaction Method
 
@@ -90,7 +88,7 @@ Reports live under `<repo-root>/.mash/dogfood/`. Resolve `<repo-root>` the first
 
 ## Optional memory
 
-Hindsight recall is **optional** and must not block the run. If `hindsight-embed daemon status` succeeds (PATH includes `${HOME}/.local/bin`), recall test-account prefs, known flaky flows, and prior dogfood outcomes for this repo. If status fails, continue. Do not treat this skill as Hindsight-gated; recall here is advisory.
+Hindsight recall is **optional** and must not block the run. Run the availability check from [`mash-hindsight`](../mash-hindsight/SKILL.md) (daemon status **and** the `/version` fingerprint; PATH includes `${HOME}/.local/bin`); if it passes, recall test-account prefs, known flaky flows, and prior dogfood outcomes for this repo. If the check or recall fails, continue. Do not treat this skill as Hindsight-gated; recall here is advisory.
 
 ## Phase order
 

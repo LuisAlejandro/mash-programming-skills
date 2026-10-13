@@ -83,3 +83,75 @@ def test_relocate_qa_artifacts(tmp_path):
     rp.relocate_qa_artifacts(wt, dest)
     assert not (wt / ".mash" / "qa").exists()
     assert (dest / "qa" / "notes.md").read_text() == "qa\n"
+
+
+# --- C12: scaffold/verify phases carry a real contract ---------------------
+
+
+def test_scaffold_prompt_names_contract_and_tasks(tmp_path):
+    # The base template's PHASE CONTRACT omits scaffold, so without an appended
+    # phase context the worker got a bare phase label. The contract path and
+    # the epic's tasks must reach the prompt.
+    driver = rp.HarnessPhaseDriver("pi", tmp_path, "r-scaffold")
+    captured = {}
+    driver._invoke = lambda tid, phase: (
+        captured.update(prompt=driver._default_prompt(tid, phase)) or "done"
+    )
+    rp.run_scaffold(
+        driver,
+        {"t1": rp.new_task("t1", "add auth"), "t2": rp.new_task("t2", "add profile")},
+    )
+    prompt = captured["prompt"]
+    assert ".mash/parallel/scaffold-contract.md" in prompt
+    assert "add auth" in prompt and "add profile" in prompt
+
+
+def test_verify_prompt_names_role_tip_and_range(tmp_path):
+    # The integrated tip was accepted and discarded, so the verifier reviewed
+    # nothing in particular. It must now name the role and the exact range.
+    driver = rp.HarnessPhaseDriver("pi", tmp_path, "r-verify")
+    driver.set_task_context("__verify__/code_review", review_base="base123")
+    captured = {}
+    driver._invoke = lambda tid, phase: (
+        captured.update(tid=tid, prompt=driver._default_prompt(tid, phase)) or "done"
+    )
+    assert driver.verify_phase("code_review", "tip456") == "done"
+    prompt = captured["prompt"]
+    assert captured["tid"] == "__verify__/code_review"
+    assert "code_review" in prompt
+    assert "tip456" in prompt
+    assert "base123..tip456" in prompt
+
+
+def test_parallel_verification_passes_base_to_prompts(tmp_path):
+    # run_parallel_verification must hand the review base to the driver so the
+    # context lands on the synthetic verify ids.
+    driver = rp.HarnessPhaseDriver("pi", tmp_path, "r-verify-base")
+    captured = {}
+    driver._invoke = lambda tid, phase: (
+        captured.update({tid: driver._default_prompt(tid, phase)}) or "done"
+    )
+    rp.run_parallel_verification(driver, "tip789", base_sha="base000")
+    for verifier in ("code_review", "test_runner", "architecture"):
+        assert "base000..tip789" in captured[f"__verify__/{verifier}"]
+
+
+# --- C13: an unconfigured integration gate is reported, not passed ---------
+
+
+def test_default_gate_reports_not_configured(tmp_path):
+    # No suite in the worktree and no explicit command: the run must be able to
+    # proceed, but must not claim checks passed.
+    ok, failures = rp._default_integration_gate(tmp_path)
+    assert ok is True
+    assert failures == [rp.GATE_NOT_CONFIGURED]
+
+
+def test_default_gate_runs_explicit_command(tmp_path):
+    ok, failures = rp._default_integration_gate(tmp_path, command="exit 0")
+    assert (ok, failures) == (True, [])
+    ok2, failures2 = rp._default_integration_gate(
+        tmp_path, command="echo boom >&2; exit 3"
+    )
+    assert ok2 is False
+    assert failures2 and "boom" in failures2[0]

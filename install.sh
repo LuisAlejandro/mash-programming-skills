@@ -297,7 +297,7 @@ project-specific instructions in a repository's own AGENTS.md.
 - Pi specialist agents: `~/.agents/`
 
 Before non-trivial planning, implementation, or review work, follow the
-always-on Mash Programming Skills rules and use the relevant Mash Programming Skills skill. Do not create or expect
+always-on Mash Programming Skills rules and use the relevant skill. Do not create or expect
 repo-local IDE trees for Mash Programming Skills distribution.
 
 ## Hindsight
@@ -583,7 +583,6 @@ install_global_references() {
     mkdir -p "$MASH_CONFIG_DIR/references"
     for source in \
         "$SOURCE_ROOT/references/model-tiers/model-tiers.md" \
-        "$SOURCE_ROOT/references/scoping-synthesis/scoping-synthesis.md" \
         "$SOURCE_ROOT/references/markdown-rendering.md"; do
         [ -f "$source" ] || {
             echo "   ⚠️  Missing contract reference: $source" >&2
@@ -592,6 +591,7 @@ install_global_references() {
         dest="$MASH_CONFIG_DIR/references/$(basename "$source")"
         cp "$source" "$dest"
     done
+    rm -f "$MASH_CONFIG_DIR/references/scoping-synthesis.md"
 }
 
 merge_global_mcp() {
@@ -854,7 +854,6 @@ run_global_check() {
         "$MASH_CONFIG_DIR/always-on-rules.md"
         "$PI_HOME/APPEND_SYSTEM.md"
         "$MASH_CONFIG_DIR/references/model-tiers.md"
-        "$MASH_CONFIG_DIR/references/scoping-synthesis.md"
         "$MASH_CONFIG_DIR/references/markdown-rendering.md"
         "$MASH_CONFIG_DIR/install-manifest.json"
         "$MASH_CONFIG_DIR/uninstall.sh"
@@ -1378,9 +1377,9 @@ install_gitchangelog() {
     return 1
 }
 
-# Agent harnesses that can run Mash Programming Skills skills and act as mash-parallel workers.
+# Agent harnesses that can run Mash Programming Skills and act as mash-parallel workers.
 # Mash Programming Skills does not install these: each has its own installer, auth, and licence.
-# Installation continues without one, but Mash Programming Skills skills have nothing to run in.
+# Installation continues without one, but Mash Programming Skills have nothing to run in.
 MASH_HARNESSES="pi opencode cursor-agent codex claude"
 
 check_agent_harness() {

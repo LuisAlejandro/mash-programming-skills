@@ -5,9 +5,7 @@ description: "Runs lint, format, type-check, and build commands scoped to this s
 
 ## Communication while using this skill
 
-**Caveman ultra** for assistant status prose while this skill runs: abbreviate routine workflow words, strip conjunctions where safe, use arrows for causality, and keep one word when one word is enough. Technical accuracy unchanged; command names, code symbols, quoted errors, and command output unchanged. Drop ultra for security warnings, irreversible confirmations, complex failure explanations, user confusion, or when the user asks for normal or long-form wording.
-
-**Output boundary:** Caveman ultra applies to chat/status prose, not raw lint output, build logs, structured failure reports, or code fixes.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
 # Mash Programming Skills Lint & Build
 

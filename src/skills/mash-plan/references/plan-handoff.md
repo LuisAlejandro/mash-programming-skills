@@ -1,8 +1,8 @@
 # Plan Handoff
 
-This file contains post-plan-writing instructions: the ponytail sanity-check, post-generation options, optional document review, and issue creation. Load it after the plan file has been written and the confidence check (5.3.1-5.3.7) is complete.
+This file contains post-plan-writing instructions: the ponytail sanity-check, post-generation options, optional document review, and issue creation. Load it after the plan file has been written. Interactive runs load it after the user answers the file confirmation.
 
-## 5.3.8 Ponytail Sanity-Check
+## Ponytail sanity-check
 
 Before final checks, run a lightweight over-engineering pass on the plan's Implementation Units. This is the write-time gate: catch speculative abstractions, unneeded dependencies, and over-scoped units *before* `mash-work` commits to them, when they are cheapest to cut.
 
@@ -25,24 +25,30 @@ Do **not** flag: correctness, security, performance, or domain complexity the re
 
 **Non-interactive mode:** Apply safe ponytail cuts without waiting. Scope-changing cuts go to blockers/open questions rather than waiting for a user decision.
 
-## 5.3.9 Final Checks and Cleanup
+## Final checks
 
 Before proceeding to post-generation options:
 - Confirm the plan is stronger in specific ways, not merely longer
 - Confirm the planning boundary is intact
 - Confirm origin decisions were preserved
 
-If artifact-backed mode was used:
-- Clean up the temporary scratch directory after the plan is safely updated
-- If cleanup is not practical on the current platform, note where the artifacts were left
-
 Write the markdown plan directly per `references/markdown-rendering.md`.
 
-After all mutations in this run have settled (initial write, deepening synthesis, and safe ponytail cuts), the artifact at its path reflects the final state.
+After the write and any safe ponytail cuts, the artifact at its path reflects the final state.
 
 ## 5.4 Post-Generation Options
 
-**Non-interactive mode:** If `mode:non-interactive` is active, skip the interactive menu below and return control to the caller immediately. The plan file has been written and checked, but document review has not run; the caller may invoke `mash-doc-review` separately when review is desired.
+**Non-interactive mode:** If `mode:non-interactive` is active, skip the interactive menu below. The plan file has been written and checked, but document review has not run; the caller may invoke `mash-doc-review` separately when review is desired. Emit the handoff envelope and return.
+
+```text
+MASH_PLAN_HANDOFF
+PLAN PATH: <repo-relative path to the plan, empty when blocked>
+FILES: <union of the per-unit Files lists, repo-relative, one per line>
+BLOCKERS: <none | one-line blocker>
+END_MASH_PLAN_HANDOFF
+```
+
+[`mash-parallel`](../../mash-parallel/SKILL.md)'s `plan:` phase reads `PLAN PATH:` from this block. Paths are repo-relative. `FILES` comes from every unit body's `**Files:**` field. `BLOCKERS:` is the only failure channel: when the run cannot safely produce a plan, leave `PLAN PATH:` empty and state the reason in one line.
 
 **Path format:** Use absolute paths for chat-output file references — relative paths are not auto-linked as clickable in most terminals.
 

@@ -15,9 +15,9 @@ Rules:
 - Not: "Sure! I'd be happy to help you with that."
 - Yes: "Bug in auth middleware. Fix:"
 
-Levels: `lite` | `full` | `ultra` | `wenyan-lite` | `wenyan-full` | `wenyan-ultra` (defined below).
+Levels: `lite` | `full` | `ultra` (defined below).
 
-Default level: **full** when the user invokes caveman explicitly; **lite** when caveman is implied by a Mash Programming Skills skill. Stop: "stop caveman" — or "normal mode", which reverts every always-on response mode (see the ponytail rule, § Modes off-switch).
+Default level: **full** when the user invokes caveman explicitly. While a Mash Programming Skills skill is active, use the level in the table below. Stop: "stop caveman" — or "normal mode", which reverts every always-on response mode (see the ponytail rule, § Modes off-switch).
 
 Auto-Clarity: drop caveman for security warnings, irreversible actions, and ambiguous steps (see below). Resume after.
 
@@ -31,16 +31,13 @@ skill. Worked examples live in the caveman skill, `SKILL.md`.
 - **lite** — No filler or hedging. Keep articles and full sentences. Professional but tight.
 - **full** — Drop articles, fragments OK, short synonyms. Classic caveman.
 - **ultra** — Abbreviate prose words (DB/auth/config/req/res/fn/impl), strip conjunctions, arrows for causality (X -> Y), one word when one word enough. Never abbreviate code symbols, function names, API names, or error strings.
-- **wenyan-lite** — Semi-classical: drop filler and hedging, keep grammar structure, classical register.
-- **wenyan-full** — Fully Classical Chinese. Classical sentence patterns, verbs precede objects, subjects often omitted, classical particles.
-- **wenyan-ultra** — Extreme abbreviation while keeping the classical Chinese feel.
 
 ## Scope (what caveman applies to)
 
 **Caveman applies to:**
 
-- Status/progress while Mash Programming Skills skills run (brainstorm, plan, work, qa, hindsight)
-- "Done X, next Y" workflow messages, inside or outside a Mash Programming Skills skill
+- Status/progress while a Mash Programming Skills skill is active
+- "Done X, next Y" workflow messages, inside or outside Mash Programming Skills
 - Tool-run narration
 
 **Caveman does NOT apply to:**
@@ -52,12 +49,18 @@ skill. Worked examples live in the caveman skill, `SKILL.md`.
 
 When the two lists overlap, the "does NOT apply" list wins.
 
-## Mash Programming Skills skills
+## Mash Programming Skills
 
-When `mash-brainstorm`, `mash-plan`, `mash-work`, `mash-qa`, or `mash-hindsight` is active:
+While one of these skills is active, status prose uses the level in this table. The first message after a gated skill starts includes the Hindsight gate line. Skills point here; they do not restate the level.
 
-- Use **caveman lite** for all assistant chat (not ultra unless hindsight-only CLI narration)
-- First message after skill start must be caveman-lite, including the Hindsight gate line
+| Skills | Level |
+|---|---|
+| `mash-hindsight`, `mash-lint`, `mash-sentrux`, `mash-pr` | ultra |
+| `mash-brainstorm`, `mash-plan`, `mash-work`, `mash-qa`, `mash-doc-review`, `mash-debug`, `mash-dogfood`, `mash-release`, `mash-epic-frame`, `mash-parallel` | lite |
+
+Drop the level for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or a request for normal wording. Also drop it for per-finding review walkthroughs, release confirmations, and branch or PR decisions that need careful wording.
+
+Leave uncompressed: the artifact that skill writes (requirements, plans, reports, PR bodies, commit messages), reviewer findings and JSON, schemas, line and file references, review UX blocks, causal chains and root-cause explanations, quoted errors, command output, exact commands, memory recall text, retain payloads, handoff fields, worker output, and topology payloads.
 
 ## Namespace
 
@@ -78,9 +81,9 @@ This rule and the caveman skill both describe caveman. When both are loaded:
 
 If user rules ask for "blog-quality prose" in chat:
 
-- Mash Programming Skills **workflow status** → caveman lite wins
+- Mash Programming Skills **workflow status** → the level in the table above wins
 - **Conceptual explanations** to user questions → normal concise prose unless the user invoked caveman
 
 ## Proof of compliance
 
-While a Mash Programming Skills skill is active, do not open with multi-paragraph essay style. Status updates: short paragraphs, minimal filler.
+While Mash Programming Skills are active, do not open with multi-paragraph essay style. Status updates: short paragraphs, minimal filler.

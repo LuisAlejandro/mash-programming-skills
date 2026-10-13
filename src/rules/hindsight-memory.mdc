@@ -10,7 +10,7 @@ When a Mash Programming Skills pipeline skill is active, use the `mash-hindsight
 - At the start of a gated skill (listed below), recall relevant context with `hindsight-embed memory recall` (see skill for PATH).
 - During those skills, retain durable discoveries, user preferences, procedure outcomes, and project conventions with `hindsight-embed memory retain`.
 - At the end of `mash-work`, retain a concise session summary with changed files, verification, blockers, and decisions.
-- If Hindsight is unavailable or not configured, continue the Mash Programming Skills skill and record the unavailable status where applicable.
+- If Hindsight is unavailable or not configured, continue the skill and record the unavailable status where applicable.
 - Do not store secrets or sensitive data.
 
 ## Mandatory gate (do not skip)
@@ -30,13 +30,15 @@ Do **not** run it for generic planning, implementation, code review, or "impleme
 
 `mash-debug` and `mash-dogfood` use Hindsight **advisorily** — recall and retain are optional there and must never block the run. Do not treat them as gated.
 
-You **must** run this sequence **before** other research or edits:
+You **must** run the availability check and recall defined in the `mash-hindsight` skill **before** other research or edits. That skill owns the one executable procedure — the daemon check, the `/version` port fingerprint that distinguishes a real Hindsight daemon from an unrelated service holding the port, bank resolution, and the recall call. Do not restate or shortcut it here.
+
+The sequence is mandatory:
 
 1. Read the `mash-hindsight` skill
-2. Run `hindsight-embed daemon status` with `PATH="${HOME}/.local/bin:${PATH}"` (daemon warm-restart: global Cursor `sessionStart` hook / native OpenCode plugin / global Pi `session_start` extension via `ensure-hindsight-daemon.sh`)
-3. If status OK → run `hindsight-embed memory recall <bank> "<task summary>"`
-4. If status fails → continue the skill but state `Hindsight: unavailable — <reason>` in the first status message
+2. Run its availability check. `daemon status` alone is not proof — the fingerprint is part of the check.
+3. When available, run `memory recall` per that skill's bank resolution
+4. If it fails, continue the skill and state `Hindsight: unavailable — <reason>` in the first status message
 
-Skipping step 2 without documenting unavailable is a workflow violation.
+Skipping the availability check without documenting unavailable is a workflow violation.
 
 At end of `mash-work`: run `memory retain` with session summary **or** document why retain was skipped.

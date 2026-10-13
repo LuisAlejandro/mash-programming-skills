@@ -9,9 +9,7 @@ description: Commit, push, and open or update a GitHub PR with an adaptive, valu
 
 ## Communication while using this skill
 
-**Caveman ultra** for workflow status prose while this skill runs: abbreviate routine workflow words, strip conjunctions where safe, use arrows for causality, and keep one word when one word is enough. Technical accuracy unchanged; git commands, GitHub API names, quoted errors, and command output unchanged. Drop ultra for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, branch/PR decisions that need careful wording, or when the user asks for normal or long-form wording.
-
-This applies to workflow chat, status, and final status reports. PR previews, PR bodies, and commit messages follow their own contracts below: concise and value-led, but normal enough for reviewers and future maintainers.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule. PR bodies and commit messages stay in their own contracts below.
 
 ## Mash Programming Skills Overlay
 

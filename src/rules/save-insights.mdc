@@ -59,38 +59,3 @@ A session that produced several qualifying insights gets several sequential save
 ## Anti-Patterns
 
 If the lesson is about a failed or deprecated approach, include a `## Avoid` section explaining what not to do and why.
-
-## Example
-
-```markdown
----
-title: Hindsight uses embed CLI, not MCP
-module: mash-memory
-problem_type: durable_insight
-component: mash-hindsight
-tags:
- - hindsight
- - memory
- - cursor
- - workflow
-applies_when:
- - Adding or modifying Mash Programming Skills memory behavior
-severity: medium
----
-
-## Insight
-
-- Mash Programming Skills skills use Hindsight via the `hindsight-embed` tool install (`uv tool install` with co-installed `hindsight-api`), not the workspace MCP config. See the `mash-hindsight` skill.
-
-## When It Applies
-
-- Adding or modifying Mash Programming Skills memory behavior.
-
-## What To Do
-
-- Update `mash-hindsight` and workflow skill references instead of adding a Hindsight MCP server.
-
-## Evidence
-
-- The `mash-hindsight` skill
-```

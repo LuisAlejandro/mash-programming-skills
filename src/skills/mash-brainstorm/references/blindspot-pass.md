@@ -58,10 +58,6 @@ After the map, ask **one** multi-select blocking question (a legitimate Interact
 Then:
 
 - **Selected decisions** — walk through one per turn as informed single-select menus. Post-pass, menus over mapped options are the right form even where Interaction Rule 5 would normally prefer open-ended: the options no longer steer, they recall what was just mapped.
-- **Unselected decisions and hazards** — record the recommended default (or the hazard's constraint) as an explicit assumption, the same way rigor-probe uncertainty is recorded: in the requirements document on the software route, in the synthesis on the universal route.
+- **Unselected decisions and hazards** — record the recommended default (or the hazard's constraint) as an explicit assumption in the requirements document, the same way rigor-probe uncertainty is recorded.
 
-The pass never resolves decisions by itself and never replaces the dialogue. It runs once, converts blindspots into questions the user can answer, and the normal flow — rigor probes, approaches, synthesis — continues on informed ground.
-
-## Universal route
-
-The pass applies unchanged on the non-software route (an unfamiliar craft, market, or process). Grounding is web research or labeled model knowledge; delegated defaults land as named assumptions in the wrap-up synthesis instead of a requirements document.
+The pass never resolves decisions by itself and never replaces the dialogue. It runs once, converts blindspots into questions the user can answer, and the normal flow — rigor probes, approaches, then the requirements document — continues on informed ground.

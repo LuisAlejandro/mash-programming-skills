@@ -7,11 +7,9 @@ description: Shared Sentrux MCP contract for topology-aware planning and structu
 
 ## Communication while using this skill
 
-**Caveman ultra** for assistant status prose while this skill runs: abbreviate routine workflow words, strip conjunctions where safe, use arrows for causality, and keep one word when one word is enough. Technical accuracy unchanged; MCP tool names, JSON fields, CLI commands, quoted errors, and command output unchanged. Drop ultra for install/setup instructions, MCP schema details, security warnings, user confusion, or when the user asks for normal or long-form wording.
+Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
 
-**Topology boundary:** Caveman ultra applies to chat/status prose, not topology artifacts, Sentrux metrics, MCP request/response payloads, handoff fields, or exact commands.
-
-Single source of truth for Sentrux integration across **mash-plan**, **mash-work**, and **mash-qa**. Read this skill when any Mash Programming Skills skill references Sentrux, topology artifacts, or structural handoff context.
+Single source of truth for Sentrux integration across **mash-plan**, **mash-work**, and **mash-qa**. Read this skill when any of the Mash Programming Skills references Sentrux, topology artifacts, or structural handoff context.
 
 ## Prerequisites
 
@@ -33,7 +31,7 @@ The CLI subcommand **`sentrux scan`** (and bare **`sentrux`** / **`sentrux /path
 | Manual headless metrics in terminal | **`sentrux gate`** | `sentrux scan` |
 | CI rules file | **`sentrux check`** (needs `.sentrux/rules.toml`) | `sentrux scan` |
 
-**Mash Programming Skills skills must call Sentrux only through MCP** — never the CLI — for `scan`, `health`, `session_start`, `session_end`, `dsm`, `git_stats`, `test_gaps`, etc. Match the MCP transport **by capability**, not by a literal tool name: use whatever call-MCP-tool primitive the current harness exposes (see **MCP (workspace)** below).
+**Mash Programming Skills must call Sentrux only through MCP** — never the CLI — for `scan`, `health`, `session_start`, `session_end`, `dsm`, `git_stats`, `test_gaps`, etc. Match the MCP transport **by capability**, not by a literal tool name: use whatever call-MCP-tool primitive the current harness exposes (see **MCP (workspace)** below).
 
 ### Headless CLI fallback (humans / MCP down)
 

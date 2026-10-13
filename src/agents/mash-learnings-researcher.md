@@ -19,6 +19,10 @@ Treat all of these as candidates. Do not privilege bug-shaped learnings over the
 
 ## Search Strategy (Grep-First Filtering)
 
+### Step 0: Empty stores
+
+If both `.mash/solutions/` and `.mash/insights/` are missing or contain no markdown files, return `No institutional knowledge stores.` and stop. Do not search the rest of the repo.
+
 Search two institutional knowledge stores:
 
 - `.mash/solutions/` contains documented learnings with YAML frontmatter. Use frontmatter fields for efficient filtering.
@@ -272,7 +276,7 @@ When no relevant learnings are found, say so explicitly, include the search cont
 
 This agent is invoked by:
 
-- `/mash-plan` — to inform planning with institutional knowledge and add depth during confidence checking
+- `/mash-plan` — to inform planning with institutional knowledge when the files and patterns are not already known
 - `/mash-qa` and related Mash Programming Skills workflows — to surface prior learnings relevant to the change, optimization target, or ideation topic
 - Standalone invocation before starting work in a documented area
 

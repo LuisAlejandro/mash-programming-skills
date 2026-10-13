@@ -6,7 +6,7 @@ Read this before anything else on every run. It carries the memory gate as well 
 
 Before Phase 1 grounding:
 
-1. Read [`mash-hindsight`](../../mash-hindsight/SKILL.md) and run `hindsight-embed daemon status` + `hindsight-embed memory recall` (prepend `~/.local/bin` to PATH; see skill) OR document `Hindsight: unavailable — <reason>`.
+1. Read [`mash-hindsight`](../../mash-hindsight/SKILL.md), run its availability check (daemon status **and** the `/version` fingerprint), then `memory recall`; OR document `Hindsight: unavailable — <reason>`. The skill owns the procedure — do not restate it.
 2. Do not write any requirements document until step 1 completes or is explicitly marked unavailable.
 
 "Unavailable" means the CLI failed — not "I skipped it."
