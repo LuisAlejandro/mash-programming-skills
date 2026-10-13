@@ -1588,10 +1588,13 @@ def orchestrate_run(
             )
 
     run["fingerprints"] = fingerprints
-    # mash-plan requires an upstream requirements doc; project one per task.
-    origin_docs = write_task_origin_docs(repo_root, state)
-    for tid, rel in origin_docs.items():
-        state[tid]["origin_doc"] = rel
+    # Resolve each task's real upstream requirements doc. mash-plan requires an
+    # origin and stops without one; a task with no matching brainstorm doc gets
+    # an empty ORIGIN DOC and halts loudly in the worker instead of being planned
+    # against a fabricated requirements file.
+    origins = resolve_task_origins(repo_root, state)
+    for tid in state:
+        state[tid]["origin_doc"] = origins.get(tid, "")
     # Scaffold before planning (R19). Resume that already planned skips it.
     if callable(getattr(driver, "scaffold_phase", None)):
         already = resume.get("scaffold") if resume else None
@@ -2083,11 +2086,6 @@ def task_origin_slug(task_id: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", str(task_id).lower()).strip("-") or "task"
 
 
-def task_origin_doc_path(task_id: str) -> str:
-    """Repo-relative path of a projected per-task origin requirements doc."""
-    return f".mash/parallel/origins/{task_origin_slug(task_id)}-requirements.md"
-
-
 _DATE_PREFIXED_ORIGIN = re.compile(
     r"^\d{4}-\d{2}-\d{2}-(.+)-requirements\.md$"
 )
@@ -2119,65 +2117,29 @@ def existing_brainstorm_origin(repo_root, slug: str) -> str | None:
     return f".mash/brainstorms/{newest.name}"
 
 
-def write_task_origin_docs(repo_root, tasks: dict) -> dict[str, str]:
-    """Materialize a per-task origin requirements doc for each task.
+def resolve_task_origins(repo_root, tasks: dict) -> dict[str, str]:
+    """Map each task to a REAL upstream requirements doc, when one exists.
 
-    mash-plan requires an upstream requirements document and stops without
-    one. The epic-level brainstorm that produced this task list happens
-    outside the run, so each task's {id, goal, deps} is projected into a
-    minimal requirements doc under `.mash/parallel/origins/` that serves
-    as that task's origin. A matching real file under
-    `.mash/brainstorms/` wins -- no projection is written for that task.
-    Existing projected files are never overwritten.
+    mash-plan requires an origin document and stops without one (its 0.3b
+    missing-origin gate). This resolves that origin from an existing
+    `.mash/brainstorms/*-requirements.md` whose slug matches the task (the
+    shape `mash-epic-frame` writes per area).
 
-    Returns {task_id: repo-relative path}.
+    It never fabricates one. Projecting a synthetic requirements doc from the
+    task goal would launder unvalidated scope past that gate, which exists
+    precisely to prevent inventing product scope at plan time.
+
+    Returns {task_id: repo-relative path} for tasks that matched; a task with
+    no real origin is absent and reaches its worker with an empty ORIGIN DOC,
+    where mash-plan halts with the gap named in BLOCKERS.
     """
     if repo_root is None:
         return {}
     out: dict[str, str] = {}
-    for tid, t in tasks.items():
-        slug = task_origin_slug(tid)
-        existing = existing_brainstorm_origin(repo_root, slug)
+    for tid, _t in tasks.items():
+        existing = existing_brainstorm_origin(repo_root, task_origin_slug(tid))
         if existing:
             out[tid] = existing
-            continue
-        rel = task_origin_doc_path(tid)
-        dest = Path(repo_root) / rel
-        out[tid] = rel
-        if dest.exists():
-            continue
-        goal = (t.get("goal") or tid).strip()
-        deps = [d for d in (t.get("deps") or [])]
-        lines = [
-            f"# {goal}",
-            "",
-            "## Summary",
-            "",
-            f"{goal}",
-            "",
-            "## Requirements",
-            "",
-            f"- R1: {goal}",
-            "",
-            "## Scope Boundaries",
-            "",
-            "- This document scopes one task of a parallel epic. Work outside "
-            "the stated goal belongs to a sibling task.",
-        ]
-        if deps:
-            lines += ["", "## Dependencies", ""]
-            lines += [f"- {d}" for d in deps]
-        lines += [
-            "",
-            "## Assumptions",
-            "",
-            "- Projected from the epic task list rather than an interactive "
-            "brainstorm. Requirements not stated in the task goal are "
-            "un-validated.",
-            "",
-        ]
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text("\n".join(lines))
     return out
 
 

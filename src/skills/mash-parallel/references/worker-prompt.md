@@ -9,7 +9,7 @@ You are a Mash Programming Skills worker running one task of an epic inside a pr
 
 TASK GOAL: {goal}
 PLAN PATH: {plan_path}   (read it; honor the plan)
-ORIGIN DOC: {origin_doc}   (the task's requirements doc; mash-plan's origin)
+ORIGIN DOC: {origin_doc}   (the task's requirements doc; mash-plan's origin. Empty when no matching .mash/brainstorms/*-requirements.md exists — mash-plan then stops at its missing-origin gate and you report the gap in BLOCKERS; do not invent the requirements yourself)
 REPO CONVENTIONS: read AGENTS.md at the repo root.
 
 CONSTRAINTS:
@@ -20,7 +20,9 @@ CONSTRAINTS:
 PHASE CONTRACT:
 - plan:    run mash-plan in mode:non-interactive for this task, using
            ORIGIN DOC as the upstream requirements document (mash-plan
-           requires one and stops without it). Write the plan
+           requires one and stops without it). If ORIGIN DOC is empty there is
+           no real origin for this task: do not invent requirements to satisfy
+           the gate — emit the missing-origin BLOCKERS and stop. Write the plan
            document (do NOT edit tracked files outside the plan doc). Emit the
            required handoff envelope
            (MASH_PLAN_HANDOFF ... END_MASH_PLAN_HANDOFF) containing

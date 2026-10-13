@@ -24,7 +24,7 @@ The skill **delegates** to external harness workers (`pi`, `opencode`, `cursor-a
 
 A run receives:
 
-- `tasks`: list of `{id, goal, deps?: [ids]}`
+- `tasks`: list of `{id, goal, deps?: [ids]}` — each task's `id` slug must match a `.mash/brainstorms/<slug>-requirements.md` origin document, or its planning phase halts (no origin is fabricated from the goal)
 - `base_branch` (default `develop`)
 - optional harness override (`pi` | `opencode` | `cursor-agent` | `codex` | `claude`)
 - optional tunables: `max_parallel`, `timeout_budget`
@@ -32,7 +32,7 @@ A run receives:
 
 The epic-level brainstorm that produced the validated task list happens **outside** the run (origin 5.1). The task list arrives as a pre-existing input.
 
-**Per-task origin docs.** `mash-plan` requires an upstream requirements document and stops without one. Before planning, each task's `{id, goal, deps}` is projected into `.mash/parallel/origins/<task-slug>-requirements.md` and passed to the worker as `ORIGIN DOC`. If a real `.mash/brainstorms/*-requirements.md` already exists whose slug matches the task, that file is used and no projection is written. `.mash/parallel/` is never a search root for brainstorm or plan origin discovery.
+**Per-task origin docs.** `mash-plan` requires an upstream requirements document and stops without one (its 0.3b missing-origin gate), so each task's `ORIGIN DOC` is resolved from a **real** document: an existing `.mash/brainstorms/*-requirements.md` whose slug matches the task (the shape `mash-epic-frame` writes per area). Nothing is fabricated. A task with no matching brainstorm doc gets an empty `ORIGIN DOC` and its planning phase halts with the gap in `BLOCKERS`, failing that task loudly rather than planning it against invented product scope. `.mash/parallel/` is never a search root for brainstorm or plan origin discovery.
 
 ## Helper
 

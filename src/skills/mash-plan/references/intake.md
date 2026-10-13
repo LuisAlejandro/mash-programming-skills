@@ -128,11 +128,11 @@ In `mode:non-interactive`, **do not halt silently** — an opaque stop is indist
 MASH_PLAN_HANDOFF
 PLAN PATH:
 FILES:
-BLOCKERS: no upstream requirements document found in .mash/brainstorms/ for this task; mash-plan requires an origin document. Supply one (see mash-parallel's per-task origin docs) or run mash-brainstorm first.
+BLOCKERS: no upstream requirements document found in .mash/brainstorms/ for this task; mash-plan requires an origin document. Supply one (one area requirements doc per task, as mash-epic-frame writes) or run mash-brainstorm first.
 END_MASH_PLAN_HANDOFF
 ```
 
-Callers that plan programmatically are expected to supply the origin. `mash-parallel` projects one per task before its planning phase.
+Callers that plan programmatically are expected to supply the origin. `mash-parallel` resolves each task's origin from a matching `.mash/brainstorms/*-requirements.md`; a task without one is a real blocker, not something to paper over with a generated document.
 
 #### 0.4 Route Out When the Origin Does Not Need a Plan
 

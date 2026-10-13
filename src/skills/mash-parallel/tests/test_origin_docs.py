@@ -1,4 +1,11 @@
-"""Origin projection path shape and existing-brainstorm wins."""
+"""Task origin resolution: only real brainstorm docs, never a fabrication.
+
+C5: mash-plan requires an upstream requirements document and stops without one
+(its 0.3b missing-origin gate). mash-parallel used to project a synthetic
+`*-requirements.md` from each task goal so planning could proceed. That
+laundered unvalidated scope past the very gate that exists to prevent inventing
+product scope at plan time, so the projection is gone.
+"""
 
 import sys
 from pathlib import Path
@@ -9,23 +16,17 @@ sys.path.insert(0, str(SCRIPTS))
 import mash_parallel as rp  # noqa: E402
 
 
-def test_projected_path_is_under_parallel_origins():
-    assert (
-        rp.task_origin_doc_path("Auth Flow")
-        == ".mash/parallel/origins/auth-flow-requirements.md"
-    )
+def test_slug_normalizes_task_id():
+    assert rp.task_origin_slug("Auth Flow") == "auth-flow"
+    assert rp.task_origin_slug("t1") == "t1"
 
 
-def test_write_projects_when_no_brainstorm(tmp_path):
+def test_no_brainstorm_resolves_to_nothing_and_writes_nothing(tmp_path):
     tasks = {"auth": {"goal": "Add auth", "deps": []}}
-    out = rp.write_task_origin_docs(tmp_path, tasks)
-    rel = ".mash/parallel/origins/auth-requirements.md"
-    assert out == {"auth": rel}
-    dest = tmp_path / rel
-    assert dest.is_file()
-    assert "Add auth" in dest.read_text()
-    brainstorms = tmp_path / ".mash" / "brainstorms"
-    assert not brainstorms.exists() or not list(brainstorms.glob("*-requirements.md"))
+    out = rp.resolve_task_origins(tmp_path, tasks)
+    assert out == {}
+    # No fabricated artifact anywhere on disk.
+    assert not (tmp_path / ".mash" / "parallel" / "origins").exists()
 
 
 def test_existing_brainstorm_wins_exact_slug(tmp_path):
@@ -33,10 +34,8 @@ def test_existing_brainstorm_wins_exact_slug(tmp_path):
     brainstorms.mkdir(parents=True)
     (brainstorms / "auth-requirements.md").write_text("# real brainstorm\n")
     tasks = {"auth": {"goal": "Add auth", "deps": []}}
-    out = rp.write_task_origin_docs(tmp_path, tasks)
+    out = rp.resolve_task_origins(tmp_path, tasks)
     assert out == {"auth": ".mash/brainstorms/auth-requirements.md"}
-    projected = tmp_path / ".mash/parallel/origins/auth-requirements.md"
-    assert not projected.exists()
 
 
 def test_existing_brainstorm_wins_dated_slug(tmp_path):
@@ -46,20 +45,8 @@ def test_existing_brainstorm_wins_dated_slug(tmp_path):
         "# dated brainstorm\n"
     )
     tasks = {"auth": {"goal": "Add auth", "deps": []}}
-    out = rp.write_task_origin_docs(tmp_path, tasks)
+    out = rp.resolve_task_origins(tmp_path, tasks)
     assert out == {"auth": ".mash/brainstorms/2026-01-15-auth-requirements.md"}
-    assert not (tmp_path / ".mash/parallel/origins/auth-requirements.md").exists()
-
-
-def test_does_not_overwrite_existing_projection(tmp_path):
-    rel = ".mash/parallel/origins/auth-requirements.md"
-    dest = tmp_path / rel
-    dest.parent.mkdir(parents=True)
-    dest.write_text("# keep me\n")
-    tasks = {"auth": {"goal": "Add auth", "deps": []}}
-    out = rp.write_task_origin_docs(tmp_path, tasks)
-    assert out == {"auth": rel}
-    assert dest.read_text() == "# keep me\n"
 
 
 def test_scratch_is_not_a_search_root(tmp_path):
@@ -67,5 +54,22 @@ def test_scratch_is_not_a_search_root(tmp_path):
     scratch.mkdir(parents=True)
     (scratch / "auth-requirements.md").write_text("# scout junk\n")
     tasks = {"auth": {"goal": "Add auth", "deps": []}}
-    out = rp.write_task_origin_docs(tmp_path, tasks)
-    assert out == {"auth": ".mash/parallel/origins/auth-requirements.md"}
+    assert rp.resolve_task_origins(tmp_path, tasks) == {}
+
+
+def test_only_matching_tasks_resolve(tmp_path):
+    brainstorms = tmp_path / ".mash" / "brainstorms"
+    brainstorms.mkdir(parents=True)
+    (brainstorms / "auth-requirements.md").write_text("# real\n")
+    tasks = {
+        "auth": {"goal": "Add auth", "deps": []},
+        "billing": {"goal": "Add billing", "deps": []},
+    }
+    out = rp.resolve_task_origins(tmp_path, tasks)
+    assert out == {"auth": ".mash/brainstorms/auth-requirements.md"}
+
+
+def test_projection_helper_is_gone():
+    # The fabrication path must not come back under a new name.
+    assert not hasattr(rp, "write_task_origin_docs")
+    assert not hasattr(rp, "task_origin_doc_path")
