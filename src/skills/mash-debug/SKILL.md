@@ -74,7 +74,7 @@ Read the full conversation — the original description AND every comment, with 
 
 **Everything else** (stack traces, test paths, error messages, descriptions of broken behavior): the problem statement is the input itself.
 
-**Trivial-bug fast-path:** Once the problem is clear, decide whether the framework is needed at all. If the cause is immediately readable from the input (single-file typo, missing import, obvious null deref or off-by-one with a one-line fix) and verification doesn't require deep tracing, present the cause and the proposed one-line fix and run Phase 2's **Fix it now / Diagnosis only** user-choice gate before editing — the fast-path saves investigation ceremony, not the user's choice over whether to apply a fix. If the user picks fix, run Phase 3's **Workspace and branch check** (uncommitted-work confirmation and default-branch branch-creation prompt), apply the fix, leave a one-line note explaining the cause, and skip to Phase 4's structured summary. If diagnosis only, write the summary and stop. When in doubt, run the full framework; getting the wrong root cause costs more than the few minutes of ceremony.
+**Trivial-bug fast-path:** Once the problem is clear, decide whether the framework is needed at all. If the cause is immediately readable from the input (single-file typo, missing import, obvious null deref or off-by-one with a one-line fix) and verification doesn't require deep tracing, present the cause and the proposed one-line fix and run Phase 2's **Fix it now / Diagnosis only** user-choice gate before editing — the fast-path saves investigation ceremony, not the user's choice over whether to apply a fix. If the user picks fix, run Phase 3's **Workspace and branch check** (uncommitted-work confirmation), apply the fix, leave a one-line note explaining the cause, and skip to Phase 4's structured summary. If diagnosis only, write the summary and stop. When in doubt, run the full framework; getting the wrong root cause costs more than the few minutes of ceremony.
 
 **Otherwise**, proceed to Phase 1.
 
@@ -254,25 +254,21 @@ Analyze how this was introduced and what allowed it to survive. Note any systemi
 
 **If Phase 3 was skipped** (user chose "Diagnosis only" in Phase 2), stop after the summary — the user already told you they were taking it from here. Do not prompt.
 
-**If Phase 3 ran**, the next move depends on whether the skill created the branch in Phase 3.
+**If Phase 3 ran**, the fix is already applied in place on the branch the user was on. `mash-debug` never creates or switches branches (Phase 3), so there is no branch decision left to make — ask the user how to land the fix.
 
-#### After the fix: commit in place, then offer `mash-pr`
-
-1. **Commit the fix locally** on the current branch, path-limited to this session's files. Never branch, stash, or open a worktree.
-2. **Offer `mash-pr`** as an explicit user invocation to branch, push, and open a PR. Never auto-invoke it. If the entry came from an issue tracker, include the appropriate auto-close syntax for that tracker so it closes on merge (`Fixes #N` for GitHub, `Closes ABC-123` for Linear, Jira Smart Commits in the commit message).
-3. **Emit `DEBUG_HANDOFF`** and stop.
-
-#### Pre-existing branch (skill did not create it): ask the user
+#### After the fix: ask how to land it
 
 Use the platform's blocking question tool (`AskUserQuestion` in Claude Code, `AskQuestion` in Cursor, `question` in OpenCode, `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension)). In Claude Code, call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded — a pending schema load is not a reason to fall back. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors. Never end the phase without collecting a response.
 
 Options:
 
-1. **Commit and open a PR (`mash-pr`)** — recommended
-2. **Commit the fix locally (`git commit`)** — local commit only
-3. **Stop here** — user takes it from there
+1. **Commit and open a PR (`mash-pr`)** — recommended. Choosing this is the user's explicit `mash-pr` invocation to branch, push, and open the PR. If the entry came from an issue tracker, include the appropriate auto-close syntax for that tracker so it closes on merge (`Fixes #N` for GitHub, `Closes ABC-123` for Linear, Jira Smart Commits in the commit message).
+2. **Commit the fix locally** (`git commit`), path-limited to this session's files — no push, no PR.
+3. **Stop here** — leave the working tree as-is for the user.
 
-#### After a PR is open (either path): consider offering learning capture
+Never branch, stash, or open a worktree yourself; branching belongs to `mash-pr`. Then **emit `DEBUG_HANDOFF`** and stop.
+
+#### After a PR is open: consider offering learning capture
 
 Most bugs are localized mechanical fixes (typo, missed null check, missing import) where the only "lesson" is the bug itself. Compounding those clutters `.mash/solutions/` without adding value. Decide which path applies:
 
