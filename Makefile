@@ -1,47 +1,32 @@
-# >>> maintainer-tools:ops-docker BEGIN
+# >>> maintainer-tools:ops-release BEGIN
 # Managed by maintainer-tools 0.4.4. Do not edit directly.
 
-PROJECT_NAME ?= mash-programming-skills
-all_ps_hashes = $(shell docker ps -q)
+release:
+	@./scripts/release.sh $${VERSION_TYPE}
 
-image:
-	@docker compose -p $(PROJECT_NAME) -f docker-compose.yml build \
-		--build-arg UID=$(shell id -u) \
-		--build-arg GID=$(shell id -g)
+release-patch:
+	@./scripts/release.sh patch $${APP_NAME}
 
-start:
-	@if [ -z "$(img_hash)" ]; then\
-		make image;\
-	fi
-	@docker compose -p $(PROJECT_NAME) -f docker-compose.yml up \
-		--remove-orphans --no-build --detach
+release-minor:
+	@./scripts/release.sh minor $${APP_NAME}
 
-stop:
-	@docker compose -p $(PROJECT_NAME) -f docker-compose.yml stop
+release-major:
+	@./scripts/release.sh major $${APP_NAME}
 
-down:
-	@docker compose -p $(PROJECT_NAME) -f docker-compose.yml down \
-		--remove-orphans
 
-destroy:
-	@echo
-	@echo "WARNING!!!"
-	@echo "This will stop and delete all containers, images and volumes related to this project."
-	@echo
-	@read -p "Press ctrl+c to abort or enter to continue." -n 1 -r
-	@docker compose -p $(PROJECT_NAME) -f docker-compose.yml down \
-		--rmi all --remove-orphans --volumes
 
-cataplum:
-	@echo
-	@echo "WARNING!!!"
-	@echo "This will stop and delete all containers, images and volumes present in your system."
-	@echo
-	@read -p "Press ctrl+c to abort or enter to continue." -n 1 -r
-	@if [ -n "$(all_ps_hashes)" ]; then\
-		docker kill $(shell docker ps -q);\
-	fi
-	@docker compose -p $(PROJECT_NAME) -f docker-compose.yml down \
-		--rmi all --remove-orphans --volumes
-	@docker system prune -a -f --volumes
-# <<< maintainer-tools:ops-docker END
+undo-release:
+	@: "$${VERSION:?Set VERSION=x.y.z before running make undo-release}"
+	@VERSION=$${VERSION} ./scripts/rollback.sh release
+# <<< maintainer-tools:ops-release END
+
+# Repo-owned, isolated test image; no Docker runtime is installed by this pack.
+TEST_COMPOSE = docker compose -p mash-programming-skills-tests -f compose.test.yaml
+
+.PHONY: test-image test
+
+test-image:
+	@$(TEST_COMPOSE) build tests
+
+test: test-image
+	@$(TEST_COMPOSE) run --rm --no-deps tests python3 -m pytest tests src/skills/mash-parallel/tests -q

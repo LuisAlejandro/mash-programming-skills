@@ -126,16 +126,19 @@ the `pi` CLI is present, so install a harness first and re-run to finish that se
 On a terminal, the installer asks whether to include each MCP server it
 ships. A declined server is left out, and if a previous install
 had written it, this run removes it. A later install asks again. With no
-terminal, every example server is merged, except `github` when `GITHUB_TOKEN`
-is not already set.
+terminal, every example server is merged.
 
 - `github` powers PR review, issue creation, and PR description updates in
-  `mash-qa`, `mash-pr`, and `mash-dogfood`. Including it asks for a token.
-  Enter drops the server instead of writing a broken entry; those skills then
-  fall back to the `gh` CLI or local git. A token already in the environment
-  can be reused. Fine-grained scopes: Contents read-only, Pull requests
-  read-only (read and write to post updates), Issues read and write to file
-  issues, Metadata read-only. A classic token with the `repo` scope also works.
+  `mash-qa`, `mash-pr`, and `mash-dogfood`. It installs as a stdio wrapper
+  (`~/.local/bin/mash-github-mcp`) that bridges the GitHub remote endpoint and
+  asks the `gh` CLI for a token at spawn time, so no token is written to any
+  config file and `gh auth login` rotates Cursor, OpenCode, and Pi at once. The
+  token reaches the bridge through the environment, so it appears in neither
+  `ps` output nor harness logs. Run `gh auth login` first — without it the server
+  starts and then fails every call, and those skills fall back to the `gh` CLI
+  or local git. The wrapper pins `mcp-remote` and fetches it with `npx` on first
+  use; it runs `--silent`, so add `--debug` to `~/.local/bin/mash-github-mcp`
+  when the connection itself needs diagnosing.
 - `context7` has no credential.
 - `sentrux`, `cua-driver`, and `agent-browser` ask for permission to install
   when the program is missing. Refusing drops the server, and the installer
@@ -295,3 +298,22 @@ project-specific instructions, its owner may create and track `AGENTS.md`.
 `DESIGN.md` is owned by the user or by whichever repository installs a
 design-to-code pipeline. Skills create `.mash/plans/`, `.mash/insights/`,
 `.mash/qa/`, and other working paths only when invoked.
+
+## Tests, release, and CI
+
+`make test` builds a test-only Docker image (Python 3.12 and Git) and runs the
+repository and `mash-parallel` suites in a disposable container.
+`make test-image` builds it without running tests. This pack has no Docker runtime;
+`compose.test.yaml` serves tests only. The same `make test` target runs in Push
+CI. For host-only testing, install
+`src/skills/mash-parallel/requirements.txt` and run
+`python3 -m pytest tests src/skills/mash-parallel/tests`.
+
+`VERSION` is the canonical version; `.bumpversion.cfg` updates it during
+`make release-patch` (or `release-minor` / `release-major`). The `Push` workflow
+runs `scripts/preflight.sh` and `make test` on `develop`, `master`, and
+`release/**`. `scripts/release.sh` waits for the entire Push workflow on the
+exact release-branch commit before finishing the Git-flow release. The
+post-publish `Publish Release` workflow runs the same preflight at the release
+tag to check version and release inputs. The local release script has no
+separate preflight target, so it relies on the Push gate.

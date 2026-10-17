@@ -305,6 +305,7 @@ remove_path "$CURSOR_HOME/hooks/ensure-hindsight-daemon.sh" "Cursor Hindsight ho
 remove_path "$OPENCODE_HOME/plugin/mash-hindsight-daemon.ts" "OpenCode Hindsight plugin"
 remove_path "$PI_HOME/scripts/ensure-hindsight-daemon.sh" "Pi Hindsight script"
 remove_path "$PI_HOME/extensions/mash-hindsight-daemon.ts" "Pi Hindsight extension"
+remove_path "$HOME/.local/bin/mash-github-mcp" "GitHub MCP stdio wrapper"
 
 remove_marked_file "$MASH_CONFIG_DIR/AGENTS.md" "Mash Programming Skills Agent Guidance" "Mash Programming Skills global guidance"
 remove_marked_file "$PI_HOME/AGENTS.md" "Mash Programming Skills Agent Guidance" "Pi global guidance"
