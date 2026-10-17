@@ -1,0 +1,9 @@
+# One-shot test container only; no application runtime or persistent volumes.
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: mash-programming-skills-tests:local
+    working_dir: /workspace
+    network_mode: none

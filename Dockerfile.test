@@ -1,0 +1,12 @@
+# Test-only image. The installed skills themselves have no Docker runtime.
+FROM python:3.12-slim-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git bash \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+COPY src/skills/mash-parallel/requirements.txt /workspace/src/skills/mash-parallel/requirements.txt
+RUN python3 -m pip install --no-cache-dir -r src/skills/mash-parallel/requirements.txt
+
+COPY . /workspace/

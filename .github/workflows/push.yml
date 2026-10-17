@@ -1,0 +1,42 @@
+name: Push
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+      - "release/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# The release script watches the entire workflow at the exact release-branch SHA.
+concurrency:
+  group: push-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' && !startsWith(github.ref, 'refs/heads/release/') }}
+
+jobs:
+  gate:
+    name: Gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify release inputs and shell syntax
+        run: bash scripts/preflight.sh
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run test image and suites
+        run: make test

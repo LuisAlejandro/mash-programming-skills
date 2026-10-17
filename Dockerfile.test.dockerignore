@@ -1,0 +1,23 @@
+# Never send local credentials, Git history, or dependency/build state to test builds.
+.git
+**/.git
+.mash
+**/.mash
+.env
+**/.env
+**/.env.*
+**/penpot.env
+**/penpot.env.*
+**/.npmrc
+**/.pypirc
+src/mcp.json
+**/secrets.env
+**/node_modules
+**/.venv
+**/virtualenv
+**/__pycache__
+**/.pytest_cache
+**/dist
+**/build
+**/*.pyc
+inspiration
