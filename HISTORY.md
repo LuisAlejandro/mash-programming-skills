@@ -1,9 +1,11 @@
 # Changelog
 
 
-## (unreleased)
+## 0.5.15 (2026-10-17)
 
 ### Added
+
+* Publish HISTORY.md and drop empty 'update' subjects. [Luis Alejandro Martínez Faneyth]
 
 * Add the release system and the test gate. [Luis Alejandro Martínez Faneyth]
 
