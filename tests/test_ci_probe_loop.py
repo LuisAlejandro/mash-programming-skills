@@ -14,7 +14,7 @@ def probe_value():
 
 class CiProbeLoopTest(unittest.TestCase):
     def test_probe_value(self):
-        self.assertEqual(probe_value(), "ci-probe-WRONG")
+        self.assertEqual(probe_value(), "ci-probe-ok")
 
 
 if __name__ == "__main__":
