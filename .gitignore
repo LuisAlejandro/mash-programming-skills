@@ -37,3 +37,6 @@ src/skills/**/*.pyc
 .mash/maintainer-manifest.json
 
 inspiration/
+
+# OS files
+.DS_Store
