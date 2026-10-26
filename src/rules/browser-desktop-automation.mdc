@@ -19,4 +19,4 @@ Rules:
 - Native dialogs, permission prompts, and file pickers belong to `cua-driver`. Hand only that surface over, then observe again with `agent-browser` and continue on the page.
 - `chrome-devtools` is diagnostics only: it never substitutes for a page journey, and a page journey never substitutes for its diagnostic.
 - Use a named `agent-browser` session. Refuse a profile named `Default` and refuse auto-connect. Never attach to the human's default browser profile, and never shell out to `npx` as a browser.
-- The skills own the pinned versions, prerequisites, and remediation. A missing binary or schema mismatch stops that path with the skill's install remediation named — do not swap to another browser or desktop tool.
+- The skills own the pinned versions, prerequisites, and remediation. A missing binary or schema mismatch stops that path with the skill's install remediation named — do not swap to another browser or desktop tool. An auth wall or bot check is not a missing binary: the `agent-browser` skill's real-Chrome binary path stays inside `agent-browser`.
