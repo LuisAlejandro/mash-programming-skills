@@ -1,6 +1,34 @@
 # Changelog
 
 
+## 0.5.16 (2026-10-31)
+
+### Added
+
+* Clear auth walls outside the automation session. [Luis Alejandro Martínez Faneyth]
+
+
+### Changed
+
+* Route memories and insights by need. [Luis Alejandro Martínez Faneyth]
+
+* Ignore all .mash working files. [Luis Alejandro Martínez Faneyth]
+
+* Match the changelog heading pattern the fleet already ships. [Luis Alejandro Martínez Faneyth]
+
+
+### Fixed
+
+* Qualify browser auth handoffs by platform. [Luis Alejandro Martínez Faneyth]
+
+* Slice markdown changelog sections in release notes. [Luis Alejandro Martínez Faneyth]
+
+
+### Other
+
+* Test(ci-probe): align assertion with probe_value implementation. [Cursor Agent]
+
+
 ## 0.5.15 (2026-10-17)
 
 ### Added
