@@ -37,6 +37,8 @@ Hindsight memory complements, but does not replace, curated `.mash/solutions/` l
 - Hindsight is dynamic cross-session memory for preferences, procedure outcomes, task discoveries, and recurring project context.
 - Sentrux is structural and session topology signal.
 
+Which content belongs in memory versus a `.mash/insights/` or `.mash/solutions/` file is owned by the always-on `save-insights` rule. Follow its store routing before retaining, and never store the same item in both places.
+
 ## Availability
 
 This skill owns the **single executable availability-and-recall procedure**. The hindsight-memory rule points here; gated skills name only their gate point, and must not restate the sequence.

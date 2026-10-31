@@ -279,9 +279,9 @@ Most bugs are localized mechanical fixes (typo, missed null check, missing impor
 When offering, use the blocking question tool described above. If the user accepts, choose the durable target explicitly:
 
 - **Cross-session memory (default for preferences, procedures, and repo-specific workarounds):** read [`mash-hindsight`](../mash-hindsight/SKILL.md) and run `hindsight-embed memory retain` with `--context learnings`. This does not create a file in the repo.
-- **Curated institutional learning (when the lesson should be searchable in git):** add or update a file under `.mash/solutions/` or `.mash/insights/` following `save-insights` frontmatter rules, then commit that file to the same branch and push so the open PR picks it up.
+- **Local insight file (when the lesson needs structure, cited evidence, and exact wording):** add or update a file under `.mash/solutions/` or `.mash/insights/` following `save-insights` frontmatter rules. The Mash Programming Skills installer adds `.mash/` to machine-global Git excludes for every supported harness. Keep this file local by default; check its Git status rather than assuming a previously tracked file is ignored. Do not commit it, and do not tell the user it will travel with the PR.
 
-Do not treat Hindsight retain as producing a learning document. Use file-based docs only when the insight should live in version control.
+Do not treat Hindsight retain as producing a learning document. Use a file-based doc when the lesson needs the `file:line` evidence, `applies_when` frontmatter, and `## Avoid` sections that a short memory entry cannot carry — not because it belongs in version control.
 
 ### Non-Interactive Handoff (required when `INTERACTION_MODE=non-interactive`)
 

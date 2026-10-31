@@ -13,7 +13,42 @@ Save an insight only when the answer is clearly yes. Good candidates include non
 
 Do not save routine task summaries, obvious facts, temporary state, secrets, credentials, private data, or anything already captured clearly in `.mash/solutions/` or a nearby plan.
 
+## Store routing: memory or insight
+
+Two stores exist and **neither is version-controlled by default**. Hindsight cross-session memory is a machine-wide database recalled through the `hindsight-embed` CLI at gated skill entry. `.mash/insights/` is markdown beside the repo, read by `mash-learnings-researcher`. The Mash Programming Skills installer adds `.mash/` to machine-global Git excludes regardless of whether the harness is Cursor, OpenCode, or Pi. Insight files are local working state unless deliberately added to Git. Route each capture to exactly one store, then write it once.
+
+The deciding test: **does a future agent need this byte-exact and greppable, with cited evidence, and available even when the Hindsight daemon is down?** Yes → insight file. No → memory.
+
+| Content | Store | Detail |
+| --- | --- | --- |
+| User or team preference | memory | `--context preferences` |
+| Command plus its failure mode | memory | `--context procedures` |
+| Version pin, port, path, machine quirk | memory | `--context procedures` |
+| Session summary: plan path, files, verification, blockers | memory | end of any session that changed files |
+| Non-obvious diagnosis that is still partly unverified | memory | `--context learnings` |
+| Repo invariant future code must obey | insight | `convention` or `architecture_pattern` |
+| Root-caused bug class resting on a wrong assumption | insight | `durable_insight` plus severity |
+| Gotcha in this repo's own tooling or workflow | insight | `workflow_issue` or `tooling_decision` |
+| "Do not do this" lesson | insight | `## Avoid` |
+| Secrets, credentials, private customer data | neither | — |
+
+Tiebreakers when the table does not settle it:
+
+- **Read surface.** Anything needed *while implementing* goes to memory, because `mash-work` recalls at Phase 0.0 and never reads `.mash/insights/`. An insight that would have changed the implementation stays write-only until a later plan or QA pass.
+- **Retrieval shape.** Insights are found by exact frontmatter grep (`module`, `component`, `tags`, `applies_when`) through a dispatched agent, so retrieval is inspectable and repeatable. Memory is semantic recall behind a daemon and stays invisible unless the query matches. Structured, multi-part knowledge with evidence → insight.
+- **Grounding.** An entry that cannot be verified against the tree with `file:line` is not an insight. Memory entries may be soft ("usually", "per this session").
+- **Failure mode.** The stores break differently: `git clean -xfd` deletes insight files silently, while a stopped daemon or a squatted port makes memory unreachable. Keep in a file what you cannot afford to lose from a prompt; keep in memory what you only need injected at a gate.
+- **Cost of being wrong.** A wrong memory entry is superseded by one call and seen by nobody. A wrong insight file is trusted by the next reader and needs a hand edit.
+
+**Never write the same thing twice.** Memory is the capture buffer; an insight is the promoted, evidence-bearing form of the same knowledge. When a memory entry later passes the gate below, write the insight file and replace the memory entry with a short pointer to it plus the outcome.
+
+An insight ships with the repo only as an explicit exception: `git add -f` is needed for an ignored new file. Verify its Git status before claiming it will or will not travel with a PR; ignore rules do not untrack files already in Git.
+
+Record memory entries with `hindsight-embed memory retain` per the `mash-hindsight` skill. Outside a gated skill, retain on these triggers instead of waiting for a skill boundary: the user corrects you (`preferences`); a command fails before you find the one that works (`procedures`); a diagnosis takes more than one attempt (`learnings`); a session changed files (summary).
+
 ## Counterfactual capture gate (do not skip)
+
+This gate applies to the insight column only. Memory entries are gated by the read-surface and grounding tiebreakers, not by this counterfactual.
 
 An insight earns its place only when it holds durable project reasoning that is **not readily recoverable** from the final code, tests, types, comments, or existing documentation, and losing it would plausibly cause recurrence, material risk, or substantial rediscovery.
 
