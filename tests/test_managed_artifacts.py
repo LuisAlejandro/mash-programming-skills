@@ -117,6 +117,24 @@ class ManagedArtifactsTest(unittest.TestCase):
         )
         self.assertEqual(set(merged), {"context7", "unrelated"})
 
+    def test_installer_ignores_every_mash_working_directory(self):
+        root = Path(__file__).parents[1]
+        self.assertIn(".mash/", (root / ".gitignore").read_text().splitlines())
+        installer = (root / "install.sh").read_text()
+        self.assertIn("\n.mash/\n# End Mash Programming Skills", installer)
+        self.assertNotIn(".mash/brainstorms/", installer)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            (repo / ".gitignore").write_text(".mash/\n")
+            self.assertEqual(
+                subprocess.run(
+                    ["git", "-C", str(repo), "check-ignore", "-q", ".mash/new-area/new-file.md"],
+                    check=False,
+                ).returncode,
+                0,
+            )
+
     def test_install_prompts_are_not_the_github_paste_alone(self):
         text = (Path(__file__).parents[1] / "install.sh").read_text()
         self.assertRegex(text, r"HINDSIGHT_LLM_PROVIDERS=\([^)]*\bnone\b")

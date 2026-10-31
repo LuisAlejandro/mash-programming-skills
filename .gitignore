@@ -20,23 +20,10 @@ src/skills/**/__pycache__/
 src/skills/**/*.pyc
 
 # Mash Programming Skills
-.mash/brainstorms/
-.mash/plans/
-.mash/designs/
-.mash/solutions/
-.mash/insights/
-.mash/design-system/
-.mash/qa/
-.mash/parallel/
-.mash/deepening/
-.mash/loops/
-.mash/ideation/
+.mash/
 # AGENTS.md and DESIGN.md are user-owned, trackable files.
-
-# Maintainer Tools
-.mash/maintainer-manifest.json
 
 inspiration/
 
-# OS files
+# Finder metadata (including files under src/).
 .DS_Store

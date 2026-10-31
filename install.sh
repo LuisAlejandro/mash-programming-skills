@@ -819,18 +819,9 @@ if start >= 0:
 
 block = """# Mash Programming Skills
 # Added by mash-programming-skills/install.sh. Remove this block to stop ignoring.
-.mash/brainstorms/
-.mash/plans/
-.mash/designs/
-.mash/design-system/
-.mash/solutions/
-.mash/insights/
-.mash/qa/
-.mash/parallel/
-.mash/deepening/
-.mash/loops/
-.mash/ideation/
-.mash/maintainer-manifest.json
+# .mash/ is local working state (plans, solutions, insights, etc.). Ignore new
+# files by default; existing tracked files remain tracked.
+.mash/
 # End Mash Programming Skills
 """
 text = text.rstrip() + "\n\n" + block
