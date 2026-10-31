@@ -15,34 +15,30 @@ After a native dialog or file picker, hand only that surface to the CUA Driver s
 
 ## Auth walls and bot checks
 
-A session this skill drives is detectable. Chrome reports `navigator.webdriver` as `true` whenever automation is attached, and stricter Cloudflare Turnstile deployments reject that flag alone — a sign-in a human could complete fails under automation. Swapping the browser binary changes the fingerprint but not the flag: a challenge cannot be passed inside a window this skill is driving.
+A site may detect browser automation and refuse sign-in or a challenge even when a person can sign in. A different browser binary, user agent, or profile is not a guaranteed solution; do not treat an auth wall as a missing binary or try to defeat the site's checks.
 
-The fix is two phases. **Phase 1, human, no automation:**
+If the site permits continued automation, use two phases:
+
+1. **Human sign-in, without automation.** Ask the human to open a headed Chrome window with a dedicated, non-default profile and sign in themselves. Never attach to this window, drive it, ask for credentials, or use their everyday browser profile. Ask the human to close this specific window when finished.
+2. **Optional automation, with consent.** Only after the human confirms sign-in and permits the session to be automated, relaunch that dedicated profile in a headed browser with a local debugging port, then use the pinned `agent-browser connect <port>` under a named session. If the login disappears or the site challenges the automated session again, stop and report it; do not retry a bypass. Do not copy a profile or cookie store between browsers. Browser launch flags and OS credential storage can affect whether login survives a relaunch.
+
+**macOS example only** (not a command for Linux or Windows). Give the human a dedicated path for phase 1; they run this themselves:
 
 ```bash
-open -na "Google Chrome" --args --user-data-dir="<dedicated-dir>"
+open -na "Google Chrome" --args --user-data-dir="/path/to/dedicated-profile"
 ```
 
-This window has no debugging port and no automation flag, so it is a normal browser. The human signs in and passes the challenge there. Do not attach to it, do not drive it, and do not type credentials.
-
-**Phase 2, after the wall is passed:** quit that instance, then start the same profile yourself and attach — do **not** let agent-browser launch it:
+Only after the human closes that window and approves phase 2, run this with the **same** profile path and an unused local port:
 
 ```bash
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --user-data-dir=<same dedicated-dir> --remote-debugging-port=<port> <url>
-agent-browser connect <port>
+  --user-data-dir="/path/to/dedicated-profile" \
+  --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 "https://example.com"
+agent-browser --session auth-handoff connect 9222
 ```
 
-agent-browser's own launch passes `--password-store=basic --use-mock-keychain`. A mock keychain cannot decrypt cookies written under the OS keychain, so a profile logged in by real Chrome comes back signed out and Chrome drops those cookies on exit. Never launch agent-browser on a profile that holds a human login. Check the flags before trusting a session: `ps -Ao args | grep -- --user-data-dir | tr ' ' '\n' | grep mock-keychain` must be empty.
+On Linux or Windows use only a verified equivalent for the installed Chrome and a dedicated profile. If the platform procedure or the pinned tool's connection method cannot be verified, stop and ask instead of running the macOS commands. Never launch a second browser against an already-open profile.
 
-macOS binary: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`.
-
-- Run phase 2 only after the human reports the wall is passed. Close only the process this skill started, identified by its `--user-data-dir`, never by generic name.
-- Headed in both phases. Headless reports `HeadlessChrome` in `navigator.userAgent`, a bot signal by itself.
-- Before blaming content or credentials, check the transport signals: `agent-browser eval 'navigator.webdriver'` must be `true` for a driven session, and `navigator.userAgent` must name no `HeadlessChrome` token. Do not conclude "the swap is enough" without reading them.
-- Never ask the human to solve a challenge in a window this skill drives. If a challenge appears in a driven window, close it and return to phase 1.
-- The dedicated profile directory carries that login into later runs. Never copy a Chrome profile or cookie store into another browser: the cookies are encrypted to the binary that wrote them and stay unreadable.
-- Never reuse the human's live profile, and close only the session this skill started.
-- If the challenge fails again in phase 1, stop and report it. Do not loop retries.
+A driven browser may expose automation signals such as `navigator.webdriver`, and user agents may differ between headed and headless runs; neither signal alone proves whether a particular site will accept the session. Use a headed browser for human sign-in. Never ask the human to solve a challenge in a window this skill drives. Close only the browser process associated with the dedicated profile; never kill browsers by generic process name.
 
 Rendered text is not proof of state. A page that looks signed in can still be answering with failed requests, so read the response body before reporting an empty page as fact.

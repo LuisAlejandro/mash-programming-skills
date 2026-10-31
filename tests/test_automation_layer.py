@@ -31,6 +31,26 @@ class AutomationLayerTest(unittest.TestCase):
         self.assertIn("Default", text)
         self.assertIn("auto-connect", text)
 
+    def test_auth_wall_handoff_is_human_first_and_platform_qualified(self):
+        text = skill_text("agent-browser")
+        self.assertIn("dedicated, non-default profile", text)
+        self.assertIn("Never attach to this window", text)
+        self.assertIn("permits the session to be automated", text)
+        self.assertIn("macOS example only", text)
+        self.assertIn("On Linux or Windows", text)
+        self.assertIn("agent-browser --session auth-handoff connect 9222", text)
+        self.assertIn("--remote-debugging-address=127.0.0.1", text)
+        self.assertIn("read the response body", text)
+        self.assertNotIn("cookies are encrypted to the binary", text)
+        self.assertNotIn("whenever automation is attached", text)
+        self.assertNotIn("a challenge cannot be passed", text)
+
+    def test_auth_wall_guidance_stays_in_the_browser_skill(self):
+        rule = (ROOT / "src/rules/browser-desktop-automation.mdc").read_text()
+        self.assertIn("human sign-in handoff in the `agent-browser` skill", rule)
+        self.assertNotIn("real-Chrome binary path", rule)
+        self.assertNotIn("Mash.app", rule)
+
     def test_chrome_devtools_skill_leaves_page_journeys_on_agent_browser(self):
         text = skill_text("chrome-devtools")
         self.assertIn("Ordinary page journeys stay on agent-browser", text)
