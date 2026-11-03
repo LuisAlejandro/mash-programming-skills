@@ -45,7 +45,7 @@ Use the Write tool to save the complete plan:
 .mash/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md
 ```
 
-Sequence number `NNN` is derived from existing `.md` plan files in `.mash/plans/` to ensure unique daily ordering. Reserve the path with exclusive creation and take the next `NNN` on collision rather than overwriting.
+Write under the current working root: the feature worktree on a brainstorm-started run, otherwise the repo. Sequence number `NNN` is derived from existing `.md` plan files in that root's `.mash/plans/` to ensure unique daily ordering. Reserve the path with exclusive creation and take the next `NNN` on collision rather than overwriting.
 
 Compose the plan using the content from `references/plan-sections.md` and `references/markdown-rendering.md`.
 

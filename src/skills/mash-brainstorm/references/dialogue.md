@@ -20,7 +20,7 @@ mkdir -p "$REPO/$REL" || exit 1;
 echo "$REL";
 ```
 
-Use the echoed repo-relative path as `<scratch-dir>` for the rest of the run; the dossier is `<scratch-dir>/grounding.md`. Pass that **repo-relative** path to the sub-agent — never an unresolved shell-variable string. Resolve it from the worktree root when creating or reading the file. Use an absolute path only in interactive chat when a clickable link is needed. The directory is not cleaned up: `.mash/brainstorms/` is gitignored, and the Phase 4 handoff gives the dossier path to `mash-plan`, so deleting it would hand off a dead path.
+Use the echoed repo-relative path as `<scratch-dir>` for the rest of the run; the dossier is `<scratch-dir>/grounding.md`. Pass that **repo-relative** path to the sub-agent — never an unresolved shell-variable string. Resolve it from the worktree root when creating or reading the file. On software runs the worktree root is the feature worktree from Phase 0.4, and `git rev-parse --show-toplevel` returns it, so the snippet above writes there unchanged. Use an absolute path only in interactive chat when a clickable link is needed. The directory is not cleaned up: `.mash/brainstorms/` is gitignored, and the Phase 4 handoff gives the dossier path to `mash-plan`, so deleting it would hand off a dead path.
 
 Dispatch `mash-grounding-scout` with the topic and the repo-relative dossier path. Carry only the returned gist into the dialogue; read the dossier on demand when the conversation needs specifics the gist cannot answer.
 

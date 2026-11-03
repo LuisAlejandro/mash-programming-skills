@@ -8,7 +8,7 @@ argument-hint: "[feature idea or problem to explore]"
 
 Brainstorming answers **WHAT** to build through collaborative dialogue; `mash-plan` then answers **HOW**. This skill does not implement code — it explores, clarifies, and documents decisions for later planning or execution. Use the current calendar year when dating artifacts.
 
-**Outcome:** a requirements document under `.mash/brainstorms/` that planning can consume without inventing product behavior, scope boundaries, or success criteria. Every **software** run writes one — the document is the pipeline's contract with `mash-plan`, which requires it. In other workflows the artifact might be called a lightweight PRD or feature brief; in Mash Programming Skills the workflow keeps the name `brainstorm` and the artifact is a **requirements document**.
+**Outcome:** a requirements document under `.mash/brainstorms/` in the feature worktree that planning can consume without inventing product behavior, scope boundaries, or success criteria. Every **software** run writes one — the document is the pipeline's contract with `mash-plan`, which requires it. In other workflows the artifact might be called a lightweight PRD or feature brief; in Mash Programming Skills the workflow keeps the name `brainstorm` and the artifact is a **requirements document**.
 
 | Route | Artifact |
 | --- | --- |
@@ -40,6 +40,7 @@ See also the always-on Mash Programming Skills workflow-gates guideline.
 
 This skill follows the Mash Programming Skills-native brainstorm workflow with Mash Programming Skills handoffs:
 
+- Software runs work in a **feature worktree** created at Phase 0.4 (`.mash/worktrees/<slug>` on `feature/<slug>`). Scratch, the requirements document, and the handoff all live there. The primary checkout receives copies only at `mash-work` handoff.
 - Handoff target is `mash-plan`. There is no direct-to-work route: planning is not skippable.
 - Do **not** create a separate PRD artifact. The requirements document is the durable product artifact for planning.
 - Do **not** create a separate design doc unless the user explicitly asks for one. The requirements document should be right-sized and can include design-relevant decisions when they matter.
@@ -80,7 +81,7 @@ Phases run in this order. Each names the files it cannot run correctly without: 
 |---|---|---|
 | before anything, and for the whole run | `references/phase-0.md` | the Hindsight memory gate and what "unavailable" means; Phase 0 itself |
 | before the first question, and for the whole run | `references/interaction-rules.md` | the Core Principles, and the Interaction Rules: one question per turn, the blocking-question-tool table and the resolve-by-capability rule that overrides it, when a question is genuinely open-ended, and the ask-only-decisions rule |
-| 0.0–0.3 output, resume, classify, route, scope | `references/phase-0.md` | markdown output and token parsing; resume; the software / non-software / neither classification and the non-software stop; the clear-requirements fast path; the scope floor; the coherent-work gate; the unfamiliarity tripwire |
+| 0.0–0.4 output, resume, classify, route, scope, feature worktree | `references/phase-0.md` | markdown output and token parsing; resume; the software / non-software / neither classification and the non-software stop; the clear-requirements fast path; the scope floor; the coherent-work gate; the unfamiliarity tripwire |
 | 1 understand the idea | `references/dialogue.md` | context scan with verify-before-claiming; the grounding-scout dispatch and its lazily-created scratch path; the conflict and blindspot gates; rigor-probe firing discipline; the integration check; the six-clause Phase 1.3 exit condition |
 | 1.2 pressure test | `references/product-pressure-test.md` | the gap lenses, the product-shape questions, and the questions the agent weighs privately |
 | whenever a sub-agent is dispatched (1.1, 2.6) | `~/.config/mash/references/model-tiers.md` | the extraction / generation / ceiling tiers; blocking-dispatch and resolved-path rules; the degradation ladder down to inline |
