@@ -96,13 +96,16 @@ In non-interactive mode, do not ask. Choose the area the feature description wei
 Runs after 0.1b classifies the task as software and before Phase 1. Non-software and "neither" runs stop earlier, so they never create a worktree.
 
 1. **Slug.** Use the brainstorm's `topic` (kebab-case, `^[a-z0-9][a-z0-9-]{0,63}$`). When resuming, reuse the document's `topic`.
-2. **Create or reuse** from the repo:
+2. **Register the run, then create its worktree.** A worktree belongs to a run, never to a slug: two brainstorms on the same topic must not be handed the same directory.
 
    ```bash
-   python3 scripts/feature_worktree.py create <slug> --repo <repo-root>
+   RUN=$(python3 "<skills>/mash-workspace/scripts/workspace.py" run start \
+         --workflow brainstorm --repo <repo-root> \
+         | python3 -c 'import json,sys; print(json.load(sys.stdin)["run_id"])')
+   python3 scripts/feature_worktree.py create <slug> --run "$RUN" --repo <repo-root>
    ```
 
-   Run from this skill's directory. The helper creates `feature/<slug>` at `.mash/worktrees/<slug>` from the primary checkout's `HEAD`, copies the runtime allowlist, and reuses the same worktree on a repeat run. `status` is `created` or `reused`.
+   Run the second command from this skill's directory. It creates `feature/<slug>-<run-suffix>` at `.mash/worktrees/<slug>-<run-suffix>` from the primary checkout's `HEAD`, copies the runtime allowlist, and holds the `workspace` lease. `status` is `created`. A repeated slug in a different run gets a different directory; if the same run retries, it is refused and the recorded path from the run record is resumed instead.
 3. **Record the absolute worktree path.** Every read and write of `.mash/` for this run uses that root: scratch, the requirements document, and the Phase 4 handoff. Document content stays repo-relative.
 4. **Resumed document in the primary checkout.** Copy it into the worktree's flat `.mash/brainstorms/` under the same name when the worktree does not already have it. Update the worktree copy, never the primary one.
 5. **Uncommitted changes stay in the primary checkout.** The new branch starts from committed `HEAD`. Say so once if the primary checkout is dirty.

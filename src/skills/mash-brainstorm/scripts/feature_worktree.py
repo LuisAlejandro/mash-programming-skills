@@ -128,33 +128,31 @@ def _worktree_branch(wt: Path) -> str | None:
     return res.stdout.strip() if res.returncode == 0 else None
 
 
-def create(primary: Path, slug: str) -> dict:
+def create(primary: Path, slug: str, run_id: str | None = None) -> dict:
+    """Create the feature worktree for this run.
+
+    Delegates to the shared run-scoped lifecycle so two brainstorms on the same
+    topic cannot be handed the same directory: the path and branch carry the
+    run id, and the workspace lease is taken on the way in.
+    """
     if not SLUG_RE.match(slug):
         raise FeatureWorktreeError(f"invalid slug {slug!r}: use lowercase letters, digits, hyphens")
-    branch = f"feature/{slug}"
-    wt = primary / ".mash" / "worktrees" / slug
-
-    if wt.exists():
-        # Resume path: reuse only when the existing directory is this slug's worktree.
-        if _worktree_branch(wt) != branch:
-            raise FeatureWorktreeError(
-                f"{wt} exists but is not a worktree on {branch}; remove it or pick another slug"
-            )
-        copied = copy_runtime_files(primary, wt)
-        return {"status": "reused", "worktree": str(wt), "branch": branch, "copied": copied}
-
-    if _git(["rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], primary).returncode == 0:
+    if not run_id:
         raise FeatureWorktreeError(
-            f"branch {branch} already exists without a worktree at {wt}; "
-            "check it out with `git worktree add` manually or pick another slug"
+            "a run id is required: register one with `workspace.py run start --workflow brainstorm` "
+            "so two runs on the same topic never share a directory"
         )
-
-    wt.parent.mkdir(parents=True, exist_ok=True)
-    res = _git(["worktree", "add", "-b", branch, str(wt), "HEAD"], primary)
-    if res.returncode != 0:
-        raise FeatureWorktreeError(f"git worktree add failed: {res.stderr.strip()}")
-    copied = copy_runtime_files(primary, wt)
-    return {"status": "created", "worktree": str(wt), "branch": branch, "copied": copied}
+    try:
+        created = _ws.create_workspace(primary, run_id, slug)
+    except _ws.WorkspaceError as exc:
+        raise FeatureWorktreeError(str(exc)) from exc
+    return {
+        "status": created["status"],
+        "run_id": run_id,
+        "worktree": created["workspace"],
+        "branch": created["branch"],
+        "copied": created["copied"],
+    }
 
 
 def _place_group(group: list[tuple[Path, str]], dst_dir: Path, stem: str,
@@ -324,8 +322,9 @@ def remove_worktree(path: Path, force: bool = False) -> dict:
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="feature_worktree.py", description=__doc__.split("\n\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
-    c = sub.add_parser("create", help="create or reuse .mash/worktrees/<slug>")
+    c = sub.add_parser("create", help="create this run's feature worktree")
     c.add_argument("slug")
+    c.add_argument("--run", required=True, help="run id from `workspace.py run start`")
     c.add_argument("--repo", default=".", help="any directory inside the target repo (default: cwd)")
     b = sub.add_parser("copy-back", help="copy .mash artifacts into the primary checkout")
     b.add_argument("worktree")
@@ -352,7 +351,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
         if args.cmd == "create":
-            out = create(primary_checkout(Path(args.repo)), args.slug)
+            out = create(primary_checkout(Path(args.repo)), args.slug, args.run)
         elif args.cmd == "review-create":
             out = review_create(primary_checkout(Path(args.repo)), args.sha, args.run_id)
         elif args.cmd == "ship-create":

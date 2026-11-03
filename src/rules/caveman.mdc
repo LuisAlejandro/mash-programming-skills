@@ -56,7 +56,7 @@ While one of these skills is active, status prose uses the level in this table. 
 | Skills | Level |
 |---|---|
 | `mash-hindsight`, `mash-lint`, `mash-sentrux`, `mash-pr` | ultra |
-| `mash-brainstorm`, `mash-plan`, `mash-work`, `mash-qa`, `mash-doc-review`, `mash-debug`, `mash-dogfood`, `mash-release`, `mash-epic-frame`, `mash-parallel` | lite |
+| `mash-brainstorm`, `mash-plan`, `mash-work`, `mash-qa`, `mash-doc-review`, `mash-debug`, `mash-dogfood`, `mash-release`, `mash-epic-frame`, `mash-parallel`, `mash-workspace` | lite |
 
 Drop the level for security warnings, irreversible confirmations, ambiguous multi-step instructions, user confusion, or a request for normal wording. Also drop it for per-finding review walkthroughs, release confirmations, and branch or PR decisions that need careful wording.
 

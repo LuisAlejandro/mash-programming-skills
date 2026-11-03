@@ -41,7 +41,8 @@ def primary(tmp_path):
 
 
 def _create(primary, slug="widgets"):
-    return fw.create(fw.primary_checkout(primary), slug)
+    run = fw._ws.register_run(fw.primary_checkout(primary), workflow="brainstorm")["run_id"]
+    return fw.create(fw.primary_checkout(primary), slug, run)
 
 
 def test_allowlist_matches_mash_parallel():
@@ -52,30 +53,32 @@ def test_create_makes_worktree_on_feature_branch_and_copies_runtime(primary):
     out = _create(primary)
     wt = Path(out["worktree"])
     assert out["status"] == "created"
-    assert wt == primary / ".mash" / "worktrees" / "widgets"
-    assert _git("rev-parse", "--abbrev-ref", "HEAD", cwd=wt) == "feature/widgets"
+    assert wt.parent == primary / ".mash" / "worktrees"
+    assert wt.name.startswith("widgets-")
+    assert _git("rev-parse", "--abbrev-ref", "HEAD", cwd=wt) == f"feature/{wt.name}"
     assert (wt / "AGENTS.md").read_text() == "conventions\n"
     assert "AGENTS.md" in out["copied"]
 
 
-def test_create_reuses_existing_worktree_on_same_branch(primary):
-    _create(primary)
+def test_same_slug_in_two_runs_yields_distinct_worktrees(primary):
+    """Hazard F3: a repeated topic must not hand one run another run's tree."""
+    first = _create(primary)
+    second = _create(primary)
+    assert first["worktree"] != second["worktree"]
+    assert first["branch"] != second["branch"]
+    assert Path(first["worktree"]).is_dir() and Path(second["worktree"]).is_dir()
+
+
+def test_create_requires_a_run_id(primary):
+    with pytest.raises(fw.FeatureWorktreeError, match="run id is required"):
+        fw.create(fw.primary_checkout(primary), "widgets")
+
+
+def test_create_refuses_a_colliding_workspace(primary):
     out = _create(primary)
-    assert out["status"] == "reused"
-
-
-def test_create_refuses_branch_without_worktree(primary):
-    _git("branch", "feature/widgets", cwd=primary)
+    run_id = out["run_id"]
     with pytest.raises(fw.FeatureWorktreeError, match="already exists"):
-        _create(primary)
-
-
-def test_create_refuses_path_on_other_branch(primary):
-    _create(primary)
-    _git("worktree", "remove", "--force", str(primary / ".mash" / "worktrees" / "widgets"), cwd=primary)
-    (primary / ".mash" / "worktrees" / "widgets").mkdir(parents=True)
-    with pytest.raises(fw.FeatureWorktreeError, match="not a worktree"):
-        _create(primary)
+        fw.create(fw.primary_checkout(primary), "widgets", run_id)
 
 
 def test_create_rejects_bad_slug(primary):
@@ -152,6 +155,6 @@ def test_copy_back_rejects_plan_outside_plans_dir(primary):
 
 def test_cli_reports_blocker_as_json(primary, monkeypatch, capsys):
     monkeypatch.chdir(primary)
-    assert fw.main(["create", "Bad Slug"]) == 2
+    assert fw.main(["create", "Bad Slug", "--run", "r1"]) == 2
     out = json.loads(capsys.readouterr().out)
     assert out["status"] == "blocked"

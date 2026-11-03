@@ -17,6 +17,8 @@ A release is the least re-runnable thing in the corpus: it moves tags, publishes
 Before the first release step, claim the pipeline per [`mash-workspace`](../mash-workspace/SKILL.md), keyed by repository name:
 
 ```bash
+WS_HELPER="<skills>/mash-workspace/scripts/workspace.py"   # absolute path to this skill's sibling
+REPO="$(git rev-parse --show-toplevel)"
 RUN=$(python3 "$WS_HELPER" run start --workflow release --repo "$REPO" \
       | python3 -c 'import json,sys; print(json.load(sys.stdin)["run_id"])')
 python3 "$WS_HELPER" lease acquire --run "$RUN" --kind release --key "$(basename "$REPO")" --repo "$REPO"

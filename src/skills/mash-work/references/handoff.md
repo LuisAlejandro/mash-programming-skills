@@ -47,6 +47,7 @@ The helper never overwrites a file in the primary checkout. Do not commit or for
      MASH_WORK_HANDOFF
      BRANCH: <current branch — work happens in place; no branch setup>
       WORKTREE: <absolute feature worktree path, or primary checkout>
+      RUN_ID: <run id from mash-workspace; proves this session owns WORKTREE>
       COPIED:
       - <primary-checkout path, or none>
      FILES_CHANGED:
