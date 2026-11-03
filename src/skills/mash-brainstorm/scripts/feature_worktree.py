@@ -45,12 +45,31 @@ Exit codes: 0 success or no-op, 2 usage or refusal, 1 git failure.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+
+def _load_workspace():
+    """Load the shared coordination helper from the sibling skill.
+
+    Publication must be atomic against other runs, and that logic lives in one
+    place (`mash-workspace`) rather than being duplicated here.
+    """
+    path = Path(__file__).resolve().parents[2] / "mash-workspace" / "scripts" / "workspace.py"
+    spec = importlib.util.spec_from_file_location("mash_workspace", path)
+    if spec is None or spec.loader is None:  # pragma: no cover - packaging error
+        raise RuntimeError(f"cannot load the mash-workspace helper at {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_ws = _load_workspace()
 
 # Mirrors mash_parallel.RUNTIME_FILE_ALLOWLIST. Skills do not import each
 # other, so a parity test in tests/ keeps the two lists equal.
@@ -66,7 +85,6 @@ RUNTIME_FILE_ALLOWLIST = (
 
 PLAN_SIBLING_SUFFIXES = (".topology.json", ".sentrux-review-brief.json")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
-PLAN_SEQ_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}-)(\d{3})(-.*)$")
 
 
 class FeatureWorktreeError(RuntimeError):
@@ -152,48 +170,23 @@ def create(primary: Path, slug: str) -> dict:
     return {"status": "created", "worktree": str(wt), "branch": branch, "copied": copied}
 
 
-def _same_bytes(a: Path, b: Path) -> bool:
-    return a.read_bytes() == b.read_bytes()
-
-
-def _stem_candidates(stem: str, limit: int = 200):
-    """Yield the stem, then the next free names: NNN bumped for plans, `-N` otherwise."""
-    yield stem
-    m = PLAN_SEQ_RE.match(stem)
-    for k in range(1, limit):
-        if m:
-            yield f"{m.group(1)}{int(m.group(2)) + k:03d}{m.group(3)}"
-        else:
-            yield f"{stem}-{k + 1}"
-
-
-def _place_group(group: list[tuple[Path, str]], dst_dir: Path, stem: str) -> dict:
+def _place_group(group: list[tuple[Path, str]], dst_dir: Path, stem: str,
+                 run_id: str | None = None) -> dict:
     """Place a group (main file + siblings) under one shared stem.
 
-    `group` is (source, suffix) where suffix is appended to the stem, e.g. ".md".
-    Returns the final stem and per-file status. Identical files are skipped.
+    Delegates to the shared atomic publisher so a concurrent run can never win
+    the gap between "does it exist" and "copy it". Statuses keep this helper's
+    published vocabulary (`copied` / `unchanged`).
     """
-    for candidate in _stem_candidates(stem):
-        statuses: dict[str, str] = {}
-        conflict = False
-        for src, suffix in group:
-            dst = dst_dir / f"{candidate}{suffix}"
-            if not dst.exists():
-                statuses[dst.name] = "copied"
-            elif _same_bytes(src, dst):
-                statuses[dst.name] = "unchanged"
-            else:
-                conflict = True
-                break
-        if conflict:
-            continue
-        dst_dir.mkdir(parents=True, exist_ok=True)
-        for src, suffix in group:
-            dst = dst_dir / f"{candidate}{suffix}"
-            if statuses[dst.name] == "copied":
-                shutil.copy2(src, dst)
-        return {"stem": candidate, "files": statuses}
-    raise FeatureWorktreeError(f"no free name for {stem}")
+    try:
+        placed = _ws.publish_group(dst_dir, run_id, group, dst_dir, stem)
+    except _ws.WorkspaceError as exc:
+        raise FeatureWorktreeError(str(exc)) from exc
+    return {
+        "stem": placed["stem"],
+        "files": {name: ("copied" if state == "published" else state)
+                  for name, state in placed["files"].items()},
+    }
 
 
 def copy_back(worktree: Path, plan_rel: str | None, qa_run: str | None = None) -> dict:
@@ -238,16 +231,11 @@ def copy_back(worktree: Path, plan_rel: str | None, qa_run: str | None = None) -
                 continue
             rel = src.relative_to(src_dir)
             dst = primary / ".mash" / "qa" / qa_run / rel
-            if dst.exists() and _same_bytes(src, dst):
-                copied[str(rel)] = "unchanged"
-                continue
-            if dst.exists():
-                raise FeatureWorktreeError(
-                    f"{dst} exists with different content; move it aside before copying back"
-                )
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-            copied[str(rel)] = "copied"
+            try:
+                placed = _ws.publish_exact(primary, None, src, dst)
+            except _ws.WorkspaceError as exc:
+                raise FeatureWorktreeError(str(exc)) from exc
+            copied[str(rel)] = "copied" if placed["status"] == "published" else placed["status"]
         results.append({"kind": "qa", "run": qa_run, "files": copied})
 
     return {"status": "ok", "primary": str(primary), "results": results}

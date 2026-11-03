@@ -414,6 +414,136 @@ def release_lease(
     return outcome
 
 
+# --- publication -----------------------------------------------------------
+
+# `YYYY-MM-DD-NNN-rest`: plan names carry a daily sequence, so a collision
+# advances the number rather than appending a suffix.
+_SEQUENCED_STEM = re.compile(r"^(\d{4}-\d{2}-\d{2}-)(\d{3})(-.*)$")
+
+
+def stem_candidates(stem: str, limit: int = 200):
+    """The requested name first, then the next free names."""
+    yield stem
+    match = _SEQUENCED_STEM.match(stem)
+    for step in range(1, limit):
+        if match:
+            yield f"{match.group(1)}{int(match.group(2)) + step:03d}{match.group(3)}"
+        else:
+            yield f"{stem}-{step + 1}"
+
+
+def _same_bytes(a: Path, b: Path) -> bool:
+    try:
+        return a.read_bytes() == b.read_bytes()
+    except OSError:
+        return False
+
+
+def _link_exclusive(src: Path, dst: Path) -> bool:
+    """Publish `src`'s content at `dst`, atomically, without overwriting.
+
+    Content is staged in a uniquely named temporary and then hard-linked into
+    place: `os.link` fails when the destination exists, so the reservation and
+    the content land in one indivisible step. Reserving an empty placeholder
+    first would let a racing writer read it as real content.
+    """
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_name(f".{dst.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
+    try:
+        tmp.write_bytes(src.read_bytes())
+        try:
+            os.link(tmp, dst)
+        except FileExistsError:
+            return False
+        return True
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def publish_exact(repo: str | Path, run_id: str | None, src: str | Path, dst: str | Path) -> dict:
+    """Publish at exactly `dst`, never renaming.
+
+    Identical content is a no-op. Different content is a refusal rather than an
+    overwrite: the caller chose this exact path, so moving it would hide the
+    collision.
+    """
+    record = load_run(repo, run_id) if run_id else None
+    src, dst = Path(src), Path(dst)
+    if not src.is_file():
+        raise WorkspaceError(f"{src} is not a readable file")
+    if dst.exists():
+        if _same_bytes(src, dst):
+            return {"status": "unchanged", "path": str(dst)}
+        raise WorkspaceError(f"{dst} exists with different content; move it aside first")
+    if not _link_exclusive(src, dst):
+        if _same_bytes(src, dst):
+            return {"status": "unchanged", "path": str(dst)}
+        raise WorkspaceError(f"{dst} was created by another run with different content")
+    if record is not None:
+        record.setdefault("receipts", []).append(str(dst))
+        save_run(repo, record)
+    return {"status": "published", "path": str(dst)}
+
+
+def publish_group(
+    repo: str | Path,
+    run_id: str | None,
+    entries: list[tuple[Path, str]],
+    dest_dir: str | Path,
+    stem: str,
+) -> dict:
+    """Publish one document and its siblings under a single shared stem.
+
+    Two runs publishing the same destination never both land: the loser moves
+    to the next free name. A group moves as a unit, so a plan and its sidecars
+    stay paired. `run_id` may be None for callers that do not own a run yet;
+    receipts are then not recorded.
+    """
+    record = load_run(repo, run_id) if run_id else None
+    sources = [(Path(src), suffix) for src, suffix in entries]
+    for src, _ in sources:
+        if not src.is_file():
+            raise WorkspaceError(f"{src} is not a readable file")
+    dest = Path(dest_dir)
+
+    for candidate in stem_candidates(stem):
+        statuses: dict[str, str] = {}
+        linked: list[Path] = []
+        collided = False
+        for src, suffix in sources:
+            target = dest / f"{candidate}{suffix}"
+            if target.exists():
+                # Identical content is not a conflict; it is the same artifact.
+                if _same_bytes(src, target):
+                    statuses[target.name] = "unchanged"
+                    continue
+                collided = True
+                break
+            if _link_exclusive(src, target):
+                statuses[target.name] = "published"
+                linked.append(target)
+                continue
+            # Lost the race for this name: re-read before deciding.
+            if _same_bytes(src, target):
+                statuses[target.name] = "unchanged"
+                continue
+            collided = True
+            break
+        if collided:
+            # Keep the group together: give back this candidate entirely.
+            for path in linked:
+                path.unlink(missing_ok=True)
+            continue
+        published = [str(dest / name) for name, state in statuses.items() if state == "published"]
+        if published and record is not None:
+            record.setdefault("receipts", []).extend(published)
+            record["heartbeat"] = utc_now_iso()
+            save_run(repo, record)
+        return {"status": "ok", "run_id": run_id, "stem": candidate,
+                "dest_dir": str(dest), "files": statuses}
+    raise WorkspaceError(f"no free name for {stem!r} in {dest}")
+
+
 # --- CLI -------------------------------------------------------------------
 
 
@@ -452,11 +582,28 @@ def _build_parser() -> argparse.ArgumentParser:
     show = lease.add_parser("show", parents=[common])
     show.add_argument("--kind", required=True, choices=LEASE_KINDS)
     show.add_argument("--key", required=True)
+
+    publish = sub.add_parser("publish", help="atomic artifact publication", parents=[common])
+    publish.add_argument("--run", required=True)
+    publish.add_argument("--dest-dir", required=True)
+    publish.add_argument("--stem", required=True)
+    publish.add_argument("--file", action="append", required=True, metavar="PATH:SUFFIX",
+                         help="source path and the suffix it takes under the stem")
     return parser
+
+
+def _parse_file_arg(raw: str) -> tuple[Path, str]:
+    path, sep, suffix = raw.rpartition(":")
+    if not sep:
+        raise WorkspaceError(f"--file expects PATH:SUFFIX, got {raw!r}")
+    return Path(path), suffix
 
 
 def _dispatch(args) -> dict:
     repo = getattr(args, "repo_leaf", None) or args.repo
+    if args.group == "publish":
+        entries = [_parse_file_arg(raw) for raw in args.file]
+        return publish_group(repo, args.run, entries, args.dest_dir, args.stem)
     if args.group == "run":
         if args.cmd == "start":
             return register_run(repo, args.workflow, workspace=args.workspace,
