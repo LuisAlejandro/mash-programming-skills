@@ -77,7 +77,7 @@ Resolve `owner/repo` from `git remote -v`. Before calling any GitHub MCP tool, r
 Branch routing:
 
 - **Detached HEAD** — in interactive mode, explain a branch is required and ask whether to create a `feature/<slug>` branch. If yes, derive `<slug>` per **Branch naming** below and run git-flow feature start. If no, stop. In non-interactive mode, auto-create a feature branch when a safe base can be resolved; otherwise stop with a blocker.
-- **On `<base>` with work to do** (uncommitted, unpushed, or no upstream) — automatically create a `feature/<slug>` branch via git-flow. Pushing the integration branch directly is not supported.
+- **On `<base>` with work to do** (uncommitted, unpushed, or no upstream) — automatically create a `feature/<slug>` branch in a worktree per `references/branch-creation.md`, which leaves the shared checkout on `<base>`. Pushing the integration branch directly is not supported.
 - **On `<base>` with no work** — report no feature branch work and stop.
 - **Feature branch** — if the branch is meaningful but not `feature/<slug>`, suggest `git branch -m feature/<slug>` before push. If the name is opaque, derive a slug and rename. Then continue.
 
@@ -125,9 +125,11 @@ If `plan:<path>` was supplied, read the plan for title, type, summary, requireme
 
 ## Step 3: Commit and push
 
-If on `<base>`, branch creation needs to handle stale local `<base>`, unpushed commits on local `<base>`, and uncommitted changes that collide with the fresh remote base. Read `references/branch-creation.md` and follow its decision flow before continuing.
+If on `<base>`, branch creation needs to handle stale local `<base>`, unpushed commits on local `<base>`, and uncommitted changes that collide with the fresh remote base. Read `references/branch-creation.md` and follow its decision flow before continuing. It creates the feature branch in a **worktree** (`SHIP_ROOT`) and leaves the shared checkout on `<base>`; `SHIP_ROOT` is also where the ownership rule below applies — this run may commit files beyond the ones `mash-work` reported, because the user's uncommitted edits were carried into it deliberately.
 
 Scan changed files for naturally distinct concerns. If they clearly group into separate logical changes, create separate commits (2-3 max). Group at file level only — no `git add -p`. When ambiguous, one commit is fine.
+
+When branch creation produced a worktree, every command below runs with `SHIP_ROOT` as the working directory: stage, commit, fetch/merge, and push all apply to the feature branch in that worktree. Do not stage or commit in the shared checkout, and do not move it off `<base>`.
 
 Stage and commit each group. **Avoid `git add -A` and `git add .`** — they sweep in `.env`, build artifacts, and generated files:
 
@@ -138,7 +140,7 @@ EOF
 )"
 ```
 
-Then bring the feature branch up to date with the base branch to avoid "behind" merge blocks:
+Then bring the feature branch up to date with the base branch to avoid "behind" merge blocks. Run every command in this step with `SHIP_ROOT` as the working directory when a worktree was created:
 
 ```bash
 git fetch origin <base>

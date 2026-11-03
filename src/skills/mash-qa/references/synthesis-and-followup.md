@@ -301,7 +301,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 
 #### Step 3: Apply fixes with one fixer
 
-- Spawn exactly one fixer subagent for the current fixer queue in the current checkout. That fixer applies all approved changes and runs the relevant targeted tests in one pass against a consistent tree.
+- Spawn exactly one fixer subagent for the current fixer queue in the review working root: `$REVIEW_ROOT` for a PR or branch target, otherwise the current checkout. That fixer applies all approved changes and runs the relevant targeted tests in one pass against a consistent tree.
 - Do not fan out multiple fixers against the same checkout. Parallel fixers require isolated worktrees/branches and deliberate mergeback.
 - Do not start a mutating review round concurrently with browser testing on the same checkout. Future orchestrators that want both must either run `mode:report-only` during the parallel phase or isolate the mutating review in its own checkout/worktree.
 
@@ -343,6 +343,21 @@ The fixer accepts two queue shapes depending on which caller invoked it:
   }
   ```
   Capture `branch` and `head_sha` at dispatch time (before any applied fixes land), and write the file after the verdict is finalized. This file is additive -- pre-existing artifacts that predate this field are still valid, and downstream skills fall back to file mtime when it is missing.
+- **PR or branch target: return the artifacts, then decide cleanup.** The run artifact and per-agent JSON live in `$REVIEW_ROOT/.mash/qa/<run-id>/`. Copy them back to the shared checkout and report both paths:
+
+  ```bash
+  python3 "$HELPER" copy-back "$REVIEW_ROOT" --qa-run "$RUN_ID"
+  ```
+
+  `$HELPER` is the absolute path resolved when the review worktree was created (Stage 1).
+
+  `status: blocked` means the checkout already holds a different file at that path; report the blocker and keep the worktree so nothing is lost. Then remove the worktree only when no fix was applied and the run completed cleanly:
+
+  ```bash
+  python3 "$HELPER" remove "$REVIEW_ROOT"
+  ```
+
+  Keep it when a fix was applied or the run failed, and name the path in the report so the user can inspect the patch (`git -C "$REVIEW_ROOT" diff`). Never remove a dirty worktree without the user's explicit consent — the helper refuses without `--force`, which is the intended behavior.
 - Interactive mode may offer to externalize residual actionable work via `references/tracker-defer.md`, but it is not required to finish the review.
 - After the review completes, if durable non-secret learnings emerged and the user is not filing or updating `.mash/solutions/`, use [`mash-hindsight`](../mash-hindsight/SKILL.md) to retain a short review learning with `--context learnings`. This is advisory memory only and must not gate the QA verdict or artifact emission.
 
@@ -373,7 +388,7 @@ Common outcomes:
   - **Exit** -- done for now
 
 If "Create a PR": hand off to `mash-pr`, which publishes the branch with local git and opens or updates the PR through GitHub MCP.
-If "Push fixes": push the branch with `git push` to update the existing PR.
+If "Push fixes": push the branch to update the existing PR. For a PR or branch target there are no commits yet — the fixes are uncommitted in the review worktree, so commit them there first and push `git -C "$REVIEW_ROOT" push origin HEAD:<pr-branch>`. Report the commit and the push result; never push from the shared checkout.
 
 **Report-only and headless modes:** stop after the report, artifact emission, and residual-work handoff. Do not commit, push, or create a PR.
 
