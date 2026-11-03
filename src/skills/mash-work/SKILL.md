@@ -43,7 +43,7 @@ In non-interactive mode, resolve implementation-time unknowns conservatively fro
 
 This skill follows the Mash Programming Skills-native work workflow with Mash Programming Skills Sentrux and handoff boundaries:
 
-- Implement **in place on the current branch**. Do not create or switch branches — branching and PRs belong to `mash-pr`, which the user must invoke explicitly after work completes.
+- Implement **in place** in the current checkout (the feature worktree when the plan came from a brainstorm-started run). Do not create, switch, or remove branches or worktrees — branching and PRs belong to `mash-pr`, which the user must invoke explicitly after work completes.
 - `mash-work` does **not** own QA, PR creation, merge, or release. `mash-qa`, `mash-pr`, and `mash-release` are explicit user invocations — never auto-called from this skill.
 - If Sentrux MCP is available, run the work session for every plan. If a topology baseline exists, compare against it. If none exists, still use session start/end when available and record that no baseline comparison occurred. If Sentrux is unavailable, do not block. If `session_end` fails, follow the remediation and override procedure in [`mash-sentrux`](../mash-sentrux/SKILL.md).
 - Read [`mash-hindsight`](../mash-hindsight/SKILL.md) before substantive implementation so cross-session memory can inform the work.
@@ -54,7 +54,7 @@ This skill follows the Mash Programming Skills-native work workflow with Mash Pr
 - Do not execute prose-documentation, optional, report, summary, or retrospective tasks. Deployment manifests, config maps, secrets/config patches, and other platform/GitOps artifacts are implementation work and must not be filtered as documentation.
 - Do not invent test infrastructure. Author or run automated tests only when a configured test runner already exists for the touched repo, or when the user explicitly asks for test setup.
 - When the origin or plan says design visual parity is aligned, implement remaining functionality only. Do not rerun design implementation; defer to the design-to-code pipeline this repo installs only when a visual-parity review identifies a discrepancy.
-- After implementation completes, invoke [`mash-lint`](../mash-lint/SKILL.md), prepare the Sentrux review brief, and stop with handoff context. Do not invoke `mash-qa` or `mash-pr`.
+- After implementation completes, invoke [`mash-lint`](../mash-lint/SKILL.md), prepare the Sentrux review brief, copy artifacts back to the primary checkout when running in a feature worktree, and stop with handoff context. Do not invoke `mash-qa` or `mash-pr`.
 
 ## Input Document
 
@@ -137,6 +137,6 @@ Phases run in order. Phase 0.0 above gates everything.
 - **Forgetting to track progress** - Update task status as you go or lose track of what's done
 - **80% done syndrome** - Finish the feature, don't move on early
 - **Skipping handoff context** - `mash-qa` needs the plan, changed files, implementation summary, and Sentrux context
-- **Reaching for git isolation** - A dirty tree or a large change is not a reason to branch, stash, or open a worktree. Work in place; path-limited commits keep this run's files separate
+- **Reaching for git isolation** - A dirty tree or a large change is not a reason to branch, stash, or open a worktree. The feature worktree comes from brainstorm Phase 0.4; `mash-work` runs in whichever checkout it was started in. Path-limited commits keep this run's files separate
 - **Implementing without a plan** - A prose description of work is not an input. Resolve a plan from the argument, a blank-input latest software plan, the handoff, or the session, or stop per Phase 0
 - **Re-scoping the plan into human-time phases** - The plan's Implementation Units define the scope of execution. Do not estimate human-hours per unit, propose multi-day breakdowns, or ask the user to pick a subset of units for "this session". Agents execute at agent speed, and context-window pressure is addressed by serial subagent dispatch, not by phased sessions. If a plan is genuinely too large for a single execution, say so plainly and suggest the user return to `mash-plan` to reduce scope, or invoke `mash-parallel` explicitly — don't invent session phases as a workaround

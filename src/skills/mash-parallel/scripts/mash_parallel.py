@@ -1118,7 +1118,31 @@ def track_branch_name(run_id: str, track_id: int) -> str:
 
 
 def _is_git_repo(repo_root: str | os.PathLike) -> bool:
+    # Accepts a `.git` directory (primary checkout) or file (linked worktree).
     return (Path(repo_root) / ".git").exists()
+
+
+def primary_checkout(path: str | os.PathLike) -> Path:
+    """Return the primary checkout that owns ``path``'s git common dir.
+
+    Run state, origin lookup, and runtime-file sources live under the primary
+    checkout, so starting the orchestrator from a linked feature worktree must
+    not move them. Falls back to ``path`` outside a git repo or when the common
+    dir is not a plain ``.git`` directory (for example a bare repo).
+    """
+    import subprocess as _sp
+
+    res = _sp.run(
+        ["git", "-C", str(path), "rev-parse", "--git-common-dir"],
+        capture_output=True, text=True, check=False,
+    )
+    if res.returncode != 0 or not res.stdout.strip():
+        return Path(path)
+    common = Path(res.stdout.strip())
+    if not common.is_absolute():
+        common = Path(path) / common
+    common = common.resolve()
+    return common.parent if common.name == ".git" else Path(path)
 
 
 def ensure_task_worktree(
@@ -2605,7 +2629,7 @@ def _cmd_run(argv: list[str]) -> int:
         print("--approve is only valid with --resume", file=sys.stderr)
         return 2
     tasks, options = _load_run_inputs(inputs_path)
-    repo_root = Path.cwd()
+    repo_root = primary_checkout(Path.cwd())
     footprints = _derive_footprints(tasks)
     harness = options.get("harness")
     if not harness:

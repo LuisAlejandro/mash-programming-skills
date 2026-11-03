@@ -79,7 +79,7 @@ Parent workflows that run in `mode:non-interactive` and want safe fixes applied 
 - **Skip all user questions.** Infer intent conservatively if the diff metadata is thin.
 - **Never edit files or externalize work.** Do not write `.mash/qa/<run-id>/`, do not file tickets, and do not commit, push, or create a PR.
 - **Safe for parallel read-only verification.** `mode:report-only` is the only mode that is safe to run concurrently with browser testing on the same checkout.
-- **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:report-only` must run in an isolated checkout/worktree or stop instead of changing branches.
+- **Never switch the shared checkout.** An explicit PR or branch target runs in its own review worktree (see **Review worktree** below). Report-only writes nothing there: no fixes, no artifact.
 - **Do not overlap mutating review with browser testing on the same checkout.** If a future orchestrator wants fixes, run the mutating review phase after browser testing or in an isolated checkout/worktree.
 
 ### Headless mode rules
@@ -90,7 +90,7 @@ Parent workflows that run in `mode:non-interactive` and want safe fixes applied 
 - **Return all non-auto findings as structured text output.** Use the headless output envelope format in `references/synthesis-and-followup.md` (Stage 6) preserving severity, autofix_class, owner, requires_verification, confidence, pre_existing, and suggested_fix per finding. Enrich with detail-tier fields (why_it_matters, evidence[]) from the per-agent artifact files on disk (see Detail enrichment in that Stage 6).
 - **Write a run artifact** under `.mash/qa/<run-id>/` summarizing findings, applied fixes, and advisory outputs. Include the artifact path in the structured output.
 - **Do not file tickets or externalize work.** The caller receives structured findings and routes downstream work itself.
-- **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:headless` must run in an isolated checkout/worktree or stop instead of changing branches. When stopping, emit `Review failed (headless mode). Reason: cannot switch shared checkout. Re-invoke with base:<ref> to review the current checkout, or run from an isolated worktree.`
+- **Never switch the shared checkout.** An explicit PR or branch target runs in its own review worktree (see **Review worktree** below), and `safe_auto` fixes are applied there, never in the shared checkout. The only stop is a worktree that cannot be created: emit `Review failed (headless mode). Reason: review worktree: <blocker>.`
 - **Not safe for concurrent use on a shared checkout.** Unlike `mode:report-only`, headless mutates files (applies `safe_auto` fixes). Callers must not run headless concurrently with other mutating operations on the same checkout.
 - **Never commit, push, or create a PR** from headless mode. The caller owns those decisions.
 - **End with "Review complete" as the terminal signal** so callers can detect completion. If all reviewers fail or time out, emit `Code review degraded (headless mode). Reason: 0 of N reviewers returned results.` followed by "Review complete".
@@ -195,9 +195,24 @@ echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:"
 
 This path works with any ref — a SHA, `origin/main`, a branch name. Automated callers (for example `mash-work`) should prefer this to avoid the detection overhead. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base." This avoids scope/intent mismatches where the diff base comes from one source but the code and metadata come from another.
 
+**Review worktree (PR and branch targets).** A PR or branch target is reviewed in its own worktree, so the shared checkout never moves and the caller never has to check the target out first. Create it before scope detection:
+
+`HELPER` is this skill's directory joined with `../mash-brainstorm/scripts/feature_worktree.py`, resolved to an absolute path once at the start (relative skill paths do not survive an arbitrary working directory).
+
+```bash
+RUN_ID=$(date +%Y%m%d-%H%M%S)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' ')
+REVIEW_JSON=$(python3 "$HELPER" review-create "<head-sha>" --run-id "$RUN_ID" --repo "$(git rev-parse --show-toplevel)")
+REVIEW_ROOT=$(printf '%s' "$REVIEW_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"])')
+```
+
+- Run every command in the target sections below with `$REVIEW_ROOT` as the working directory, and pass it to persona sub-agents as the repo root. Nothing is written to the shared checkout's tracked files.
+- `status: blocked` is the only stop. Report the blocker and end (`Review failed (headless mode). Reason: review worktree: <blocker>.` in headless).
+- **Nested runs.** When the current directory is already a linked worktree and no PR or branch target was passed, do not create another one: review the current checkout as today.
+- **Artifacts and cleanup.** Run artifacts are written under `$REVIEW_ROOT/.mash/qa/<run-id>/` and copied back with `python3 "$HELPER" copy-back "$REVIEW_ROOT" --qa-run "$RUN_ID"`. Remove the worktree when the run is clean (report-only, or no fix applied). Keep it, and report the path, when a fix was applied or the run failed.
+
 **If a PR number or GitHub URL is provided as an argument:**
 
-`mash-qa` never switches the shared checkout, in any mode. Continue to the skip-condition pre-check below — PR metadata is read-only and needs no checkout. If no skip rule fires and the checkout is not already positioned on the PR head, stop and tell the caller: "`mash-qa` does not switch branches. Check out this PR yourself (`gh pr checkout <n>`), then re-run with `base:<pr-base-branch>`; or run from an isolated worktree/checkout for that PR." In `mode:headless`, emit `Review failed (headless mode). Reason: cannot switch shared checkout. Re-invoke with base:<ref> to review the current checkout, or run from an isolated worktree.` When the checkout is already on the PR head (or the review runs in an isolated worktree), continue with scope detection below.
+Continue to the skip-condition pre-check below — PR metadata is read-only and needs no checkout. When no skip rule fires, resolve the head SHA and position the review on the PR head without touching the shared checkout: use `headRefOid` from PR metadata when it is already local, otherwise `git fetch <head-remote> <headRefName>` (for a fork, `git fetch https://github.com/<base-repo>.git pull/<n>/head`), then create the review worktree per **Review worktree** above. Never run `git checkout` in the shared checkout and never ask the user to stash or commit.
 
 **Skip-condition pre-check.** Before checkout or scope detection, run a PR-state probe to decide whether the review should proceed:
 
@@ -212,7 +227,7 @@ When any skip rule fires, emit the message and stop without dispatching reviewer
 
 If no skip rule fires, resolve PR metadata and proceed.
 
-Resolve the head branch from GitHub MCP metadata for PR title, body, base branch, URL, and prior-comment detection only — persona agents read the current checkout, which is the PR head the caller already checked out. Never run `git checkout` and never ask the user to stash or commit.
+Resolve the head branch from GitHub MCP metadata for PR title, body, base branch, URL, and prior-comment detection only — persona agents read `$REVIEW_ROOT`, which is the PR head. Never run `git checkout` in the shared checkout and never ask the user to stash or commit.
 
 Then fetch PR metadata. Capture the base branch name and the PR base repository identity, not just the branch name. Project `reviews` and `comments` to a `hasPriorComments` boolean via `--jq` -- counting only, not materializing review or comment bodies into the orchestrator's context. The reviews filter excludes approval-state submissions with empty bodies (approvals are not feedback to verify), so PRs with only approval clicks correctly fall through the gate. Stage 3 uses `hasPriorComments` to decide whether to spawn `previous-comments`:
 
@@ -223,7 +238,7 @@ Use GitHub MCP `pull_request_read`:
 
 Use the repository portion of the returned PR URL as `<base-repo>` (for example, `EveryInc/mash-programming-skills` from `https://github.com/EveryInc/mash-programming-skills/pull/348`).
 
-Then compute a local diff against the PR's base branch so re-reviews also include local fix commits and uncommitted edits. Substitute the PR base branch from metadata (shown here as `<base>`) and the PR base repository identity derived from the PR URL (shown here as `<base-repo>`). Resolve the base ref from the PR's actual base repository, not by assuming `origin` points at that repo:
+Then compute a local diff against the PR's base branch, with `$REVIEW_ROOT` as the working directory so `HEAD` is the PR head. Re-reviews also include fix commits made in the review worktree. Substitute the PR base branch from metadata (shown here as `<base>`) and the PR base repository identity derived from the PR URL (shown here as `<base-repo>`). Resolve the base ref from the PR's actual base repository, not by assuming `origin` points at that repo:
 
 ```
 PR_BASE_REMOTE=$(git remote -v | awk 'index($2, "github.com:<base-repo>") || index($2, "github.com/<base-repo>") {print $1; exit}')
@@ -251,9 +266,9 @@ Extract PR title/body, base branch, and PR URL from GitHub MCP metadata, then ex
 
 **If a branch name is provided as an argument:**
 
-`mash-qa` never switches the shared checkout, in any mode. The caller positions the checkout: tell them "`mash-qa` does not switch branches. Check out `<branch>` yourself, then re-run with `base:<base-ref>`; or run from an isolated worktree/checkout for `<branch>`." In `mode:headless`, emit `Review failed (headless mode). Reason: cannot switch shared checkout. Re-invoke with base:<ref> to review the current checkout, or run from an isolated worktree.` Do not run `git checkout <branch>` and do not ask the user to stash or commit. Stop here unless the review runs in an isolated checkout already positioned on `<branch>`.
+Resolve the branch tip (`git rev-parse <branch>`, after `git fetch origin <branch>` when the ref is missing locally) and create the review worktree per **Review worktree** above. Never run `git checkout <branch>` in the shared checkout and do not ask the user to stash or commit.
 
-Then detect the review base branch and compute the merge-base.
+Then detect the review base branch and compute the merge-base, with `$REVIEW_ROOT` as the working directory.
 
 **If a PR exists for `<branch>`** (check with GitHub MCP `search_pull_requests` scoped to the repo and branch): reuse PR mode's `PR_BASE_REMOTE` block above. Use the PR base branch as `<base>` and derive `<base-repo>` from the PR URL (e.g., `EveryInc/foo` from `https://github.com/EveryInc/foo/pull/123`). The block already sets `$BASE` to the merge-base SHA — `origin` may point at the user's fork, which is why naive `origin/<base>` is unsafe and the fork-safe block is required.
 
@@ -399,16 +414,16 @@ The orchestrator also inherits the session model for intent discovery, reviewer 
 
 #### Run ID
 
-Generate a unique run ID before dispatch. It scopes reviewer artifacts and the run artifact to one directory.
+Generate a unique run ID before dispatch. It scopes reviewer artifacts and the run artifact to one directory. **A PR or branch target already generated one when it created the review worktree — reuse `$RUN_ID` instead of generating a second.**
 
 ```bash
-RUN_ID=$(date +%Y%m%d-%H%M%S)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' ')
-mkdir -p ".mash/qa/$RUN_ID"
+RUN_ID=${RUN_ID:-$(date +%Y%m%d-%H%M%S)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' ')}
+mkdir -p "${REVIEW_ROOT:-.}/.mash/qa/$RUN_ID"
 ```
 
 Pass `{run_id}` to every persona sub-agent so they can write their full analysis to `.mash/qa/{run_id}/{reviewer_name}.json`.
 
-**Report-only mode:** Skip run-id generation and directory creation. Do not pass `{run_id}` to agents. Agents return compact JSON only with no file write, consistent with report-only's no-write contract.
+**Report-only mode:** Skip artifact directory creation. Do not pass `{run_id}` to agents. Agents return compact JSON only with no file write, consistent with report-only's no-write contract. The review worktree itself is still created, because it is what keeps the shared checkout untouched.
 
 #### Spawning
 

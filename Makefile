@@ -29,4 +29,4 @@ test-image:
 	@$(TEST_COMPOSE) build tests
 
 test: test-image
-	@$(TEST_COMPOSE) run --rm --no-deps tests python3 -m pytest tests src/skills/mash-parallel/tests -q
+	@$(TEST_COMPOSE) run --rm --no-deps tests python3 -m pytest tests src/skills/mash-parallel/tests src/skills/mash-brainstorm/tests -q

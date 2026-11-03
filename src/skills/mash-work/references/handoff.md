@@ -23,6 +23,20 @@ Entered when all Phase 2 tasks are complete.
    - If it still fails, stop and report the block. Continue only in interactive mode if the user gives the exact override phrase from `mash-sentrux`: `override sentrux handoff block`. In non-interactive mode, do not wait for an override.
 4. **Write the review brief** beside the plan as `<plan-basename>.sentrux-review-brief.json`.
    - Include session pass/fail, signal before/after, bottleneck after, `test_gaps`, unavailable reason if applicable, and override details if used.
+
+**4b. Copy artifacts back to the primary checkout (feature worktree only).** Run after the review brief exists, because the brief is one of the artifacts. The requirements and plan are gitignored, so they return by copy, never by merge:
+
+`$HELPER` is this skill's directory joined with `../mash-brainstorm/scripts/feature_worktree.py`, resolved to an absolute path (relative skill paths do not survive an arbitrary working directory).
+
+```bash
+python3 "$HELPER" copy-back "$(git rev-parse --show-toplevel)" --plan <plan path under .mash/plans/, repo-relative>
+```
+
+- `status: noop`: the run is in the primary checkout. Record `COPIED: none (primary checkout)`.
+- `status: ok`: list every copied file under `COPIED:` with its primary-checkout path. `unchanged` entries are already present with identical content. A plan renamed to a free sequence number is reported with its new name, because the worktree copy keeps the old one.
+- `status: blocked`: put the blocker in `BLOCKERS:`. Do not claim the artifacts were returned.
+
+The helper never overwrites a file in the primary checkout. Do not commit or force-add these files; they stay gitignored.
 5. **Retain Hindsight session memory** when Hindsight is available:
    - Use [`mash-hindsight`](../../mash-hindsight/SKILL.md) to retain a concise but rich summary with plan path, changed files, completed work, verification commands, blockers, and important decisions.
    - If Hindsight is unavailable or not configured, skip retain and record the status in the handoff envelope.
@@ -32,6 +46,9 @@ Entered when all Phase 2 tasks are complete.
      ```text
      MASH_WORK_HANDOFF
      BRANCH: <current branch — work happens in place; no branch setup>
+      WORKTREE: <absolute feature worktree path, or primary checkout>
+      COPIED:
+      - <primary-checkout path, or none>
      FILES_CHANGED:
      - <repo-relative path>
      DONE:

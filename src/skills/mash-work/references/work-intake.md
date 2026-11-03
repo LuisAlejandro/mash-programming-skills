@@ -6,7 +6,7 @@ Read this on entering Phase 0. It owns input triage and complexity routing, plan
 
 `mash-work` executes a plan. Resolve one from `<input_document>` or from the session, in this order:
 
-Branch setup does not exist in this skill — work happens in place on the current branch; branching and PRs belong to `mash-pr` (invoked explicitly by the user).
+Branch setup does not exist in this skill. Work happens in the current checkout on its current branch: the feature worktree from brainstorm Phase 0.4 when there is one. Branching and PRs belong to `mash-pr` (invoked explicitly by the user).
 
 0. **Blank input — latest software plan.** After stripping `mode:`, if the remaining input is empty:
    1. Glob `.mash/plans/*-plan.md`.
@@ -77,7 +77,7 @@ END_MASH_WORK_HANDOFF
 
 2. **Setup Environment**
 
-   **Work in place on the current branch.** No branch setup, no git-flow, no checkout, no stash. Record `BRANCH: <current branch>` (from `git branch --show-current`) in the handoff envelope before the first edit. Branching and PRs belong to `mash-pr` — the user invokes it explicitly after work completes.
+   **Work in place in the current checkout.** No branch setup, no git-flow, no checkout, no stash. Record `BRANCH:` (from `git branch --show-current`) and `WORKTREE:` (from `git rev-parse --show-toplevel`) in the handoff envelope before the first edit. Branching and PRs belong to `mash-pr` — the user invokes it explicitly after work completes.
 
    **Pre-work inventory — record this before the first edit:**
 

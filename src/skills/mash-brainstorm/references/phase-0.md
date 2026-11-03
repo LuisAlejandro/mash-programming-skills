@@ -28,7 +28,7 @@ When `mode:non-interactive` is active, apply Compact non-interactive artifacts f
 
 If the user references an existing brainstorm topic or document, or there is an obvious recent matching `*-requirements.md` file in the **flat** `.mash/brainstorms/` directory:
 
-- Search that directory only. Never `.mash/brainstorms/scratch/` (per-run scout artifacts). Never `.mash/parallel/` — it is not a search root.
+- Search the primary checkout's flat `.mash/brainstorms/` and each flat `.mash/worktrees/<slug>/.mash/brainstorms/` for a software run. Never `.mash/brainstorms/scratch/` (per-run scout artifacts). Never `.mash/parallel/` — it is not a search root.
 - Read the document
 - Confirm with the user before resuming: "Found an existing requirements doc for [topic]. Should I continue from this, or start fresh?"
 - If resuming, summarize the current state briefly, continue from its existing decisions and outstanding questions, and update the existing document instead of creating a duplicate
@@ -90,3 +90,20 @@ Keep the work together when the outcomes cannot be independently useful or valid
 In non-interactive mode, do not ask. Choose the area the feature description weights most heavily, record the narrowing as an explicit assumption, and note the deferred areas under Scope Boundaries.
 
 **Unfamiliarity tripwire.** If the user signals they lack working knowledge of the domain or the territory the topic touches — "I know nothing about X", "never touched the auth modules", "I don't know what's possible / what I should be asking" — read `references/blindspot-pass.md` now. Loading here is readiness only; that reference owns when the offer fires (territory-scoped, before the first substantive question into the flagged territory), the map's shape, and how mapped decisions re-enter the dialogue. Skip the tripwire entirely in non-interactive mode — with no user to teach, flagged territory is handled as a declined offer per that reference.
+
+### 0.4 Feature Worktree (software runs)
+
+Runs after 0.1b classifies the task as software and before Phase 1. Non-software and "neither" runs stop earlier, so they never create a worktree.
+
+1. **Slug.** Use the brainstorm's `topic` (kebab-case, `^[a-z0-9][a-z0-9-]{0,63}$`). When resuming, reuse the document's `topic`.
+2. **Create or reuse** from the repo:
+
+   ```bash
+   python3 scripts/feature_worktree.py create <slug> --repo <repo-root>
+   ```
+
+   Run from this skill's directory. The helper creates `feature/<slug>` at `.mash/worktrees/<slug>` from the primary checkout's `HEAD`, copies the runtime allowlist, and reuses the same worktree on a repeat run. `status` is `created` or `reused`.
+3. **Record the absolute worktree path.** Every read and write of `.mash/` for this run uses that root: scratch, the requirements document, and the Phase 4 handoff. Document content stays repo-relative.
+4. **Resumed document in the primary checkout.** Copy it into the worktree's flat `.mash/brainstorms/` under the same name when the worktree does not already have it. Update the worktree copy, never the primary one.
+5. **Uncommitted changes stay in the primary checkout.** The new branch starts from committed `HEAD`. Say so once if the primary checkout is dirty.
+6. **Blocked** (`status: blocked`). Interactive: report the blocker and ask for another slug or to resume the existing worktree. Non-interactive: emit the handoff envelope with the blocker in `BLOCKERS:` and stop. Do not fall back to writing in the primary checkout without the user's explicit OK.

@@ -68,7 +68,7 @@ If the named path is unreadable or is not a `*-requirements.md` file:
 - Interactive: ask for a corrected path. Do not invent an origin from the prompt.
 - Non-interactive: emit the handoff envelope with the named path in `BLOCKERS:` (e.g. `named origin unreadable: <path>`). Leave `PLAN PATH:` empty.
 
-**Directory search only when no explicit path was given.** Search the **flat** `.mash/brainstorms/` directory for `*-requirements.md` files that are software-shaped (`## Requirements` present). Skip files that lack that heading. Match that directory only — never `.mash/brainstorms/scratch/` (per-run scout artifacts), never `.mash/parallel/` (projected origins). `.mash/parallel/` is never a search root.
+**Directory search only when no explicit path was given.** Search the **flat** `.mash/brainstorms/` directory under the current working root for `*-requirements.md` files that are software-shaped. On a brainstorm-started run that root is the feature worktree; do not search the primary checkout to fill a gap, because the handoff copy-back (`mash-work`) is what brings artifacts there (`## Requirements` present). Skip files that lack that heading. Match that directory only — never `.mash/brainstorms/scratch/` (per-run scout artifacts), never `.mash/parallel/` (projected origins). `.mash/parallel/` is never a search root.
 
 **Relevance criteria (search only):** A software origin is relevant if:
 - The topic semantically matches the feature description
