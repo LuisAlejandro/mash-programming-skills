@@ -27,14 +27,6 @@ Subcommands (stdlib only, JSON on stdout):
       `feature/<slug>` worktree under `.mash/worktrees/<slug>` from `<ref>`, so
       `mash-pr` ships without moving the primary checkout off its base branch.
 
-  stash-apply <worktree> --message <msg>
-      Apply the newest stash whose subject contains `<msg>` inside `<worktree>`
-      with `--index`. A conflict leaves the stash in place and reports it.
-
-  stash-drop --message <msg>
-      Drop the newest stash whose subject contains `<msg>`. Refuses when none
-      matches, so a near-miss never discards someone else's stash.
-
   remove <path> [--force]
       Remove a worktree under `.mash/`. Refuses tracked changes without
       `--force`, and refuses any path outside `.mash/`.
@@ -283,70 +275,6 @@ def ship_create(primary: Path, slug: str, base_ref: str) -> dict:
     }
 
 
-def _find_stash(primary: Path, message: str) -> tuple[str, str] | None:
-    """Return (ref, subject) of the newest stash whose subject contains message."""
-    res = _git(["stash", "list", "--format=%gd%x09%gs"], primary)
-    if res.returncode != 0:
-        return None
-    for line in res.stdout.splitlines():
-        ref, _, subject = line.partition("	")
-        if message in subject:
-            return ref, subject
-    return None
-
-
-def stash_apply(worktree: Path, message: str) -> dict:
-    if not is_linked_worktree(worktree):
-        raise FeatureWorktreeError(f"{worktree} is not a linked worktree")
-    primary = primary_checkout(worktree)
-    found = _find_stash(primary, message)
-    if not found:
-        raise FeatureWorktreeError(f"no stash whose subject contains {message!r}")
-    ref, subject = found
-    # --index keeps staged changes staged. It aborts the whole apply when the
-    # index cannot be rebuilt, so fall back to a plain apply, which leaves
-    # conflict markers the user can resolve. The stash is never dropped here.
-    index_ok = _git(["stash", "apply", "--index", ref], worktree).returncode == 0
-    plain_ok = index_ok
-    if not index_ok:
-        plain_ok = _git(["stash", "apply", ref], worktree).returncode == 0
-    unmerged = _unmerged_paths(worktree)
-    if unmerged:
-        return {
-            "status": "conflict",
-            "stash": subject,
-            "worktree": str(worktree),
-            "conflicted": unmerged,
-            "next": f"git -C {worktree} status, then resolve; the stash is kept",
-        }
-    if index_ok or plain_ok:
-        return {
-            "status": "applied",
-            "stash": subject,
-            "worktree": str(worktree),
-            "index_restored": index_ok,
-        }
-    raise FeatureWorktreeError(
-        f"stash apply failed in {worktree}; stash {subject!r} is kept"
-    )
-
-
-def _unmerged_paths(worktree: Path) -> list[str]:
-    res = _git(["diff", "--name-only", "--diff-filter=U"], worktree)
-    return [ln for ln in res.stdout.splitlines() if ln.strip()]
-
-
-def stash_drop(primary: Path, message: str) -> dict:
-    found = _find_stash(primary, message)
-    if not found:
-        raise FeatureWorktreeError(f"no stash whose subject contains {message!r}; nothing dropped")
-    ref, subject = found
-    res = _git(["stash", "drop", ref], primary)
-    if res.returncode != 0:
-        raise FeatureWorktreeError(f"git stash drop failed: {res.stderr.strip()}")
-    return {"status": "dropped", "stash": subject}
-
-
 def _dirty_paths(worktree: Path) -> list[str]:
     """Paths with real changes, ignoring the runtime files this helper copies in.
 
@@ -414,14 +342,6 @@ def _build_parser() -> argparse.ArgumentParser:
     s.add_argument("--base", required=True, help="base ref, e.g. origin/develop or HEAD")
     s.add_argument("--repo", default=".")
 
-    a = sub.add_parser("stash-apply", help="apply a mash-pr stash inside a worktree")
-    a.add_argument("worktree")
-    a.add_argument("--message", required=True)
-
-    d = sub.add_parser("stash-drop", help="drop a mash-pr stash after a successful commit")
-    d.add_argument("--message", required=True)
-    d.add_argument("--repo", default=".")
-
     rm = sub.add_parser("remove", help="remove a worktree under .mash/")
     rm.add_argument("path")
     rm.add_argument("--force", action="store_true")
@@ -437,10 +357,6 @@ def main(argv: list[str] | None = None) -> int:
             out = review_create(primary_checkout(Path(args.repo)), args.sha, args.run_id)
         elif args.cmd == "ship-create":
             out = ship_create(primary_checkout(Path(args.repo)), args.slug, args.base)
-        elif args.cmd == "stash-apply":
-            out = stash_apply(Path(args.worktree), args.message)
-        elif args.cmd == "stash-drop":
-            out = stash_drop(primary_checkout(Path(args.repo)), args.message)
         elif args.cmd == "remove":
             out = remove_worktree(Path(args.path), args.force)
         else:

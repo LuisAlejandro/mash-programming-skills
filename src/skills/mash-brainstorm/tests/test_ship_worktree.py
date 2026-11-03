@@ -1,4 +1,4 @@
-"""U1 (plan 002) tests: review, ship, stash, and remove subcommands."""
+"""U1 (plan 002) tests: review, ship, and remove subcommands."""
 
 import subprocess
 import sys
@@ -10,8 +10,6 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import feature_worktree as fw
-
-STASH_MSG = "mash-pr: ship widgets"
 
 
 def _git(*args, cwd):
@@ -102,84 +100,16 @@ def test_ship_create_refuses_missing_base_ref(primary):
         fw.ship_create(primary, "widgets", "origin/nope")
 
 
-# --- stash-apply / stash-drop ---------------------------------------------
-
-
 def _dirty_tree(primary):
     (primary / "a.txt").write_text("a\nstaged\n")
     _git("add", "a.txt", cwd=primary)
     (primary / "b.txt").write_text("b\nunstaged\n")
     (primary / "new.txt").write_text("new\n")
-    _git("stash", "push", "-u", "-m", STASH_MSG, cwd=primary)
 
 
-def test_stash_apply_restores_index_and_leaves_primary_clean(primary):
-    _dirty_tree(primary)
-    out = fw.ship_create(primary, "widgets", "origin/develop")
-    wt = Path(out["worktree"])
-    applied = fw.stash_apply(wt, STASH_MSG)
-    assert applied["status"] == "applied"
-    status = _git("status", "--short", cwd=wt)
-    assert "M  a.txt" in status  # staged state preserved by --index
-    assert " M b.txt" in status
-    assert "?? new.txt" in status
-    assert _git("status", "--short", cwd=primary) == ""
-    assert len(_git("stash", "list", cwd=primary).splitlines()) == 1
 
 
-def test_stash_apply_clean_when_carrying_unpushed_commit(primary):
-    # The stash is taken against local HEAD, so carry-forward (base HEAD) is the
-    # combination that applies cleanly.
-    (primary / "a.txt").write_text("a\nlocal\n")
-    _git("commit", "-qam", "local unpushed", cwd=primary)
-    (primary / "a.txt").write_text("a\nlocal\nstaged\n")
-    _git("add", "a.txt", cwd=primary)
-    (primary / "new.txt").write_text("new\n")
-    _git("stash", "push", "-u", "-m", STASH_MSG, cwd=primary)
-    wt = Path(fw.ship_create(primary, "widgets", "HEAD")["worktree"])
-    assert fw.stash_apply(wt, STASH_MSG)["status"] == "applied"
-    assert "staged" in (wt / "a.txt").read_text()
-    assert (wt / "new.txt").exists()
 
-
-def test_stash_apply_conflicts_when_base_lacks_the_stash_context(primary):
-    # Shipping from origin/develop while the stash was taken against a local
-    # commit is the risky combination; it must surface as a kept-stash conflict.
-    (primary / "a.txt").write_text("a\nlocal\n")
-    _git("commit", "-qam", "local unpushed", cwd=primary)
-    (primary / "a.txt").write_text("a\nlocal\nstaged\n")
-    _git("add", "a.txt", cwd=primary)
-    _git("stash", "push", "-u", "-m", STASH_MSG, cwd=primary)
-    wt = Path(fw.ship_create(primary, "widgets", "origin/develop")["worktree"])
-    assert fw.stash_apply(wt, STASH_MSG)["status"] == "conflict"
-    assert len(_git("stash", "list", cwd=primary).splitlines()) == 1
-
-
-def test_stash_apply_reports_conflict_and_keeps_stash(primary):
-    _dirty_tree(primary)
-    out = fw.ship_create(primary, "widgets", "origin/develop")
-    wt = Path(out["worktree"])
-    # Same file changed on the worktree branch, so the stash conflicts.
-    (wt / "a.txt").write_text("a\nconflicting\n")
-    _git("commit", "-qam", "conflicting change", cwd=wt)
-    applied = fw.stash_apply(wt, STASH_MSG)
-    assert applied["status"] == "conflict"
-    assert "a.txt" in applied["conflicted"]
-    # the stash survives for recovery, and the conflict marker is in the tree
-    assert len(_git("stash", "list", cwd=primary).splitlines()) == 1
-    assert "<<<<<<<" in (wt / "a.txt").read_text()
-
-
-def test_stash_drop_requires_matching_message(primary):
-    _dirty_tree(primary)
-    with pytest.raises(fw.FeatureWorktreeError, match="nothing dropped"):
-        fw.stash_drop(primary, "mash-pr: ship other")
-    assert len(_git("stash", "list", cwd=primary).splitlines()) == 1
-    assert fw.stash_drop(primary, STASH_MSG)["status"] == "dropped"
-    assert _git("stash", "list", cwd=primary) == ""
-
-
-# --- remove ----------------------------------------------------------------
 
 
 def test_remove_refuses_clean_primary_checkout(primary):

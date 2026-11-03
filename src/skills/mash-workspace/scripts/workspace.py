@@ -744,6 +744,52 @@ def remove_workspace(repo: str | Path, run_id: str, path: str | Path, force: boo
     return {"status": "removed", "run_id": run_id, "workspace": str(workspace)}
 
 
+# --- transfer ---------------------------------------------------------------
+
+
+def _resolve_within(root: Path, relative: str) -> Path:
+    """Resolve `relative` under `root`, refusing anything that escapes it."""
+    if Path(relative).is_absolute():
+        raise WorkspaceError(f"{relative!r} must be relative to the source checkout")
+    resolved = (root / relative).resolve()
+    if root not in resolved.parents and resolved != root:
+        raise WorkspaceError(f"{relative!r} resolves outside {root}")
+    return resolved
+
+
+def transfer(source: str | Path, target: str | Path, files: list[str]) -> dict:
+    """Copy a declared set of files from one checkout into another.
+
+    This replaces `git stash` for carrying work onto a feature branch. A stash
+    is one shared stack in the shared checkout, so concurrent runs could pop
+    each other's entries; naming the files touches nothing else. The source
+    checkout is left exactly as it was.
+    """
+    source_root = Path(source).resolve()
+    target_root = Path(target).resolve()
+    if not files:
+        raise WorkspaceError("no files to transfer: name the files to carry forward")
+    if not target_root.is_dir():
+        raise WorkspaceError(f"{target_root} is not a directory")
+
+    # Resolve and check everything before copying anything, so a bad entry
+    # cannot leave the target half-populated.
+    planned: list[tuple[Path, Path, str]] = []
+    for relative in files:
+        src = _resolve_within(source_root, relative)
+        if not src.is_file():
+            raise WorkspaceError(f"{relative!r} does not exist in {source_root}")
+        planned.append((src, target_root / relative, relative))
+
+    moved = {}
+    for src, dst, relative in planned:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        moved[relative] = "transferred"
+    return {"status": "ok", "source": str(source_root), "target": str(target_root),
+            "files": moved}
+
+
 # --- CLI -------------------------------------------------------------------
 
 
@@ -798,6 +844,13 @@ def _build_parser() -> argparse.ArgumentParser:
     remove.add_argument("--path", required=True)
     remove.add_argument("--force", action="store_true")
 
+    move = sub.add_parser("transfer", help="carry declared files into a workspace",
+                          parents=[common])
+    move.add_argument("--from", dest="source", required=True)
+    move.add_argument("--to", dest="target", required=True)
+    move.add_argument("--file", action="append", required=True,
+                      help="path relative to the source checkout; repeatable")
+
     publish = sub.add_parser("publish", help="atomic artifact publication", parents=[common])
     publish.add_argument("--run", required=True)
     publish.add_argument("--dest-dir", required=True)
@@ -819,6 +872,8 @@ def _dispatch(args) -> dict:
     if args.group == "publish":
         entries = [_parse_file_arg(raw) for raw in args.file]
         return publish_group(repo, args.run, entries, args.dest_dir, args.stem)
+    if args.group == "transfer":
+        return transfer(args.source, args.target, args.file)
     if args.group == "workspace":
         if args.cmd == "create":
             return create_workspace(repo, args.run, args.slug, args.base)
