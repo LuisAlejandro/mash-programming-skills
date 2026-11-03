@@ -71,17 +71,9 @@ def _load_workspace():
 
 _ws = _load_workspace()
 
-# Mirrors mash_parallel.RUNTIME_FILE_ALLOWLIST. Skills do not import each
-# other, so a parity test in tests/ keeps the two lists equal.
-RUNTIME_FILE_ALLOWLIST = (
-    "AGENTS.md",
-    ".env",
-    ".env.example",
-    ".cursor",
-    ".opencode",
-    "opencode.json",
-    ".pi",
-)
+# Owned by mash-workspace, which is the single definition. A parity test keeps
+# mash_parallel's copy equal to it.
+RUNTIME_FILE_ALLOWLIST = _ws.RUNTIME_FILE_ALLOWLIST
 
 PLAN_SIBLING_SUFFIXES = (".topology.json", ".sentrux-review-brief.json")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")

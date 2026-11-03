@@ -41,6 +41,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -544,6 +545,204 @@ def publish_group(
     raise WorkspaceError(f"no free name for {stem!r} in {dest}")
 
 
+# --- workspaces ------------------------------------------------------------
+
+# Copied into a new workspace because git does not carry ignored runtime files.
+# Kept in step with mash-parallel's allowlist by a parity test.
+RUNTIME_FILE_ALLOWLIST = (
+    "AGENTS.md", ".env", ".env.example", ".cursor", ".opencode", "opencode.json", ".pi",
+)
+
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+
+
+def _git(args: list[str], cwd: str | Path) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(cwd), *args],
+                          capture_output=True, text=True, check=False)
+
+
+def _digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _copy_runtime_files(primary: Path, workspace: Path) -> dict[str, str]:
+    """Copy ignored runtime files and remember what was copied.
+
+    The digest is what later lets cleanup tell "a copy we made" from "work the
+    user did here". A filename alone cannot distinguish them.
+    """
+    copied: dict[str, str] = {}
+    for name in RUNTIME_FILE_ALLOWLIST:
+        src, dst = primary / name, workspace / name
+        if dst.exists() or not src.exists():
+            continue
+        if src.is_file():
+            shutil.copy2(src, dst)
+            copied[name] = _digest(dst)
+        elif src.is_dir():
+            shutil.copytree(src, dst)
+            copied[name] = "directory"
+    return copied
+
+
+def workspaces_root(repo: str | Path) -> Path:
+    return state_root(repo) / "worktrees"
+
+
+def create_workspace(repo: str | Path, run_id: str, slug: str, base: str = "HEAD") -> dict:
+    """Create a workspace this run owns.
+
+    The directory and branch carry the run id, so a repeated slug can never
+    hand a second run the first run's working directory.
+    """
+    if not SLUG_RE.match(slug):
+        raise WorkspaceError(f"invalid slug {slug!r}: use lowercase letters, digits, hyphens")
+    record = load_run(repo, run_id)
+    primary = primary_checkout(repo)
+    suffix = run_id.rsplit("-", 1)[-1]
+    name = f"{slug}-{suffix}"
+    workspace = workspaces_root(repo) / name
+    branch = f"feature/{name}"
+    if workspace.exists():
+        raise WorkspaceError(f"{workspace} already exists; resume it instead")
+    if _git(["rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], primary).returncode == 0:
+        raise WorkspaceError(f"branch {branch} already exists; resume it instead")
+
+    acquire_lease(repo, run_id, "workspace", str(workspace))
+    workspace.parent.mkdir(parents=True, exist_ok=True)
+    res = _git(["worktree", "add", "-b", branch, str(workspace), base], primary)
+    if res.returncode != 0:
+        release_lease(repo, run_id, "workspace", str(workspace))
+        raise WorkspaceError(f"git worktree add failed: {res.stderr.strip()}")
+
+    copied = _copy_runtime_files(primary, workspace)
+    record = load_run(repo, run_id)
+    record["workspace"] = str(workspace)
+    record["branch"] = branch
+    record["base"] = base
+    record["copied_runtime_files"] = copied
+    save_run(repo, record)
+    return {"status": "created", "run_id": run_id, "workspace": str(workspace),
+            "branch": branch, "base": base, "copied": sorted(copied)}
+
+
+def adopt_workspace(repo: str | Path, run_id: str, path: str | Path) -> dict:
+    """Claim an existing checkout for in-place work."""
+    record = load_run(repo, run_id)
+    workspace = Path(path).resolve()
+    if not workspace.is_dir():
+        raise WorkspaceError(f"{workspace} is not a directory")
+    acquire_lease(repo, run_id, "workspace", str(workspace))
+    record = load_run(repo, run_id)
+    record["workspace"] = str(workspace)
+    branch = _git(["rev-parse", "--abbrev-ref", "HEAD"], workspace)
+    record["branch"] = branch.stdout.strip() or None
+    save_run(repo, record)
+    return {"status": "adopted", "run_id": run_id, "workspace": str(workspace),
+            "branch": record["branch"]}
+
+
+def resume_workspace(repo: str | Path, run_id: str, path: str | Path) -> dict:
+    """Take over a workspace whose previous owner released it or died."""
+    workspace = Path(path).resolve()
+    if not workspace.is_dir():
+        raise WorkspaceError(f"{workspace} is not a directory")
+    acquire_lease(repo, run_id, "workspace", str(workspace))
+    record = load_run(repo, run_id)
+    record["workspace"] = str(workspace)
+    save_run(repo, record)
+    return {"status": "resumed", "run_id": run_id, "workspace": str(workspace)}
+
+
+def _unpublished_artifacts(repo: str | Path, run_id: str, workspace: Path) -> list[str]:
+    """Artifacts written in the workspace that never reached the primary checkout."""
+    published = {Path(p).name for p in load_run(repo, run_id).get("receipts", [])}
+    pending = []
+    for area in ("brainstorms", "plans", "qa", "dogfood", "ideation", "insights", "solutions"):
+        root = workspace / ".mash" / area
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*")):
+            if path.is_file() and path.name not in published and "scratch" not in path.parts:
+                pending.append(str(path.relative_to(workspace)))
+    return pending
+
+
+def _modified_copied_files(record: dict, workspace: Path) -> list[str]:
+    """Copied runtime files whose content no longer matches what was copied."""
+    changed = []
+    for name, digest in (record.get("copied_runtime_files") or {}).items():
+        path = workspace / name
+        if digest == "directory" or not path.is_file():
+            continue
+        if _digest(path) != digest:
+            changed.append(name)
+    return changed
+
+
+def _dirty_paths(workspace: Path, record: dict) -> list[str]:
+    """Real changes, ignoring copies this helper made and still owns."""
+    copied = set(record.get("copied_runtime_files") or {})
+    res = _git(["status", "--porcelain", "--untracked-files=all"], workspace)
+    dirty = []
+    for line in res.stdout.splitlines():
+        if not line.strip():
+            continue
+        path = line[3:].strip().strip('"')
+        if line[:2] == "??" and (path in copied or any(path.startswith(f"{c}/") for c in copied)):
+            continue
+        dirty.append(path)
+    return dirty
+
+
+def remove_workspace(repo: str | Path, run_id: str, path: str | Path, force: bool = False) -> dict:
+    """Remove a workspace this run owns, refusing to discard unfinished work."""
+    record = load_run(repo, run_id)
+    workspace = Path(path).resolve()
+    primary = primary_checkout(repo)
+    managed = workspaces_root(repo).resolve()
+    if managed not in workspace.parents:
+        raise WorkspaceError(
+            f"refusing to remove {workspace}: it is outside the managed root {managed}"
+        )
+
+    lease = read_lease(repo, "workspace", str(workspace))
+    if lease is not None and lease.get("run_id") != run_id:
+        raise Blocked(
+            f"{workspace} is held by run {lease.get('run_id')}",
+            {"status": "blocked", "kind": "workspace", "key": str(workspace),
+             "blocker": f"refusing to remove {workspace}: it is held by run {lease.get('run_id')}",
+             "holder": _holder_view(lease),
+             "recovery": ["let the holder finish", "or end that run first"]},
+        )
+
+    if not force:
+        dirty = _dirty_paths(workspace, record)
+        if dirty:
+            raise WorkspaceError(
+                f"{workspace} has uncommitted changes ({', '.join(dirty[:5])}); "
+                "commit them, or pass --force to discard"
+            )
+        modified = _modified_copied_files(record, workspace)
+        if modified:
+            raise WorkspaceError(
+                f"{workspace} has modified copied files ({', '.join(modified)}); "
+                "save them, or pass --force to discard"
+            )
+        pending = _unpublished_artifacts(repo, run_id, workspace)
+        if pending:
+            raise WorkspaceError(
+                f"{workspace} holds unpublished artifacts ({', '.join(pending[:5])}); "
+                "publish them, or pass --force to discard"
+            )
+
+    res = _git(["worktree", "remove", "--force", str(workspace)], primary)
+    if res.returncode != 0:
+        raise WorkspaceError(f"git worktree remove failed: {res.stderr.strip()}")
+    release_lease(repo, run_id, "workspace", str(workspace))
+    return {"status": "removed", "run_id": run_id, "workspace": str(workspace)}
+
+
 # --- CLI -------------------------------------------------------------------
 
 
@@ -583,6 +782,21 @@ def _build_parser() -> argparse.ArgumentParser:
     show.add_argument("--kind", required=True, choices=LEASE_KINDS)
     show.add_argument("--key", required=True)
 
+    space = sub.add_parser("workspace", help="workspace lifecycle").add_subparsers(
+        dest="cmd", required=True)
+    create = space.add_parser("create", parents=[common])
+    create.add_argument("--run", required=True)
+    create.add_argument("--slug", required=True)
+    create.add_argument("--base", default="HEAD")
+    for name in ("adopt", "resume"):
+        node = space.add_parser(name, parents=[common])
+        node.add_argument("--run", required=True)
+        node.add_argument("--path", required=True)
+    remove = space.add_parser("remove", parents=[common])
+    remove.add_argument("--run", required=True)
+    remove.add_argument("--path", required=True)
+    remove.add_argument("--force", action="store_true")
+
     publish = sub.add_parser("publish", help="atomic artifact publication", parents=[common])
     publish.add_argument("--run", required=True)
     publish.add_argument("--dest-dir", required=True)
@@ -604,6 +818,14 @@ def _dispatch(args) -> dict:
     if args.group == "publish":
         entries = [_parse_file_arg(raw) for raw in args.file]
         return publish_group(repo, args.run, entries, args.dest_dir, args.stem)
+    if args.group == "workspace":
+        if args.cmd == "create":
+            return create_workspace(repo, args.run, args.slug, args.base)
+        if args.cmd == "adopt":
+            return adopt_workspace(repo, args.run, args.path)
+        if args.cmd == "resume":
+            return resume_workspace(repo, args.run, args.path)
+        return remove_workspace(repo, args.run, args.path, args.force)
     if args.group == "run":
         if args.cmd == "start":
             return register_run(repo, args.workflow, workspace=args.workspace,
