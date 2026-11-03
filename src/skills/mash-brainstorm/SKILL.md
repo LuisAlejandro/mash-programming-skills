@@ -22,6 +22,18 @@ Brainstorming answers **WHAT** to build through collaborative dialogue; `mash-pl
 
 **IMPORTANT: All file references in generated documents must use repo-relative paths (e.g., `src/models/user.rb`), never absolute paths. Absolute paths break portability across machines, worktrees, and teammates.**
 
+## Concurrent runs
+
+Phase 0.4 creates the feature worktree that `mash-plan` and `mash-work` reuse,
+so this skill is where a software run's workspace identity begins. Register the
+run and let the helper own the workspace per
+[`mash-workspace`](../mash-workspace/SKILL.md).
+
+A workspace belongs to a **run**, not to a slug. Two brainstorms on the same
+topic get two workspaces; never adopt an existing one because the name matches,
+because the other run may still be editing it. Carry the run id forward in the
+handoff so the next skill can prove it owns the same workspace.
+
 ## Communication while using this skill
 
 Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.

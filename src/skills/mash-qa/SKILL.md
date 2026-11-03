@@ -8,6 +8,18 @@ argument-hint: "[blank to review this session's uncommitted changes, or provide 
 
 Reviews code changes using dynamically selected reviewer personas. Spawns parallel sub-agents that return structured JSON, then merges and deduplicates findings into a single report.
 
+## Concurrent runs
+
+Review is read-only with respect to the code under review, but the review
+worktree and the run directory belong to this run. Register the run and hold
+the `workspace` lease on the review root per
+[`mash-workspace`](../mash-workspace/SKILL.md), and release it when the review
+ends.
+
+Record the exact SHA reviewed. A concurrent `mash-work` run can move the
+branch while personas are reading it, and findings that cite a moved tree are
+worse than no findings.
+
 ## Communication while using this skill
 
 Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.

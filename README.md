@@ -299,6 +299,27 @@ project-specific instructions, its owner may create and track `AGENTS.md`.
 design-to-code pipeline. Skills create `.mash/plans/`, `.mash/insights/`,
 `.mash/qa/`, and other working paths only when invoked.
 
+## Running workflows concurrently
+
+Several Mash Programming Skills workflows can run against one repository at the
+same time. Coordination is a **cooperative contract**, documented in
+`src/skills/mash-workspace/SKILL.md` and enforced by its helper.
+
+Participating workflows get a unique run identity, exclusive ownership of the
+workspace they write, exclusive claims on shared resources (ports, Compose
+projects, databases, browser profiles, releases), and a loud blocker instead of
+silent sharing. Artifacts are published atomically, so two runs never overwrite
+each other's plan or report.
+
+The guarantee holds **only between participants**. A writer outside the corpus
+— a human editor, an unrelated script, another agent framework — is not
+covered, and protecting against those remains the user's responsibility. There
+is no multi-machine coordination, and no automatic resolution of semantically
+conflicting work.
+
+Contention fails fast rather than waiting: the blocked run reports which run
+holds the resource and what to do next.
+
 ## Tests, release, and CI
 
 `make test` builds a test-only Docker image (Python 3.12 and Git) and runs the

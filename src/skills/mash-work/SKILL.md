@@ -8,6 +8,18 @@ argument-hint: "[Plan doc path. Blank uses latest software plan in .mash/plans/]
 
 Execute implementation work efficiently while maintaining quality.
 
+## Concurrent runs
+
+Implementation mutates a checkout, so it must own one. Follow
+[`mash-workspace`](../mash-workspace/SKILL.md): register a run, hold the
+`workspace` lease on the root being edited, and release it on every exit path,
+including a blocker.
+
+If the lease is refused, another run is editing that checkout. Stop and report
+the holder and the recovery options — never edit anyway, and never wait in a
+loop. Record the run id in the handoff envelope so a resumed session can prove
+it owns the same workspace.
+
 ## Communication while using this skill
 
 Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
