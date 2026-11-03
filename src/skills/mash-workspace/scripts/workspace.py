@@ -53,6 +53,7 @@ from pathlib import Path
 DEFAULT_STALE_WINDOW_S = 300.0
 
 LEASE_KINDS = (
+    "run",
     "workspace",  # a checkout or worktree being written
     "baseref",    # a branch being published
     "port",       # a listening port

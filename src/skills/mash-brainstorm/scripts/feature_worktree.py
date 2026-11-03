@@ -45,7 +45,6 @@ Exit codes: 0 success or no-op, 2 usage or refusal, 1 git failure.
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import re
 import shutil
@@ -60,13 +59,17 @@ def _load_workspace():
     Publication must be atomic against other runs, and that logic lives in one
     place (`mash-workspace`) rather than being duplicated here.
     """
-    path = Path(__file__).resolve().parents[2] / "mash-workspace" / "scripts" / "workspace.py"
-    spec = importlib.util.spec_from_file_location("mash_workspace", path)
-    if spec is None or spec.loader is None:  # pragma: no cover - packaging error
-        raise RuntimeError(f"cannot load the mash-workspace helper at {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    scripts = Path(__file__).resolve().parents[2] / "mash-workspace" / "scripts"
+    if not (scripts / "workspace.py").is_file():  # pragma: no cover - packaging error
+        raise RuntimeError(f"cannot find the mash-workspace helper under {scripts}")
+    # Imported by name, not by file location: loading the same file twice
+    # would create two module objects, and then two `Blocked` classes that no
+    # single `except` can catch.
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    import workspace
+
+    return workspace
 
 
 _ws = _load_workspace()

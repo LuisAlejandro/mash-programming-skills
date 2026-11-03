@@ -107,9 +107,80 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _load_workspace():
+    """Load the shared coordination helper from the sibling skill.
+
+    Run ownership is cross-skill: a parallel run and a plain mash-work run
+    contend for the same repository, so both must use one registry.
+    """
+    scripts = Path(__file__).resolve().parents[2] / "mash-workspace" / "scripts"
+    if not (scripts / "workspace.py").is_file():  # pragma: no cover - packaging error
+        raise RuntimeError(f"cannot find the mash-workspace helper under {scripts}")
+    # Imported by name, not by file location: loading the same file twice
+    # would create two module objects, and then two `Blocked` classes that no
+    # single `except` can catch.
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    import workspace
+
+    return workspace
+
+
+_ws = _load_workspace()
+
+
 def new_run_id() -> str:
-    """Run id: timestamp-based, unique per invocation second + counter."""
-    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    """Run id: a UTC timestamp for ordering plus entropy for uniqueness.
+
+    The timestamp alone aliased two runs started in the same second onto one
+    run directory, so the suffix is what actually keeps them apart.
+    """
+    import secrets
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return f"{stamp}-{secrets.token_hex(3)}"
+
+
+def claim_run(repo_root, run_id: str, stale_window_s: float | None = None) -> dict:
+    """Take ownership of a run, refusing one a live process is already driving.
+
+    Resuming a run that another orchestrator is still driving means two
+    schedulers writing one state file, so this refuses instead of waiting.
+    """
+    window = _ws.DEFAULT_STALE_WINDOW_S if stale_window_s is None else stale_window_s
+    # For a run lease the key *is* the run id, so the lease's run_id cannot
+    # distinguish owners. The driving process is the identity that matters.
+    existing = _ws.read_lease(repo_root, "run", run_id)
+    if existing is not None:
+        mine = existing.get("pid") == os.getpid() and existing.get("host") == _ws.hostname()
+        reclaimable, _why = _ws.is_reclaimable(existing, stale_window_s=window)
+        if not mine and not reclaimable:
+            holder = f"pid {existing.get('pid')} on {existing.get('host')}"
+            raise _ws.Blocked(
+                f"run {run_id} is being driven by {holder}",
+                {
+                    "status": "blocked", "kind": "run", "key": run_id,
+                    "blocker": (f"run {run_id} is already being driven by {holder}; "
+                                "two orchestrators would write one state file"),
+                    "holder": _ws._holder_view(existing),
+                    "recovery": ["let that run finish",
+                                 "or stop it, then resume this run"],
+                },
+            )
+        _ws.release_lease(repo_root, existing.get("run_id", run_id), "run", run_id,
+                          _update_run=False)
+    try:
+        _ws.register_run(repo_root, workflow="parallel", run_id=run_id)
+    except _ws.WorkspaceError:
+        pass  # already registered: this is a resume
+    _ws.acquire_lease(repo_root, run_id, "run", run_id, stale_window_s=window)
+    return {"status": "claimed", "run_id": run_id}
+
+
+def release_run(repo_root, run_id: str) -> dict:
+    """Give up ownership so the run can be resumed later."""
+    _ws.release_lease(repo_root, run_id, "run", run_id)
+    return {"status": "released", "run_id": run_id}
 
 
 def runs_root(repo_root: str | os.PathLike) -> Path:
@@ -2719,6 +2790,13 @@ def _cmd_run(argv: list[str]) -> int:
     if timeout_budget is not None:
         timeout_budget = float(timeout_budget)
     run_id = resume_id or new_run_id()
+    # Claim before touching run state: a resume of a run another orchestrator
+    # is still driving would give one state file two writers.
+    try:
+        claim_run(repo_root, run_id)
+    except _ws.Blocked as blocked:
+        print(json.dumps(blocked.payload, indent=2))
+        return 2
     driver = HarnessPhaseDriver(
         harness, repo_root, run_id,
         model=options.get("model"),
@@ -2737,14 +2815,19 @@ def _cmd_run(argv: list[str]) -> int:
     # gate=False only on an explicit --approve resume; a fresh run or a plain
     # resume stops after planning for the human gate.
     gate = not approve
-    run = orchestrate_run(
-        repo_root, {t["id"]: t for t in tasks}, footprints, driver,
-        base_branch=options.get("base_branch", "develop"),
-        base_sha=options.get("base_sha"),
-        resume=resume, max_parallel=max_parallel, gate=gate,
-        integration_command=options.get("integration_command"),
-    )
-    save_run(repo_root, run)
+    try:
+        run = orchestrate_run(
+            repo_root, {t["id"]: t for t in tasks}, footprints, driver,
+            base_branch=options.get("base_branch", "develop"),
+            base_sha=options.get("base_sha"),
+            resume=resume, max_parallel=max_parallel, gate=gate,
+            integration_command=options.get("integration_command"),
+        )
+        save_run(repo_root, run)
+    finally:
+        # Release even on failure, so a crashed run can be resumed without
+        # waiting out the stale window.
+        release_run(repo_root, run_id)
     print(json.dumps(run, indent=2, sort_keys=False))
     return 0
 
