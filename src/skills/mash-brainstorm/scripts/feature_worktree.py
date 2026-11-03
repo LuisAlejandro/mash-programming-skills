@@ -27,14 +27,6 @@ Subcommands (stdlib only, JSON on stdout):
       `feature/<slug>` worktree under `.mash/worktrees/<slug>` from `<ref>`, so
       `mash-pr` ships without moving the primary checkout off its base branch.
 
-  stash-apply <worktree> --message <msg>
-      Apply the newest stash whose subject contains `<msg>` inside `<worktree>`
-      with `--index`. A conflict leaves the stash in place and reports it.
-
-  stash-drop --message <msg>
-      Drop the newest stash whose subject contains `<msg>`. Refuses when none
-      matches, so a near-miss never discards someone else's stash.
-
   remove <path> [--force]
       Remove a worktree under `.mash/`. Refuses tracked changes without
       `--force`, and refuses any path outside `.mash/`.
@@ -52,21 +44,34 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Mirrors mash_parallel.RUNTIME_FILE_ALLOWLIST. Skills do not import each
-# other, so a parity test in tests/ keeps the two lists equal.
-RUNTIME_FILE_ALLOWLIST = (
-    "AGENTS.md",
-    ".env",
-    ".env.example",
-    ".cursor",
-    ".opencode",
-    "opencode.json",
-    ".pi",
-)
+
+def _load_workspace():
+    """Load the shared coordination helper from the sibling skill.
+
+    Publication must be atomic against other runs, and that logic lives in one
+    place (`mash-workspace`) rather than being duplicated here.
+    """
+    scripts = Path(__file__).resolve().parents[2] / "mash-workspace" / "scripts"
+    if not (scripts / "workspace.py").is_file():  # pragma: no cover - packaging error
+        raise RuntimeError(f"cannot find the mash-workspace helper under {scripts}")
+    # Imported by name, not by file location: loading the same file twice
+    # would create two module objects, and then two `Blocked` classes that no
+    # single `except` can catch.
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    import workspace
+
+    return workspace
+
+
+_ws = _load_workspace()
+
+# Owned by mash-workspace, which is the single definition. A parity test keeps
+# mash_parallel's copy equal to it.
+RUNTIME_FILE_ALLOWLIST = _ws.RUNTIME_FILE_ALLOWLIST
 
 PLAN_SIBLING_SUFFIXES = (".topology.json", ".sentrux-review-brief.json")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
-PLAN_SEQ_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}-)(\d{3})(-.*)$")
 
 
 class FeatureWorktreeError(RuntimeError):
@@ -152,48 +157,23 @@ def create(primary: Path, slug: str) -> dict:
     return {"status": "created", "worktree": str(wt), "branch": branch, "copied": copied}
 
 
-def _same_bytes(a: Path, b: Path) -> bool:
-    return a.read_bytes() == b.read_bytes()
-
-
-def _stem_candidates(stem: str, limit: int = 200):
-    """Yield the stem, then the next free names: NNN bumped for plans, `-N` otherwise."""
-    yield stem
-    m = PLAN_SEQ_RE.match(stem)
-    for k in range(1, limit):
-        if m:
-            yield f"{m.group(1)}{int(m.group(2)) + k:03d}{m.group(3)}"
-        else:
-            yield f"{stem}-{k + 1}"
-
-
-def _place_group(group: list[tuple[Path, str]], dst_dir: Path, stem: str) -> dict:
+def _place_group(group: list[tuple[Path, str]], dst_dir: Path, stem: str,
+                 run_id: str | None = None) -> dict:
     """Place a group (main file + siblings) under one shared stem.
 
-    `group` is (source, suffix) where suffix is appended to the stem, e.g. ".md".
-    Returns the final stem and per-file status. Identical files are skipped.
+    Delegates to the shared atomic publisher so a concurrent run can never win
+    the gap between "does it exist" and "copy it". Statuses keep this helper's
+    published vocabulary (`copied` / `unchanged`).
     """
-    for candidate in _stem_candidates(stem):
-        statuses: dict[str, str] = {}
-        conflict = False
-        for src, suffix in group:
-            dst = dst_dir / f"{candidate}{suffix}"
-            if not dst.exists():
-                statuses[dst.name] = "copied"
-            elif _same_bytes(src, dst):
-                statuses[dst.name] = "unchanged"
-            else:
-                conflict = True
-                break
-        if conflict:
-            continue
-        dst_dir.mkdir(parents=True, exist_ok=True)
-        for src, suffix in group:
-            dst = dst_dir / f"{candidate}{suffix}"
-            if statuses[dst.name] == "copied":
-                shutil.copy2(src, dst)
-        return {"stem": candidate, "files": statuses}
-    raise FeatureWorktreeError(f"no free name for {stem}")
+    try:
+        placed = _ws.publish_group(dst_dir, run_id, group, dst_dir, stem)
+    except _ws.WorkspaceError as exc:
+        raise FeatureWorktreeError(str(exc)) from exc
+    return {
+        "stem": placed["stem"],
+        "files": {name: ("copied" if state == "published" else state)
+                  for name, state in placed["files"].items()},
+    }
 
 
 def copy_back(worktree: Path, plan_rel: str | None, qa_run: str | None = None) -> dict:
@@ -238,16 +218,11 @@ def copy_back(worktree: Path, plan_rel: str | None, qa_run: str | None = None) -
                 continue
             rel = src.relative_to(src_dir)
             dst = primary / ".mash" / "qa" / qa_run / rel
-            if dst.exists() and _same_bytes(src, dst):
-                copied[str(rel)] = "unchanged"
-                continue
-            if dst.exists():
-                raise FeatureWorktreeError(
-                    f"{dst} exists with different content; move it aside before copying back"
-                )
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-            copied[str(rel)] = "copied"
+            try:
+                placed = _ws.publish_exact(primary, None, src, dst)
+            except _ws.WorkspaceError as exc:
+                raise FeatureWorktreeError(str(exc)) from exc
+            copied[str(rel)] = "copied" if placed["status"] == "published" else placed["status"]
         results.append({"kind": "qa", "run": qa_run, "files": copied})
 
     return {"status": "ok", "primary": str(primary), "results": results}
@@ -298,70 +273,6 @@ def ship_create(primary: Path, slug: str, base_ref: str) -> dict:
         "base": base_ref,
         "copied": copy_runtime_files(primary, wt),
     }
-
-
-def _find_stash(primary: Path, message: str) -> tuple[str, str] | None:
-    """Return (ref, subject) of the newest stash whose subject contains message."""
-    res = _git(["stash", "list", "--format=%gd%x09%gs"], primary)
-    if res.returncode != 0:
-        return None
-    for line in res.stdout.splitlines():
-        ref, _, subject = line.partition("	")
-        if message in subject:
-            return ref, subject
-    return None
-
-
-def stash_apply(worktree: Path, message: str) -> dict:
-    if not is_linked_worktree(worktree):
-        raise FeatureWorktreeError(f"{worktree} is not a linked worktree")
-    primary = primary_checkout(worktree)
-    found = _find_stash(primary, message)
-    if not found:
-        raise FeatureWorktreeError(f"no stash whose subject contains {message!r}")
-    ref, subject = found
-    # --index keeps staged changes staged. It aborts the whole apply when the
-    # index cannot be rebuilt, so fall back to a plain apply, which leaves
-    # conflict markers the user can resolve. The stash is never dropped here.
-    index_ok = _git(["stash", "apply", "--index", ref], worktree).returncode == 0
-    plain_ok = index_ok
-    if not index_ok:
-        plain_ok = _git(["stash", "apply", ref], worktree).returncode == 0
-    unmerged = _unmerged_paths(worktree)
-    if unmerged:
-        return {
-            "status": "conflict",
-            "stash": subject,
-            "worktree": str(worktree),
-            "conflicted": unmerged,
-            "next": f"git -C {worktree} status, then resolve; the stash is kept",
-        }
-    if index_ok or plain_ok:
-        return {
-            "status": "applied",
-            "stash": subject,
-            "worktree": str(worktree),
-            "index_restored": index_ok,
-        }
-    raise FeatureWorktreeError(
-        f"stash apply failed in {worktree}; stash {subject!r} is kept"
-    )
-
-
-def _unmerged_paths(worktree: Path) -> list[str]:
-    res = _git(["diff", "--name-only", "--diff-filter=U"], worktree)
-    return [ln for ln in res.stdout.splitlines() if ln.strip()]
-
-
-def stash_drop(primary: Path, message: str) -> dict:
-    found = _find_stash(primary, message)
-    if not found:
-        raise FeatureWorktreeError(f"no stash whose subject contains {message!r}; nothing dropped")
-    ref, subject = found
-    res = _git(["stash", "drop", ref], primary)
-    if res.returncode != 0:
-        raise FeatureWorktreeError(f"git stash drop failed: {res.stderr.strip()}")
-    return {"status": "dropped", "stash": subject}
 
 
 def _dirty_paths(worktree: Path) -> list[str]:
@@ -431,14 +342,6 @@ def _build_parser() -> argparse.ArgumentParser:
     s.add_argument("--base", required=True, help="base ref, e.g. origin/develop or HEAD")
     s.add_argument("--repo", default=".")
 
-    a = sub.add_parser("stash-apply", help="apply a mash-pr stash inside a worktree")
-    a.add_argument("worktree")
-    a.add_argument("--message", required=True)
-
-    d = sub.add_parser("stash-drop", help="drop a mash-pr stash after a successful commit")
-    d.add_argument("--message", required=True)
-    d.add_argument("--repo", default=".")
-
     rm = sub.add_parser("remove", help="remove a worktree under .mash/")
     rm.add_argument("path")
     rm.add_argument("--force", action="store_true")
@@ -454,10 +357,6 @@ def main(argv: list[str] | None = None) -> int:
             out = review_create(primary_checkout(Path(args.repo)), args.sha, args.run_id)
         elif args.cmd == "ship-create":
             out = ship_create(primary_checkout(Path(args.repo)), args.slug, args.base)
-        elif args.cmd == "stash-apply":
-            out = stash_apply(Path(args.worktree), args.message)
-        elif args.cmd == "stash-drop":
-            out = stash_drop(primary_checkout(Path(args.repo)), args.message)
         elif args.cmd == "remove":
             out = remove_worktree(Path(args.path), args.force)
         else:

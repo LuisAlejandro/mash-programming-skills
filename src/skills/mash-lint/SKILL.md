@@ -3,6 +3,14 @@ name: mash-lint
 description: "Runs lint, format, type-check, and build commands scoped to this session's changed files by default (whole repo with --all), discovering the project's tooling (package.json scripts, Makefiles, pyproject.toml). Use when the user asks to lint or format, or invokes mash-lint."
 ---
 
+## Concurrent runs
+
+Formatters rewrite files in place, so a lint run that shares a checkout with a
+live `mash-work` run can reformat files mid-edit. Hold the `workspace` lease on
+the root being linted per
+[`mash-workspace`](../mash-workspace/SKILL.md), and release it when the run
+ends. If it is refused, report the holder rather than formatting anyway.
+
 ## Communication while using this skill
 
 Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.

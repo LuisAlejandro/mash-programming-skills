@@ -6,6 +6,19 @@ argument-hint: "[run-inputs.json] or [--resume <run-id>]"
 
 # Mash Programming Skills Parallel
 
+## Concurrent runs
+
+This skill owns several workspaces at once, so it is the heaviest participant
+in the [`mash-workspace`](../mash-workspace/SKILL.md) contract.
+
+- A run claims its own id before touching run state. Resuming a run another
+  orchestrator is still driving is refused: one state file must have one writer.
+- Each task worktree and the integration workspace live under the run's own
+  directory. A run never removes a path it did not allocate.
+- The base ref is published by compare-and-swap against the revision the gates
+  actually verified. If another run published first, this run is told to
+  re-integrate rather than overwriting that work.
+
 ## Communication while using this skill
 
 Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.

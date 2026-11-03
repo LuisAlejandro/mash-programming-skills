@@ -64,12 +64,14 @@ def test_integrate_report_is_json_serializable(tmp_path):
     (wt / "s.txt").write_text("s\n")
     subprocess.run(["git", "-C", str(wt), "add", "."], check=True)
     subprocess.run(["git", "-C", str(wt), "commit", "-qm", "s", "--no-gpg-sign"], check=True)
-    report = rp.integrate(repo, [{"branch": "rp/ser"}],
-                          base_branch="master", gates=lambda tree: (True, []))
+    report = rp.integrate(repo, [{"branch": "rp/ser"}], base_branch="master",
+                          gates=lambda tree: (True, []), run_id="ser-run")
     import json
-    dumped = json.dumps(report)
-    assert isinstance(report["leftover_worktrees"][0], str)
-    assert "mash-parallel-integration" in report["leftover_worktrees"][0]
+    json.dumps(report)
+    # The integration workspace belongs to the run, and is cleaned up by it.
+    assert isinstance(report["workspace"], str)
+    assert "ser-run" in report["workspace"]
+    assert report["leftover_worktrees"] == []
 
 
 def test_conflict_predictable_and_aborts_cleanly(tmp_path):

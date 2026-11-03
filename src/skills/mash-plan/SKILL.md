@@ -39,6 +39,17 @@ This skill follows the Mash Programming Skills-native plan workflow, with Mash P
 - Read [`mash-sentrux`](../mash-sentrux/SKILL.md) before using Sentrux. Use MCP tools only; never run `sentrux scan` in the terminal.
 - Produce a Sentrux topology artifact beside the plan when Sentrux is available. If unavailable, still write the plan and record `status: "unavailable"` in the topology artifact.
 
+## Concurrent runs
+
+Another workflow may be running in this repository right now. Planning only
+reads the tree, so it takes no workspace lease — but it must say which revision
+it planned against (`git rev-parse HEAD`) in the plan's Context, because that
+tree can move underneath the plan before `mash-work` starts.
+
+Publishing the plan is not a plain copy: an identically-named plan from a
+concurrent run must not be overwritten. See
+[`mash-workspace`](../mash-workspace/SKILL.md) for the publication contract.
+
 ## Communication while using this skill
 
 Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.

@@ -107,9 +107,80 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _load_workspace():
+    """Load the shared coordination helper from the sibling skill.
+
+    Run ownership is cross-skill: a parallel run and a plain mash-work run
+    contend for the same repository, so both must use one registry.
+    """
+    scripts = Path(__file__).resolve().parents[2] / "mash-workspace" / "scripts"
+    if not (scripts / "workspace.py").is_file():  # pragma: no cover - packaging error
+        raise RuntimeError(f"cannot find the mash-workspace helper under {scripts}")
+    # Imported by name, not by file location: loading the same file twice
+    # would create two module objects, and then two `Blocked` classes that no
+    # single `except` can catch.
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    import workspace
+
+    return workspace
+
+
+_ws = _load_workspace()
+
+
 def new_run_id() -> str:
-    """Run id: timestamp-based, unique per invocation second + counter."""
-    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    """Run id: a UTC timestamp for ordering plus entropy for uniqueness.
+
+    The timestamp alone aliased two runs started in the same second onto one
+    run directory, so the suffix is what actually keeps them apart.
+    """
+    import secrets
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return f"{stamp}-{secrets.token_hex(3)}"
+
+
+def claim_run(repo_root, run_id: str, stale_window_s: float | None = None) -> dict:
+    """Take ownership of a run, refusing one a live process is already driving.
+
+    Resuming a run that another orchestrator is still driving means two
+    schedulers writing one state file, so this refuses instead of waiting.
+    """
+    window = _ws.DEFAULT_STALE_WINDOW_S if stale_window_s is None else stale_window_s
+    # For a run lease the key *is* the run id, so the lease's run_id cannot
+    # distinguish owners. The driving process is the identity that matters.
+    existing = _ws.read_lease(repo_root, "run", run_id)
+    if existing is not None:
+        mine = existing.get("pid") == os.getpid() and existing.get("host") == _ws.hostname()
+        reclaimable, _why = _ws.is_reclaimable(existing, stale_window_s=window)
+        if not mine and not reclaimable:
+            holder = f"pid {existing.get('pid')} on {existing.get('host')}"
+            raise _ws.Blocked(
+                f"run {run_id} is being driven by {holder}",
+                {
+                    "status": "blocked", "kind": "run", "key": run_id,
+                    "blocker": (f"run {run_id} is already being driven by {holder}; "
+                                "two orchestrators would write one state file"),
+                    "holder": _ws._holder_view(existing),
+                    "recovery": ["let that run finish",
+                                 "or stop it, then resume this run"],
+                },
+            )
+        _ws.release_lease(repo_root, existing.get("run_id", run_id), "run", run_id,
+                          _update_run=False)
+    try:
+        _ws.register_run(repo_root, workflow="parallel", run_id=run_id)
+    except _ws.WorkspaceError:
+        pass  # already registered: this is a resume
+    _ws.acquire_lease(repo_root, run_id, "run", run_id, stale_window_s=window)
+    return {"status": "claimed", "run_id": run_id}
+
+
+def release_run(repo_root, run_id: str) -> dict:
+    """Give up ownership so the run can be resumed later."""
+    _ws.release_lease(repo_root, run_id, "run", run_id)
+    return {"status": "released", "run_id": run_id}
 
 
 def runs_root(repo_root: str | os.PathLike) -> Path:
@@ -494,6 +565,7 @@ def finish_run(state, tracks, driver, run, repo_root=None) -> None:
             ]
             if mergeable:
                 gate_cmd = run.get("integration_command")
+                run_owner = run.get("run_id")
                 # Resolve the gate at call time so a test/monkeypatch of the
                 # module-level default still takes effect.
                 gates = (
@@ -504,6 +576,7 @@ def finish_run(state, tracks, driver, run, repo_root=None) -> None:
                     repo_root, mergeable,
                     base_branch=run.get("base_branch") or "develop",
                     gates=gates,
+                    run_id=run_owner,
                 )
                 run["integration"] = integ
                 merged_branches.update(integ.get("merged_tracks") or [])
@@ -2212,26 +2285,71 @@ def run_parallel_verification(driver, integrated_tip: str | None,
 # Integration + final report (plan U9: R3, R19, R20, R21)
 # ---------------------------------------------------------------------------
 
-def integrate(repo_root, tracks, base_branch="develop", gates=None):
+def _branch_checked_out_at(repo: Path, branch: str) -> str | None:
+    """Return the worktree that has `branch` checked out, if any.
+
+    Moving a branch that is checked out leaves that working tree disagreeing
+    with its own HEAD, which reads as a pile of spurious deletions.
+    """
+    import subprocess as _sp
+
+    res = _sp.run(["git", "-C", str(repo), "worktree", "list", "--porcelain"],
+                  capture_output=True, text=True, check=False)
+    current = None
+    for line in res.stdout.splitlines():
+        if line.startswith("worktree "):
+            current = line.split(" ", 1)[1].strip()
+        elif line.strip() == f"branch refs/heads/{branch}":
+            return current
+    return None
+
+
+def integrate(repo_root, tracks, base_branch="develop", gates=None, run_id=None):
     """Merge track branches locally in order, running gates on the merged tree.
 
     tracks: list of {"branch": <name>} in deterministic track order.
     gates:  callable(integration_worktree) -> (ok: bool, failures: list)
+    run_id: owner of the integration workspace; two runs never share a path.
 
-    Base ref moves only when all gates pass. Returns a report dict with
-    status: "success" | "fixup".
+    The base ref moves only when the gates pass AND the base still points at
+    the revision this integration was built from, so a concurrent publication
+    is never silently overwritten.
     """
     import subprocess as _sp
     repo = Path(repo_root)
-    integration_wt = repo / "mash-parallel-integration"
+    owner = run_id or new_run_id()
+    integration_wt = run_dir(repo, owner) / "integration"
     ok, failures = True, []
 
+    base_ref = f"refs/heads/{base_branch}"
+    base_before = _sp.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", base_ref],
+                          capture_output=True, text=True, check=False).stdout.strip()
+    # An absent base is created by this publication; the compare-and-swap then
+    # asserts it still does not exist, so two runs cannot both create it.
+    build_from = base_before or _sp.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        capture_output=True, text=True, check=False,
+    ).stdout.strip()
+    if not build_from:
+        return {"status": "fixup", "reason": f"cannot resolve a base revision for {base_branch}",
+                "merged_tracks": [], "integrated_tip": None, "workspace": str(integration_wt)}
+
+    # A checked-out base is published through its own working tree, so the
+    # files move with the ref. Moving the ref underneath it would leave that
+    # tree disagreeing with its own HEAD.
+    checked_out = _branch_checked_out_at(repo, base_branch)
+
+    created = False
     try:
-        # Integration worktree on a detached HEAD from the current base tip.
+        # Build from the exact base revision, not from whatever the primary
+        # checkout happens to have checked out.
+        integration_wt.parent.mkdir(parents=True, exist_ok=True)
         _sp.run(
-            ["git", "-C", str(repo), "worktree", "add", "--detach", str(integration_wt), "HEAD"],
+            ["git", "-C", str(repo), "worktree", "add", "--detach",
+             str(integration_wt), build_from],
             check=True, capture_output=True, text=True,
         )
+        created = True
         merged = []
         for t in tracks:
             branch = t["branch"]
@@ -2281,24 +2399,54 @@ def integrate(repo_root, tracks, base_branch="develop", gates=None):
             ["git", "-C", str(integration_wt), "rev-parse", "HEAD"],
             capture_output=True, text=True, check=True,
         ).stdout.strip()
-        # Move the base ref (only on full success, R19/KTD8).
-        _sp.run(
-            ["git", "-C", str(repo), "update-ref", f"refs/heads/{base_branch}", integrated_tip],
-            check=True, capture_output=True,
-        )
+        # Publish by compare-and-swap: git refuses the update when the base no
+        # longer points at the revision this run verified.
+        if checked_out:
+            # --ff-only is the compare-and-swap here: it refuses when the base
+            # advanced past the revision this integration was built on.
+            published = _sp.run(
+                ["git", "-C", checked_out, "merge", "--ff-only", integrated_tip],
+                capture_output=True, text=True, check=False,
+            )
+        else:
+            published = _sp.run(
+                ["git", "-C", str(repo), "update-ref", base_ref, integrated_tip, base_before],
+                capture_output=True, text=True, check=False,
+            )
+        if published.returncode != 0:
+            moved_from = base_before[:12] if base_before else "absent"
+            detail = (published.stderr or published.stdout or "").strip()
+            if "local changes" in detail or "would be overwritten" in detail:
+                reason = (f"base branch {base_branch} is checked out at {checked_out} with "
+                          "uncommitted changes this integration would overwrite; commit them "
+                          "or set them aside, then re-integrate")
+            else:
+                reason = (f"base branch {base_branch} moved while this integration was "
+                          f"verified ({moved_from} is no longer its tip); "
+                          "re-integrate on the new base")
+            return {
+                "status": "fixup",
+                "reason": reason,
+                "merged_tracks": merged,
+                "integrated_tip": None,
+                "base_before": base_before,
+                "workspace": str(integration_wt),
+            }
         return {
             "status": "success",
             "merged_tracks": merged,
             "integrated_tip": integrated_tip,
+            "base_before": base_before,
             "gates_not_configured": gates_not_configured,
-            # Stringify the worktree path — a PosixPath leaks into the run
-            # record and crashes save_run's json.dumps.
-            "leftover_worktrees": [str(integration_wt)],
+            "workspace": str(integration_wt),
+            "leftover_worktrees": [],
         }
     finally:
-        # Remove the integration worktree and its branch if one was created.
-        _sp.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(integration_wt)],
-                capture_output=True)
+        # Remove only the workspace this run allocated. A failure to allocate
+        # must never delete another run's live integration tree.
+        if created:
+            _sp.run(["git", "-C", str(repo), "worktree", "remove", "--force",
+                     str(integration_wt)], capture_output=True)
 
 
 def final_report(tracks, run_state, base_sha=None, integration_tip=None,
@@ -2642,6 +2790,13 @@ def _cmd_run(argv: list[str]) -> int:
     if timeout_budget is not None:
         timeout_budget = float(timeout_budget)
     run_id = resume_id or new_run_id()
+    # Claim before touching run state: a resume of a run another orchestrator
+    # is still driving would give one state file two writers.
+    try:
+        claim_run(repo_root, run_id)
+    except _ws.Blocked as blocked:
+        print(json.dumps(blocked.payload, indent=2))
+        return 2
     driver = HarnessPhaseDriver(
         harness, repo_root, run_id,
         model=options.get("model"),
@@ -2660,14 +2815,19 @@ def _cmd_run(argv: list[str]) -> int:
     # gate=False only on an explicit --approve resume; a fresh run or a plain
     # resume stops after planning for the human gate.
     gate = not approve
-    run = orchestrate_run(
-        repo_root, {t["id"]: t for t in tasks}, footprints, driver,
-        base_branch=options.get("base_branch", "develop"),
-        base_sha=options.get("base_sha"),
-        resume=resume, max_parallel=max_parallel, gate=gate,
-        integration_command=options.get("integration_command"),
-    )
-    save_run(repo_root, run)
+    try:
+        run = orchestrate_run(
+            repo_root, {t["id"]: t for t in tasks}, footprints, driver,
+            base_branch=options.get("base_branch", "develop"),
+            base_sha=options.get("base_sha"),
+            resume=resume, max_parallel=max_parallel, gate=gate,
+            integration_command=options.get("integration_command"),
+        )
+        save_run(repo_root, run)
+    finally:
+        # Release even on failure, so a crashed run can be resumed without
+        # waiting out the stale window.
+        release_run(repo_root, run_id)
     print(json.dumps(run, indent=2, sort_keys=False))
     return 0
 

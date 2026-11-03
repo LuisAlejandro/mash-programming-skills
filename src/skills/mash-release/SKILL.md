@@ -10,6 +10,20 @@ Gate and publish **releases** (patch, minor, major) for Mash Programming Skills 
 
 This skill owns release publishing for app repos. It does not plan feature work, open PRs, merge PRs, implement code, or announce releases.
 
+## Exclusive release claim
+
+A release is the least re-runnable thing in the corpus: it moves tags, publishes packages, and triggers CI that other runs observe. Two releases at once produce a half-published version that cannot be cleanly undone.
+
+Before the first release step, claim the pipeline per [`mash-workspace`](../mash-workspace/SKILL.md), keyed by repository name:
+
+```bash
+RUN=$(python3 "$WS_HELPER" run start --workflow release --repo "$REPO" \
+      | python3 -c 'import json,sys; print(json.load(sys.stdin)["run_id"])')
+python3 "$WS_HELPER" lease acquire --run "$RUN" --kind release --key "$(basename "$REPO")" --repo "$REPO"
+```
+
+Exit `2` means a release is already in flight. **Stop.** Report the holder and wait for a human decision; never release anyway, and never reclaim the lease by hand. Release with `run end` once the release is published or abandoned.
+
 ## Communication while using this skill
 
 Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.

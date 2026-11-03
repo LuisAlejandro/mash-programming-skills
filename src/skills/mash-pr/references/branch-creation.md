@@ -49,16 +49,17 @@ Uncommitted work has to travel from the shared checkout into the worktree, becau
 git status --porcelain --untracked-files=all
 ```
 
-- **Clean tree:** `SHIP_BASE="$BASE_REF"`, no stash.
-- **Dirty tree:** stash it, so the working copy the user was preparing is the one that lands on the feature branch:
+`SHIP_BASE="$BASE_REF"` in both cases. Uncommitted work is **copied** into the worktree from a named file set, never stashed.
 
-  ```bash
-  STASH_MSG="mash-pr: ship feature/<slug>"
-  git stash push -u -m "$STASH_MSG"
-  SHIP_BASE="$BASE_REF"
-  ```
+A stash is one shared stack belonging to the shared checkout. Two runs shipping at once push and pop each other's entries, and `stash@{0}` means something different a second later — that is how a concurrent run loses an entire set of edits. Naming the files touches nothing but those files, and leaves the user's tree exactly as it was.
 
-  The stash rides on `$BASE_REF`, the same ref the branch starts from, because the stash was taken against local `HEAD`: its diff assumes those commits are present. Carry-forward therefore applies it cleanly. Leaving the commits on `<base>` can conflict when the stash touches the same files — that is the `status: conflict` path below, which keeps the stash and names it, never a silent loss.
+The file set is **this session's `FILES_CHANGED`**, not everything dirty. Unrelated work in the shared checkout belongs to the user and must not be shipped:
+
+```bash
+SHIP_FILES=(path/one.py path/two.md)   # from FILES_CHANGED
+```
+
+If `FILES_CHANGED` is unavailable, list candidates with `git status --porcelain --untracked-files=all` and **confirm the set with the user** before shipping. Never infer that every dirty file is yours.
 
 Then create the worktree:
 
@@ -71,21 +72,22 @@ SHIP_ROOT=$(printf '%s' "$SHIP_JSON" | python3 -c 'import json,sys; print(json.l
 
 `status: blocked` means the branch or worktree path already exists. Report the blocker and stop; do not fall back to `git checkout` in the shared checkout.
 
-If a stash was created, apply it inside the worktree:
+Carry the declared files into the worktree. `WS_HELPER` is this skill's directory joined with `../mash-workspace/scripts/workspace.py`, resolved to an absolute path:
 
 ```bash
-python3 "$HELPER" stash-apply "$SHIP_ROOT" --message "$STASH_MSG"
+TRANSFER_ARGS=()
+for f in "${SHIP_FILES[@]}"; do TRANSFER_ARGS+=(--file "$f"); done
+python3 "$WS_HELPER" transfer --from "$REPO" --to "$SHIP_ROOT" "${TRANSFER_ARGS[@]}"
 ```
 
-- `status: applied` — the edits are in the worktree, staged state preserved. Continue.
-- `status: conflict` — the worktree holds conflict markers, the stash is still intact, and the shared checkout is clean. Stop, name both paths, and give the recovery commands (`git -C "$SHIP_ROOT" status`, `git stash list`). Do not auto-resolve.
-- `status: blocked` — no matching stash. Stop and report; the stash may have been consumed or renamed.
+- `status: ok` — every declared file is in the worktree. Continue.
+- `status: blocked` — a named file does not exist, or a path escapes the checkout. Nothing was copied; the transfer checks the whole set before copying any of it, so there is no half-populated worktree. Fix the file set and retry.
 
-A clean apply is required before continuing. The stash is dropped only after the commit succeeds (Step 3), never here:
+**The shared checkout still holds the originals.** That is deliberate: shipping never mutates the user's tree. After the PR is open, say so plainly and let the user decide:
 
-```bash
-python3 "$HELPER" stash-drop --message "$STASH_MSG" --repo "$REPO"
-```
+> Your changes are committed on `feature/<slug>` and still present in the shared checkout. Discard the local copies with `git -C "$REPO" restore <files>` once the PR looks right.
+
+Never run that cleanup unprompted.
 
 ### 5. Work in the worktree
 

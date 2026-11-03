@@ -6,6 +6,14 @@ argument-hint: "[issue reference, error message, test path, or description of br
 
 # Debug and Fix
 
+## Concurrent runs
+
+Debugging edits files and often starts services, so it must own what it
+touches. Register a run and hold the `workspace` lease on the checkout per
+[`mash-workspace`](../mash-workspace/SKILL.md); claim a `port`, `compose`, or
+`db` key before starting anything that listens or writes to a shared database.
+Release everything with `run end`, including on a blocker.
+
 ## Communication while using this skill
 
 Caveman level, drop conditions, and what stays uncompressed are in the caveman rule.
