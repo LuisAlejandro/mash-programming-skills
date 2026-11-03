@@ -1,6 +1,37 @@
 # Changelog
 
 
+## 0.6.0 (2026-11-03)
+
+### Added
+
+* Document the concurrency contract across the corpus. [Luis Alejandro Martínez Faneyth]
+
+* Own workspaces by run and refuse unsafe cleanup. [Luis Alejandro Martínez Faneyth]
+
+* Coordinate concurrent workflows with run leases. [Luis Alejandro Martínez Faneyth]
+
+* Review and ship changes in worktrees. [Luis Alejandro Martínez Faneyth]
+
+* Isolate brainstorm work in git worktrees. [Luis Alejandro Martínez Faneyth]
+
+
+### Changed
+
+* Ship work by named file set instead of the stash. [Luis Alejandro Martínez Faneyth]
+
+
+### Fixed
+
+* Close the concurrency hazards found in review. [Luis Alejandro Martínez Faneyth]
+
+* Give parallel runs unique ids and one owner. [Luis Alejandro Martínez Faneyth]
+
+* Publish integrations on the verified base only. [Luis Alejandro Martínez Faneyth]
+
+* Publish artifacts atomically against concurrent runs. [Luis Alejandro Martínez Faneyth]
+
+
 ## 0.5.16 (2026-10-31)
 
 ### Added
