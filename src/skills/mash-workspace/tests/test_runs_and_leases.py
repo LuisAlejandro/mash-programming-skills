@@ -165,12 +165,41 @@ def _write_lease(repo, **overrides):
     return record
 
 
-def test_dead_owner_past_stale_window_is_reclaimed(repo):
+def test_a_dead_owner_past_the_window_needs_an_explicit_reclaim(repo):
+    """Never displaced automatically: taking a resource is a decision, not a race."""
     _write_lease(repo)
     run_id = start_run(repo)
-    result = ws.acquire_lease(repo, run_id, "workspace", "w")
-    assert result["status"] == "acquired"
-    assert result["reclaimed_from"]["run_id"] == "ghost"
+    with pytest.raises(ws.Blocked) as caught:
+        ws.acquire_lease(repo, run_id, "workspace", "w")
+    assert caught.value.payload["stale"] is True
+    assert any("lease reclaim" in step for step in caught.value.payload["recovery"])
+
+    reclaimed = ws.reclaim_lease(repo, run_id, "workspace", "w")
+    assert reclaimed["status"] == "reclaimed"
+    assert reclaimed["reclaimed_from"]["run_id"] == "ghost"
+    assert ws.acquire_lease(repo, run_id, "workspace", "w")["status"] == "acquired"
+
+
+def test_two_reclaimers_cannot_both_win(repo):
+    """The rename that claims a stale lease is atomic."""
+    _write_lease(repo)
+    first, second = start_run(repo), start_run(repo)
+    wins = 0
+    for run_id in (first, second):
+        try:
+            if ws.reclaim_lease(repo, run_id, "workspace", "w")["status"] == "reclaimed":
+                wins += 1
+        except ws.Blocked:
+            pass
+    assert wins == 1
+
+
+def test_reclaim_refuses_a_live_owner_without_force(repo):
+    _write_lease(repo, pid=os.getpid())
+    run_id = start_run(repo)
+    with pytest.raises(ws.Blocked, match="cannot be reclaimed"):
+        ws.reclaim_lease(repo, run_id, "workspace", "w")
+    assert ws.read_lease(repo, "workspace", "w") is not None
 
 
 # Contention raises rather than returning a status, so a caller that forgets to

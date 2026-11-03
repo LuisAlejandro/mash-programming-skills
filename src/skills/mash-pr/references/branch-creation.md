@@ -91,7 +91,7 @@ Never run that cleanup unprompted.
 
 ### 5. Work in the worktree
 
-From here `SKILL.md` Step 3 changes directory semantics, not steps: stage, commit, merge `<base>`, and push all run with the worktree as the working directory. The shared checkout stays on `<base>` with a clean tree.
+From here `SKILL.md` Step 3 changes directory semantics, not steps: stage, commit, merge `<base>`, and push all run with the worktree as the working directory. The shared checkout stays on `<base>` and keeps the files it started with: `transfer` copies, it never moves, so the user's originals remain in place until they discard them.
 
 Report the worktree path in the final summary. Never leave the user guessing where their branch went.
 

@@ -144,31 +144,12 @@ def new_run_id() -> str:
 def claim_run(repo_root, run_id: str, stale_window_s: float | None = None) -> dict:
     """Take ownership of a run, refusing one a live process is already driving.
 
-    Resuming a run that another orchestrator is still driving means two
-    schedulers writing one state file, so this refuses instead of waiting.
+    Ownership is granted by one `O_EXCL` create inside `acquire_lease`, so the
+    decision and the claim are the same operation. There is no read-then-claim
+    window for a second orchestrator to slip through, and nothing is released
+    and re-taken on the way in.
     """
     window = _ws.DEFAULT_STALE_WINDOW_S if stale_window_s is None else stale_window_s
-    # For a run lease the key *is* the run id, so the lease's run_id cannot
-    # distinguish owners. The driving process is the identity that matters.
-    existing = _ws.read_lease(repo_root, "run", run_id)
-    if existing is not None:
-        mine = existing.get("pid") == os.getpid() and existing.get("host") == _ws.hostname()
-        reclaimable, _why = _ws.is_reclaimable(existing, stale_window_s=window)
-        if not mine and not reclaimable:
-            holder = f"pid {existing.get('pid')} on {existing.get('host')}"
-            raise _ws.Blocked(
-                f"run {run_id} is being driven by {holder}",
-                {
-                    "status": "blocked", "kind": "run", "key": run_id,
-                    "blocker": (f"run {run_id} is already being driven by {holder}; "
-                                "two orchestrators would write one state file"),
-                    "holder": _ws._holder_view(existing),
-                    "recovery": ["let that run finish",
-                                 "or stop it, then resume this run"],
-                },
-            )
-        _ws.release_lease(repo_root, existing.get("run_id", run_id), "run", run_id,
-                          _update_run=False)
     try:
         _ws.register_run(repo_root, workflow="parallel", run_id=run_id)
     except _ws.WorkspaceError:
@@ -1104,15 +1085,7 @@ def _topo_order(group: list[str], tasks: dict) -> list[str]:
 # Worktree manager (plan U5: R4, R13, R19, R21, R23)
 # ---------------------------------------------------------------------------
 
-RUNTIME_FILE_ALLOWLIST = (
-    "AGENTS.md",
-    ".env",
-    ".env.example",
-    ".cursor",
-    ".opencode",
-    "opencode.json",
-    ".pi",
-)
+RUNTIME_FILE_ALLOWLIST = _ws.RUNTIME_FILE_ALLOWLIST
 
 
 def create_worktree(
@@ -2344,11 +2317,24 @@ def integrate(repo_root, tracks, base_branch="develop", gates=None, run_id=None)
         # Build from the exact base revision, not from whatever the primary
         # checkout happens to have checked out.
         integration_wt.parent.mkdir(parents=True, exist_ok=True)
-        _sp.run(
+        # A killed run leaves its integration worktree behind. Reclaim our own
+        # leftover instead of failing every later resume with CalledProcessError.
+        if integration_wt.exists():
+            _sp.run(["git", "-C", str(repo), "worktree", "remove", "--force",
+                     str(integration_wt)], capture_output=True, text=True, check=False)
+        added = _sp.run(
             ["git", "-C", str(repo), "worktree", "add", "--detach",
              str(integration_wt), build_from],
-            check=True, capture_output=True, text=True,
+            capture_output=True, text=True, check=False,
         )
+        if added.returncode != 0:
+            return {
+                "status": "fixup",
+                "reason": (f"cannot allocate the integration workspace at {integration_wt}: "
+                           f"{(added.stderr or added.stdout or '').strip()}"),
+                "merged_tracks": [], "integrated_tip": None,
+                "workspace": str(integration_wt),
+            }
         created = True
         merged = []
         for t in tracks:

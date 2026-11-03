@@ -48,7 +48,7 @@ def test_publishes_and_records_a_receipt(repo, run_id, tmp_path):
     assert (dest / "2026-11-03-001-feat-x-plan.md").read_text() == "plan body\n"
 
     receipts = ws.load_run(repo, run_id)["receipts"]
-    assert str(dest / "2026-11-03-001-feat-x-plan.md") in receipts
+    assert str(dest.resolve() / "2026-11-03-001-feat-x-plan.md") in {r["dest"] for r in receipts}
 
 
 def test_identical_content_is_reported_unchanged_not_republished(repo, run_id, tmp_path):

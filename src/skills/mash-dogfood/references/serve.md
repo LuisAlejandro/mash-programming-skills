@@ -14,6 +14,10 @@ Read `target:` from parsed arguments. Default `local`.
 4. **Claim the port before using it.** A port is machine-wide: another run's server answering on it would be dogfooded as if it were this run's build. Claim it per [`mash-workspace`](../../mash-workspace/SKILL.md):
 
    ```bash
+   WS_HELPER="<skills>/mash-workspace/scripts/workspace.py"
+   REPO="$(git rev-parse --show-toplevel)"
+   RUN=$(python3 "$WS_HELPER" run start --workflow dogfood --repo "$REPO" \
+         | python3 -c 'import json,sys; print(json.load(sys.stdin)["run_id"])')
    python3 "$WS_HELPER" lease acquire --run "$RUN" --kind port --key "$PORT" --repo "$REPO"
    ```
 

@@ -24,7 +24,7 @@ Subcommands (stdlib only, JSON on stdout):
   lease acquire --run <id> --kind <kind> --key <key>
   lease release --run <id> --kind <kind> --key <key>
   lease show --kind <kind> --key <key>
-      Exclusive claims. `kind` is the resource class (workspace, baseref, port,
+      Exclusive claims. `kind` is the resource class (run, workspace, port,
       compose, db, browser, release); `key` identifies the instance.
 
 Every command takes `--repo <dir>`: any directory inside the target repository.
@@ -55,7 +55,6 @@ DEFAULT_STALE_WINDOW_S = 300.0
 LEASE_KINDS = (
     "run",
     "workspace",  # a checkout or worktree being written
-    "baseref",    # a branch being published
     "port",       # a listening port
     "compose",    # a container project
     "db",         # a database or destructive dataset
@@ -65,6 +64,33 @@ LEASE_KINDS = (
 
 RUN_STATUSES = ("active", "finished", "failed")
 _SAFE_KEY = re.compile(r"[^A-Za-z0-9._-]+")
+
+# A run id and a publication stem both become a path component. Anything that
+# can introduce a separator, a parent reference, or an empty component turns
+# a name into a traversal, so both are validated at the choke point rather
+# than at each call site.
+RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
+
+
+def validate_run_id(run_id: str) -> str:
+    if not isinstance(run_id, str) or not RUN_ID_RE.match(run_id):
+        raise WorkspaceError(
+            f"invalid run id {run_id!r}: use letters, digits, dot, dash and underscore, "
+            "starting with a letter or digit (no separators)"
+        )
+    return run_id
+
+
+def _validate_component(value: str, what: str) -> str:
+    """Refuse anything that is not a single, self-contained filename component."""
+    if not isinstance(value, str) or not value:
+        raise WorkspaceError(f"invalid {what} {value!r}: must not be empty")
+    if value in (".", "..") or "/" in value or "\\" in value or "\0" in value:
+        raise WorkspaceError(
+            f"invalid {what} {value!r}: must be one filename component "
+            "(no separators, no '..')"
+        )
+    return value
 
 
 class WorkspaceError(RuntimeError):
@@ -154,7 +180,7 @@ def runs_root(repo: str | Path) -> Path:
 
 
 def run_dir(repo: str | Path, run_id: str) -> Path:
-    return runs_root(repo) / run_id
+    return runs_root(repo) / validate_run_id(run_id)
 
 
 def run_record_path(repo: str | Path, run_id: str) -> Path:
@@ -167,6 +193,8 @@ def lease_path(repo: str | Path, kind: str, key: str) -> Path:
     The readable part is for humans reading `.mash/locks/`; the digest keeps
     two different keys that sanitize alike from colliding on one file.
     """
+    if kind not in LEASE_KINDS:
+        raise WorkspaceError(f"unknown lease kind {kind!r}")
     digest = hashlib.sha256(key.encode()).hexdigest()[:12]
     readable = _SAFE_KEY.sub("-", key).strip("-")[:48] or "key"
     return state_root(repo) / "locks" / kind / f"{readable}-{digest}.lock"
@@ -207,7 +235,7 @@ def register_run(
         raise WorkspaceError("workflow is required")
     explicit = run_id is not None
     for _ in range(5):
-        candidate = run_id or new_run_id()
+        candidate = run_id if explicit else new_run_id()
         try:
             run_dir(repo, candidate).mkdir(parents=True)
         except FileExistsError:
@@ -272,7 +300,13 @@ def end_run(repo: str | Path, run_id: str, status: str = "finished") -> dict:
     released, kept = [], []
     for token in list(record.get("leases", [])):
         kind, _, key = token.partition(":")
-        outcome = release_lease(repo, run_id, kind, key, _update_run=False)
+        try:
+            outcome = release_lease(repo, run_id, kind, key, _update_run=False)
+        except Blocked:
+            # A lease this run no longer owns must not abort the cleanup: the
+            # remaining leases would leak until someone noticed.
+            kept.append(token)
+            continue
         (released if outcome["status"] in ("released", "absent") else kept).append(token)
     record["leases"] = kept
     record["status"] = status
@@ -301,14 +335,18 @@ def _holder_view(lease: dict) -> dict:
 
 
 def is_reclaimable(lease: dict, stale_window_s: float = DEFAULT_STALE_WINDOW_S) -> tuple[bool, str]:
-    """A lease is reclaimable only when its owner is provably gone.
+    """Whether a lease can be reclaimed without an explicit `--force`.
 
     Liveness is only checkable on the machine that holds it, so a lease written
     by another host is never reclaimed here.
+
+    The recorded owner is the invoking process, not necessarily the long-lived
+    workflow, so a "dead pid" is evidence rather than proof: that is why a
+    reclaim is always an explicit, logged action and never a silent steal.
     """
     if lease.get("host") != hostname():
         return False, f"held on another host ({lease.get('host')!r}); cannot verify liveness"
-    pid = lease.get("pid")
+    pid = lease.get("owner_pid", lease.get("pid"))
     if isinstance(pid, int) and is_pid_alive(pid):
         return False, f"owner pid {pid} is still alive"
     age = _age_seconds(lease.get("heartbeat"))
@@ -317,74 +355,147 @@ def is_reclaimable(lease: dict, stale_window_s: float = DEFAULT_STALE_WINDOW_S) 
     return True, f"owner pid {pid} is gone and silent for {age:.0f}s"
 
 
+def reclaim_lease(
+    repo: str | Path,
+    run_id: str,
+    kind: str,
+    key: str,
+    force: bool = False,
+    stale_window_s: float = DEFAULT_STALE_WINDOW_S,
+) -> dict:
+    """Take back a lease whose owner is gone. Explicit, never automatic.
+
+    The lease file is renamed to a private name first. Rename is atomic, so
+    exactly one process can win, and the winner re-reads what it grabbed
+    before deleting it. Verifying before unlinking is what stops two
+    recoverers from both deciding they own the resource.
+    """
+    path = lease_path(repo, kind, key)
+    existing = read_json(path)
+    if existing is None:
+        return {"status": "absent", "kind": kind, "key": key}
+    ok, why = is_reclaimable(existing, stale_window_s)
+    if not ok and not force:
+        raise Blocked(
+            f"{kind}:{key} cannot be reclaimed: {why}",
+            {
+                "status": "blocked", "kind": kind, "key": key,
+                "blocker": f"refusing to reclaim {kind}:{key}: {why}",
+                "holder": _holder_view(existing),
+                "recovery": [
+                    "let the holder finish and retry",
+                    (
+                        f"if you are certain no owner is running: lease reclaim --force "
+                        f"--kind {kind} --key {key!r}"
+                    ),
+                ],
+            },
+        )
+    grabbed = path.with_name(f"{path.name}.reclaim.{os.getpid()}.{secrets.token_hex(4)}")
+    try:
+        os.rename(path, grabbed)
+    except FileNotFoundError:
+        return {"status": "absent", "kind": kind, "key": key}
+    try:
+        moved = read_json(grabbed)
+        if moved is not None and moved.get("run_id") != existing.get("run_id"):
+            # Someone else's lease landed in the gap; put it back untouched.
+            os.rename(grabbed, path)
+            raise Blocked(
+                f"{kind}:{key} changed owner while reclaiming",
+                {"status": "blocked", "kind": kind, "key": key,
+                 "blocker": f"{kind}:{key} is now held by run {moved.get('run_id')}",
+                 "holder": _holder_view(moved),
+                 "recovery": ["retry; the resource was reassigned"]},
+            )
+    finally:
+        grabbed.unlink(missing_ok=True)
+    returned = load_run(repo, run_id)
+    token = f"{kind}:{key}"
+    if token in returned.get("leases", []):
+        returned["leases"].remove(token)
+        save_run(repo, returned)
+    return {"status": "reclaimed", "kind": kind, "key": key,
+            "reclaimed_from": _holder_view(existing), "forced": force}
+
+
 def acquire_lease(
     repo: str | Path,
     run_id: str,
     kind: str,
     key: str,
     stale_window_s: float = DEFAULT_STALE_WINDOW_S,
+    owner_pid: int | None = None,
 ) -> dict:
     if kind not in LEASE_KINDS:
         raise WorkspaceError(f"unknown lease kind {kind!r}; expected one of {', '.join(LEASE_KINDS)}")
     record = load_run(repo, run_id)
     path = lease_path(repo, kind, key)
     path.parent.mkdir(parents=True, exist_ok=True)
+    owner = owner_pid if isinstance(owner_pid, int) else os.getpid()
     lease = {
         "run_id": run_id,
         "kind": kind,
         "key": key,
         "pid": os.getpid(),
+        "owner_pid": owner,
         "host": hostname(),
         "agent": record["owner"].get("agent"),
         "acquired_at": utc_now_iso(),
         "heartbeat": utc_now_iso(),
     }
-    reclaimed_from = None
-    for _ in range(2):
-        try:
-            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-        except FileExistsError:
-            existing = read_lease(repo, kind, key)
-            if existing is None:
-                # Unreadable or half-written: treat as held rather than stealing.
-                raise Blocked(
-                    f"{kind}:{key} is held by an unreadable lease at {path}",
-                    {"status": "blocked", "kind": kind, "key": key, "holder": None,
-                     "blocker": f"{kind}:{key} lease file is unreadable",
-                     "recovery": [f"inspect {path}", "remove it only if no owner is running"]},
-                ) from None
-            if existing.get("run_id") == run_id:
-                return {"status": "held", "run_id": run_id, "kind": kind, "key": key,
-                        "holder": _holder_view(existing)}
-            ok, why = is_reclaimable(existing, stale_window_s)
-            if not ok:
-                raise Blocked(
-                    f"{kind}:{key} is held by run {existing.get('run_id')}",
-                    {
-                        "status": "blocked",
-                        "kind": kind, "key": key,
-                        "blocker": f"{kind}:{key} is held by run {existing.get('run_id')}: {why}",
-                        "holder": _holder_view(existing),
-                        "recovery": [
-                            "wait for the holder to finish and retry",
-                            "use a different workspace or resource",
-                            f"if the holder is gone, it is reclaimed automatically after {stale_window_s:.0f}s of silence",
-                        ],
-                    },
-                ) from None
-            reclaimed_from = _holder_view(existing)
-            path.unlink(missing_ok=True)
-            continue
-        with os.fdopen(fd, "w") as handle:
-            json.dump(lease, handle)
-        token = f"{kind}:{key}"
-        if token not in record.get("leases", []):
-            record.setdefault("leases", []).append(token)
-            record["heartbeat"] = utc_now_iso()
-            save_run(repo, record)
-        return {"status": "acquired", "run_id": run_id, "kind": kind, "key": key,
-                "reclaimed_from": reclaimed_from}
-    raise WorkspaceError(f"could not acquire {kind}:{key} after reclaiming a stale lease")
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+    except FileExistsError:
+        existing = read_lease(repo, kind, key)
+        if existing is None:
+            # Unreadable or half-written: treat as held rather than stealing.
+            raise Blocked(
+                f"{kind}:{key} is held by an unreadable lease at {path}",
+                {"status": "blocked", "kind": kind, "key": key, "holder": None,
+                 "blocker": f"{kind}:{key} lease file is unreadable",
+                 "recovery": [f"inspect {path}",
+                              f"reclaim it if no owner is running: lease reclaim --force --kind {kind} --key {key!r}"]},
+            ) from None
+        same_owner = (
+            existing.get("run_id") == run_id
+            and existing.get("host") == hostname()
+            and existing.get("pid") == os.getpid()
+        )
+        if same_owner:
+            return {"status": "held", "run_id": run_id, "kind": kind, "key": key,
+                    "holder": _holder_view(existing)}
+        ok, why = is_reclaimable(existing, stale_window_s)
+        # Never reclaim silently. A reclaim moves the resource between owners,
+        # so it is an explicit decision with a recorded reason.
+        raise Blocked(
+            f"{kind}:{key} is held by run {existing.get('run_id')}",
+            {
+                "status": "blocked",
+                "kind": kind, "key": key,
+                "blocker": f"{kind}:{key} is held by run {existing.get('run_id')}: {why}",
+                "holder": _holder_view(existing),
+                "stale": ok,
+                "recovery": [
+                    "wait for the holder to finish and retry",
+                    "use a different workspace or resource",
+                    (f"if no owner is running: lease reclaim --run {run_id} "
+                     f"--kind {kind} --key {key!r}")
+                    if ok else
+                    (f"if you are certain no owner is running: lease reclaim --force "
+                     f"--run {run_id} --kind {kind} --key {key!r}"),
+                ],
+            },
+        ) from None
+    with os.fdopen(fd, "w") as handle:
+        json.dump(lease, handle)
+    token = f"{kind}:{key}"
+    if token not in record.get("leases", []):
+        record.setdefault("leases", []).append(token)
+        record["heartbeat"] = utc_now_iso()
+        save_run(repo, record)
+    return {"status": "acquired", "run_id": run_id, "kind": kind, "key": key,
+            "reclaimed_from": None}
 
 
 def release_lease(
@@ -452,14 +563,42 @@ def _link_exclusive(src: Path, dst: Path) -> bool:
     dst.parent.mkdir(parents=True, exist_ok=True)
     tmp = dst.with_name(f".{dst.name}.{os.getpid()}.{secrets.token_hex(4)}.tmp")
     try:
-        tmp.write_bytes(src.read_bytes())
+        # O_EXCL|O_NOFOLLOW: a pre-planted symlink at the temp name must not be
+        # followed, and a half-written temp must never be visible as content.
+        fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o644)
+        try:
+            os.write(fd, src.read_bytes())
+        finally:
+            os.close(fd)
         try:
             os.link(tmp, dst)
         except FileExistsError:
             return False
+        except OSError as exc:
+            # No hardlink support, a full disk, or a cross-device destination.
+            # That is a refusal to report, never a traceback.
+            raise WorkspaceError(
+                f"cannot publish {dst}: {exc.strerror or exc}. "
+                "This filesystem must support hard links inside one directory."
+            ) from exc
         return True
     finally:
         tmp.unlink(missing_ok=True)
+
+
+def _receipt(src: Path, dst: Path) -> dict:
+    """What was published, from where.
+
+    The source path is recorded because cleanup asks "is *this* artifact
+    published?". A basename cannot answer that: `.mash/plans/x.md` and
+    `.mash/qa/x.md` share one, so a basename match would hide an unpublished
+    artifact behind a published namesake.
+    """
+    return {"source": str(src.resolve()), "dest": str(dst.resolve())}
+
+
+def published_sources(record: dict) -> set[str]:
+    return {r["source"] for r in (record.get("receipts") or []) if isinstance(r, dict)}
 
 
 def publish_exact(repo: str | Path, run_id: str | None, src: str | Path, dst: str | Path) -> dict:
@@ -473,6 +612,8 @@ def publish_exact(repo: str | Path, run_id: str | None, src: str | Path, dst: st
     src, dst = Path(src), Path(dst)
     if not src.is_file():
         raise WorkspaceError(f"{src} is not a readable file")
+    if dst.is_symlink():
+        raise WorkspaceError(f"{dst} is a symlink; refusing to publish through it")
     if dst.exists():
         if _same_bytes(src, dst):
             return {"status": "unchanged", "path": str(dst)}
@@ -482,7 +623,7 @@ def publish_exact(repo: str | Path, run_id: str | None, src: str | Path, dst: st
             return {"status": "unchanged", "path": str(dst)}
         raise WorkspaceError(f"{dst} was created by another run with different content")
     if record is not None:
-        record.setdefault("receipts", []).append(str(dst))
+        record.setdefault("receipts", []).append(_receipt(src, dst))
         save_run(repo, record)
     return {"status": "published", "path": str(dst)}
 
@@ -498,47 +639,75 @@ def publish_group(
 
     Two runs publishing the same destination never both land: the loser moves
     to the next free name. A group moves as a unit, so a plan and its sidecars
-    stay paired. `run_id` may be None for callers that do not own a run yet;
-    receipts are then not recorded.
+    stay paired.
+
+    A group is placed by deciding the candidate against every member first and
+    only then linking. Nothing is ever unlinked: a rollback cannot distinguish
+    a file this call created from one a concurrent publisher already accepted
+    as unchanged, so deleting it could remove another run's artifact.
     """
+    _validate_component(stem, "stem")
+    for _, suffix in entries:
+        _validate_component(suffix, "suffix")
     record = load_run(repo, run_id) if run_id else None
     sources = [(Path(src), suffix) for src, suffix in entries]
     for src, _ in sources:
         if not src.is_file():
             raise WorkspaceError(f"{src} is not a readable file")
-    dest = Path(dest_dir)
+    if not sources:
+        raise WorkspaceError("no files to publish")
+    dest = Path(dest_dir).resolve()
 
     for candidate in stem_candidates(stem):
-        statuses: dict[str, str] = {}
-        linked: list[Path] = []
-        collided = False
+        # Decide the whole group before touching it, so a collision costs
+        # nothing and two runs never half-publish.
+        plan: list[tuple[Path, Path, str]] = []
+        blocked = False
         for src, suffix in sources:
             target = dest / f"{candidate}{suffix}"
-            if target.exists():
-                # Identical content is not a conflict; it is the same artifact.
-                if _same_bytes(src, target):
-                    statuses[target.name] = "unchanged"
-                    continue
-                collided = True
+            if target.parent != dest:
+                raise WorkspaceError(f"refusing to publish {target}: outside {dest}")
+            if target.is_symlink() or (target.exists() and not _same_bytes(src, target)):
+                blocked = True
                 break
-            if _link_exclusive(src, target):
-                statuses[target.name] = "published"
-                linked.append(target)
-                continue
-            # Lost the race for this name: re-read before deciding.
-            if _same_bytes(src, target):
+            plan.append((src, target, "unchanged" if target.exists() else "published"))
+        if blocked:
+            continue
+
+        landed: list[str] = []
+        statuses: dict[str, str] = {}
+        for src, target, state in plan:
+            if state == "unchanged":
                 statuses[target.name] = "unchanged"
                 continue
-            collided = True
-            break
-        if collided:
-            # Keep the group together: give back this candidate entirely.
-            for path in linked:
-                path.unlink(missing_ok=True)
+            if _link_exclusive(src, target):
+                statuses[target.name] = "published"
+                landed.append(str(target))
+            elif _same_bytes(src, target):
+                statuses[target.name] = "unchanged"
+            elif not landed:
+                # Lost the race before anything of this group landed: try the
+                # next name. Nothing to undo, and nothing is lost.
+                blocked = True
+                break
+            else:
+                # Something of this group already landed. Keep it and say so;
+                # removing it could delete a file another run just accepted.
+                if record is not None and landed:
+                    record.setdefault("receipts", []).extend(
+                        _receipt(s, Path(t)) for s, t, st in plan
+                        if st == "published" and str(t) in landed
+                    )
+                    save_run(repo, record)
+                return {"status": "partial", "run_id": run_id, "stem": candidate,
+                        "dest_dir": str(dest), "files": statuses, "landed": landed}
+        if blocked:
             continue
-        published = [str(dest / name) for name, state in statuses.items() if state == "published"]
-        if published and record is not None:
-            record.setdefault("receipts", []).extend(published)
+        if landed and record is not None:
+            record.setdefault("receipts", []).extend(
+                _receipt(s, Path(t)) for s, t, st in plan
+                if st == "published" and str(t) in landed
+            )
             record["heartbeat"] = utc_now_iso()
             save_run(repo, record)
         return {"status": "ok", "run_id": run_id, "stem": candidate,
@@ -567,10 +736,12 @@ def _digest(path: Path) -> str:
 
 
 def _copy_runtime_files(primary: Path, workspace: Path) -> dict[str, str]:
-    """Copy ignored runtime files and remember what was copied.
+    """Copy ignored runtime files and remember what was copied, per file.
 
     The digest is what later lets cleanup tell "a copy we made" from "work the
-    user did here". A filename alone cannot distinguish them.
+    user did here". A directory is recorded file-by-file rather than as one
+    opaque "directory" marker, because an edit inside a copied directory is
+    still an edit, and a marker cannot see it.
     """
     copied: dict[str, str] = {}
     for name in RUNTIME_FILE_ALLOWLIST:
@@ -581,8 +752,13 @@ def _copy_runtime_files(primary: Path, workspace: Path) -> dict[str, str]:
             shutil.copy2(src, dst)
             copied[name] = _digest(dst)
         elif src.is_dir():
-            shutil.copytree(src, dst)
-            copied[name] = "directory"
+            shutil.copytree(src, dst, symlinks=True)
+            for path in sorted(dst.rglob("*")):
+                relative = path.relative_to(workspace).as_posix()
+                if path.is_symlink():
+                    copied[relative] = "symlink:" + os.readlink(path)
+                elif path.is_file():
+                    copied[relative] = _digest(path)
     return copied
 
 
@@ -655,30 +831,44 @@ def resume_workspace(repo: str | Path, run_id: str, path: str | Path) -> dict:
     return {"status": "resumed", "run_id": run_id, "workspace": str(workspace)}
 
 
+def _modified_copied_files(record: dict, workspace: Path) -> list[str]:
+    """Copied runtime files whose content no longer matches what was copied."""
+    changed = []
+    for name, digest in (record.get("copied_runtime_files") or {}).items():
+        path = workspace / name
+        if isinstance(digest, str) and digest.startswith("symlink:"):
+            if not path.is_symlink() or "symlink:" + os.readlink(path) != digest:
+                changed.append(name)
+            continue
+        if digest == "directory":
+            continue  # legacy record from before per-file manifests
+        if not path.is_file():
+            changed.append(name)
+            continue
+        if _digest(path) != digest:
+            changed.append(name)
+    return changed
+
+
 def _unpublished_artifacts(repo: str | Path, run_id: str, workspace: Path) -> list[str]:
-    """Artifacts written in the workspace that never reached the primary checkout."""
-    published = {Path(p).name for p in load_run(repo, run_id).get("receipts", [])}
+    """Artifacts written in the workspace that never reached the primary checkout.
+
+    Matched by recorded source path. A basename would confuse
+    `.mash/plans/x.md` with `.mash/qa/x.md`, letting a published namesake hide
+    an unpublished artifact from the cleanup guard.
+    """
+    published = published_sources(load_run(repo, run_id))
     pending = []
     for area in ("brainstorms", "plans", "qa", "dogfood", "ideation", "insights", "solutions"):
         root = workspace / ".mash" / area
         if not root.is_dir():
             continue
         for path in sorted(root.rglob("*")):
-            if path.is_file() and path.name not in published and "scratch" not in path.parts:
+            if not path.is_file() or "scratch" in path.parts:
+                continue
+            if str(path.resolve()) not in published:
                 pending.append(str(path.relative_to(workspace)))
     return pending
-
-
-def _modified_copied_files(record: dict, workspace: Path) -> list[str]:
-    """Copied runtime files whose content no longer matches what was copied."""
-    changed = []
-    for name, digest in (record.get("copied_runtime_files") or {}).items():
-        path = workspace / name
-        if digest == "directory" or not path.is_file():
-            continue
-        if _digest(path) != digest:
-            changed.append(name)
-    return changed
 
 
 def _dirty_paths(workspace: Path, record: dict) -> list[str]:
@@ -773,19 +963,29 @@ def transfer(source: str | Path, target: str | Path, files: list[str]) -> dict:
         raise WorkspaceError(f"{target_root} is not a directory")
 
     # Resolve and check everything before copying anything, so a bad entry
-    # cannot leave the target half-populated.
+    # cannot leave the target half-populated. Both sides are confined: checking
+    # only the source would let a symlink in the target write through it.
     planned: list[tuple[Path, Path, str]] = []
     for relative in files:
         src = _resolve_within(source_root, relative)
         if not src.is_file():
             raise WorkspaceError(f"{relative!r} does not exist in {source_root}")
-        planned.append((src, target_root / relative, relative))
+        dst = _resolve_within(target_root, relative)
+        if dst.is_symlink():
+            raise WorkspaceError(f"{relative!r} is a symlink in the target; refusing to write through it")
+        planned.append((src, dst, relative))
 
     moved = {}
     for src, dst, relative in planned:
+        if dst.exists():
+            # A tracked file from the base is the normal case for shipping: the
+            # worktree carries the old content and the source carries the edit.
+            # Replacing is expected, but it is reported, never silent.
+            moved[relative] = "unchanged" if _same_bytes(src, dst) else "replaced"
+            if moved[relative] == "unchanged":
+                continue
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
-        moved[relative] = "transferred"
+        shutil.copy2(src, dst, follow_symlinks=False)
     return {"status": "ok", "source": str(source_root), "target": str(target_root),
             "files": moved}
 
@@ -825,6 +1025,15 @@ def _build_parser() -> argparse.ArgumentParser:
         node.add_argument("--run", required=True)
         node.add_argument("--kind", required=True, choices=LEASE_KINDS)
         node.add_argument("--key", required=True)
+    acquire_node = lease.choices["acquire"]
+    acquire_node.add_argument("--owner-pid", type=int, default=None,
+                              help="long-lived process that owns this claim (default: this process)")
+    reclaim = lease.add_parser("reclaim", help="take back a lease whose owner is gone", parents=[common])
+    reclaim.add_argument("--run", required=True)
+    reclaim.add_argument("--kind", required=True, choices=LEASE_KINDS)
+    reclaim.add_argument("--key", required=True)
+    reclaim.add_argument("--force", action="store_true",
+                         help="reclaim even when the owner cannot be proven gone")
     show = lease.add_parser("show", parents=[common])
     show.add_argument("--kind", required=True, choices=LEASE_KINDS)
     show.add_argument("--key", required=True)
@@ -874,6 +1083,8 @@ def _dispatch(args) -> dict:
         return publish_group(repo, args.run, entries, args.dest_dir, args.stem)
     if args.group == "transfer":
         return transfer(args.source, args.target, args.file)
+    if args.group == "lease" and args.cmd == "reclaim":
+        return reclaim_lease(repo, args.run, args.kind, args.key, force=args.force)
     if args.group == "workspace":
         if args.cmd == "create":
             return create_workspace(repo, args.run, args.slug, args.base)
@@ -904,12 +1115,24 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
         payload = _dispatch(args)
+    except SystemExit:
+        raise
     except Blocked as exc:
         print(json.dumps(exc.payload, indent=2))
         return 2
     except WorkspaceError as exc:
         print(json.dumps({"status": "blocked", "blocker": str(exc)}, indent=2))
         return 2
+    except OSError as exc:
+        # A read-only state root, a full disk, or a filesystem without hard
+        # links is a refusal to report, not a traceback for the agent to parse.
+        print(json.dumps({
+            "status": "error", "kind": "io",
+            "blocker": f"{getattr(exc, 'strerror', None) or exc}",
+            "recovery": ["check the .mash state root is writable and has space",
+                         "stop and report; this is not contention"],
+        }, indent=2))
+        return 1
     print(json.dumps(payload, indent=2))
     return 0
 

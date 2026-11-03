@@ -112,5 +112,11 @@ def test_resuming_an_abandoned_run_succeeds(repo):
     finally:
         holder.kill()
         holder.wait(timeout=10)
-    # The owner is gone; past the stale window the run is reclaimable.
-    assert rp.claim_run(repo, run_id, stale_window_s=0)["status"] == "claimed"
+    # The owner is gone, but nothing is displaced silently: the claim is
+    # refused and names the reclaim, which is an explicit decision.
+    with pytest.raises(ws.Blocked) as caught:
+        rp.claim_run(repo, run_id, stale_window_s=0)
+    assert any("lease reclaim" in step for step in caught.value.payload["recovery"])
+
+    ws.reclaim_lease(repo, run_id, "run", run_id, stale_window_s=0)
+    assert rp.claim_run(repo, run_id)["status"] == "claimed"

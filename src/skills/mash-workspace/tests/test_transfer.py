@@ -48,7 +48,7 @@ def ship(repo, tmp_path):
 def test_modified_tracked_file_arrives_in_the_target(repo, ship):
     (repo / "tracked.py").write_text("edited\n")
     result = ws.transfer(repo, ship, ["tracked.py"])
-    assert result["files"]["tracked.py"] == "transferred"
+    assert result["files"]["tracked.py"] == "replaced"
     assert (ship / "tracked.py").read_text() == "edited\n"
 
 
@@ -139,3 +139,23 @@ def test_two_runs_shipping_at_once_do_not_cross_contaminate(repo, tmp_path):
     assert not (first / "b.txt").exists()
     assert (second / "b.txt").read_text() == "run b work\n"
     assert not (second / "a.txt").exists()
+
+
+def test_symlink_in_the_target_is_refused(repo, ship, tmp_path):
+    """The destination side is confined too: a symlinked dir is not written through."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (ship / "docs").symlink_to(outside, target_is_directory=True)
+    (repo / "docs").mkdir()
+    (repo / "docs" / "x.md").write_text("payload\n")
+    with pytest.raises(ws.WorkspaceError, match="outside|symlink"):
+        ws.transfer(repo, ship, ["docs/x.md"])
+    assert list(outside.iterdir()) == []
+
+
+def test_replaced_content_is_reported_not_silent(repo, ship):
+    """Shipping a tracked edit replaces the base copy, and says so."""
+    (repo / "tracked.py").write_text("edited\n")
+    result = ws.transfer(repo, ship, ["tracked.py"])
+    assert result["files"]["tracked.py"] == "replaced"
+    assert ws.transfer(repo, ship, ["tracked.py"])["files"]["tracked.py"] == "unchanged"
