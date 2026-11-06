@@ -7,7 +7,7 @@ description: Thin loader for page automation through agent-browser. Use for navi
 
 Page navigation, snapshots, interaction, uploads, downloads, screenshots, console, and network.
 
-Before acting, run `agent-browser --version` and stop if a reported token is not `0.38.2`. Load the version-matched guide with `agent-browser skills get`. Stop if that command is missing or the reported version is not the pin.
+Before acting, run `agent-browser --version` and stop if a reported token is not `0.38.2`. Load the version-matched core guide with `agent-browser skills get core`. The bare command `agent-browser skills get` exits with "No skill name provided" and is not a guide load. Stop if that command is missing or the reported version is not the pin. Package `agent-browser@0.38.2` declares `engines.node` of `>=24`. Run that binary with Node 24 or newer.
 
 Require a named session. Refuse a profile named `Default` and refuse auto-connect. Persistent state is an explicit profile directory. Credentials do not appear in prompts, reports, or repository files.
 
