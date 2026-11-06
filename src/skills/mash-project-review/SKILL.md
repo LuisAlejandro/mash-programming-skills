@@ -1,12 +1,12 @@
 ---
 name: mash-project-review
-description: "Shared contract and orchestrator for a runtime self-review of the user's own app on local or staging. Parses the target, writes the report, and runs the mash-a11y and mash-web-security fronts. Refuses production. Never claims WCAG, ASVS, or OWASP compliance. Manual invocation."
-argument-hint: "[front:all|a11y|web-security] [url:...] [target:local|staging] [path:/route] [mode:interactive|non-interactive]"
+description: "Shared contract and orchestrator for a runtime self-review of the user's own app on local or staging. Parses the target, writes the report, and runs the mash-a11y, mash-web-security, mash-api-security, and mash-performance fronts. Refuses production. Never claims WCAG, ASVS, or OWASP compliance. Manual invocation."
+argument-hint: "[front:all|a11y|web-security|api-security|performance] [url:...] [target:local|staging] [path:/route] [spec:<file>] [mode:interactive|non-interactive]"
 ---
 
 # Project review
 
-Runtime self-review of the user's own app. This skill owns the shared contract. With `front:all` (the default) it runs both phase-1 fronts in one invocation and writes one report. Invoke the mash-a11y skill or the mash-web-security skill to run a single front.
+Runtime self-review of the user's own app. This skill owns the shared contract. With `front:all` (the default) it runs every front in one invocation and writes one report. Invoke the mash-a11y skill, the mash-web-security skill, the mash-api-security skill, or the mash-performance skill to run a single front.
 
 **Outcome:** a durable report of observed checks and gaps. Tool output shows defects. It does not prove the absence of defects, and it is not a certification.
 
@@ -37,9 +37,12 @@ Parse `$ARGUMENTS` for these tokens. Strip each recognized token before interpre
 | --- | --- | --- |
 | `mode:interactive` | `mode:interactive` | Explicit default |
 | `mode:non-interactive` | `mode:non-interactive` | No blocking questions |
-| `front:all` | `front:all` | Run mash-a11y, then mash-web-security (default) |
+| `front:all` | `front:all` | Run mash-a11y, mash-web-security, mash-api-security, then mash-performance (default) |
 | `front:a11y` | `front:a11y` | Run only the mash-a11y skill |
 | `front:web-security` | `front:web-security` | Run only the mash-web-security skill |
+| `front:api-security` | `front:api-security` | Run only the mash-api-security skill |
+| `front:performance` | `front:performance` | Run only the mash-performance skill |
+| `spec:<file>` | `spec:openapi.json` | OpenAPI document for the mash-api-security skill |
 | `target:local` | `target:local` | Local Make/Compose origin (default) |
 | `target:staging` | `target:staging` | Explicit staging origin. Requires `url:` |
 | `target:prod` | `target:prod` | Refused. Stop before any tool runs |
@@ -54,12 +57,12 @@ The remainder is not an intake window. Unrecognized tokens: ask once (interactiv
 
 ## Boundaries
 
-- **This skill is the contract.** The mash-a11y skill and the mash-web-security skill follow it. They do not invent a second report format, status list, or evidence marker.
+- **This skill is the contract.** The mash-a11y skill, the mash-web-security skill, the mash-api-security skill, and the mash-performance skill follow it. They do not invent a second report format, status list, or evidence marker.
 - **Not mash-qa.** Static review personas stay on diffs. This skill does not edit those agents and does not replace them.
 - **Not mash-dogfood.** Dogfood is window-scoped journey QA of shipped pull requests. Do not copy a dogfood report into `.mash/project-review/`, and do not drive a week's pull requests from here.
-- **No production target.** Phase 1 refuses production entirely. There is no read-mostly production mode.
+- **No production target.** The kit refuses production entirely. There is no read-mostly production mode.
 - **No commits, pushes, or pull requests.** Findings are evidence for a later invocation of the mash-work skill. Do not patch the app to clear a row.
-- **No second browser and no second Lighthouse.** Page capture goes through the agent-browser skill. The optional accessibility score goes through the chrome-devtools skill.
+- **No second browser and no second Lighthouse.** Page capture goes through the agent-browser skill. Lighthouse goes through the chrome-devtools skill. k6 is a host tool. A missing k6 is blocked. Do not substitute another load generator.
 - **Missing tool.** The affected check is `Blocked (needs human verify)` with install remediation. Do not skip it silently and do not swap in an unapproved binary.
 
 ## Artifact Root
@@ -68,7 +71,7 @@ Reports live under `<repo-root>/.mash/project-review/`. Resolve `<repo-root>` wi
 
 - **Filename:** `<YYYY-MM-DD>-<front>-<slug>.md`
 - **Date:** the UTC date when the run starts.
-- **Front:** `all`, `a11y`, or `web-security`.
+- **Front:** `all`, `a11y`, `web-security`, `api-security`, or `performance`.
 - **Slug:** the base URL host, lowercased, with every run of non-alphanumeric characters collapsed to one `-`, trimmed. Before a URL exists, the slug is `local`.
 
 Use repo-relative paths in the report. Do not also write `project-review-reports/` or `docs/`.
@@ -111,11 +114,13 @@ Instantiate `references/report-template.md` at the report path. Every planned ro
 
 ### Phase 2: Fronts
 
-Pass the resolved tokens: interaction mode, `target:`, `url:` when known, `port:` when known, each `path:`, `lease:held`, and `report:<path>`.
+Pass the resolved tokens: interaction mode, `target:`, `url:` when known, `port:` when known, each `path:`, `spec:` when known, `lease:held`, and `report:<path>`.
 
-- `front:all` — invoke the mash-a11y skill, wait until its rows are terminal, then invoke the mash-web-security skill.
+- `front:all` — invoke the mash-a11y skill, wait until its rows are terminal, then the mash-web-security skill, then the mash-api-security skill, then the mash-performance skill.
 - `front:a11y` — invoke only the mash-a11y skill.
 - `front:web-security` — invoke only the mash-web-security skill.
+- `front:api-security` — invoke only the mash-api-security skill.
+- `front:performance` — invoke only the mash-performance skill.
 
 A front that stops on a safety refusal stops the run. A front row that is `Blocked (needs human verify)` does not stop the other front.
 

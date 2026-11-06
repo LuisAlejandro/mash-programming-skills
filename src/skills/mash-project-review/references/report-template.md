@@ -7,13 +7,13 @@
 
 ## Metadata
 
-- **Front:** `<all | a11y | web-security>`
+- **Front:** `<all | a11y | web-security | api-security | performance>`
 - **Target:** `<local | staging>`
 - **Base URL:** `<origin>`
 - **Date:** `<YYYY-MM-DD>`
 - **Slug:** `<slug>`
 - **Report path:** `.mash/project-review/<YYYY-MM-DD>-<front>-<slug>.md`
-- **Tool versions:** `<axe version, ZAP version, package-manager audit tool, agent-browser pin, or "not run">`
+- **Tool versions:** `<axe version, ZAP version, package-manager audit tool, agent-browser pin, k6 version, or "not run">`
 - **Interaction:** interactive | non-interactive
 - **Routes:** `<path list, or "homepage only">`
 

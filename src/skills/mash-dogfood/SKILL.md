@@ -77,7 +77,7 @@ If the remainder is unparseable, ask one clarifying question (interactive) or st
 
 This skill is not `mash-qa`. That skill reviews code before merge. This skill drives shipped behavior.
 
-This skill is not a runtime accessibility or web-security audit. Focus, labels, and keyboard on new UI stay a light cross-cut in this matrix. Tool-backed checks of the user's own local or staging app belong to the mash-a11y skill and the mash-web-security skill, under the mash-project-review contract. Do not copy this report into `.mash/project-review/`.
+This skill is not a runtime accessibility, web-security, API-security, or performance audit. Focus, labels, and keyboard on new UI stay a light cross-cut in this matrix. Tool-backed checks of the user's own local or staging app belong to the mash-a11y skill, the mash-web-security skill, the mash-api-security skill, and the mash-performance skill, under the mash-project-review contract. Do not copy this report into `.mash/project-review/`.
 
 ## Artifact Root
 

@@ -325,18 +325,24 @@ holds the resource and what to do next.
 `mash-project-review` reviews the user's own app on a local origin, or on a
 staging origin the user names, and writes
 `.mash/project-review/<YYYY-MM-DD>-<front>-<slug>.md`. The default invocation
-runs both phase-1 fronts. Invoke the mash-a11y skill or the mash-web-security
-skill to run one front.
+runs every front. Invoke the mash-a11y skill, the mash-web-security skill, the
+mash-api-security skill, or the mash-performance skill to run one front.
 
 `mash-a11y` runs axe-core against HTML captured through the agent-browser
 skill, records a keyboard and screen-reader checklist, and may request one
 Lighthouse accessibility score through the chrome-devtools skill. `mash-web-security`
 runs an OWASP ZAP baseline when ZAP is installed, and runs `npm audit` or
-`pip-audit` when the matching manifest exists. A missing tool is
-`Blocked (needs human verify)` with install remediation. A missing manifest is
-`Skipped`. Production targets are refused. Reports describe observed checks and
-gaps. They do not certify WCAG, ASVS, or OWASP compliance. ZAP stays a host
-tool: the installer and packaging pins are unchanged.
+`pip-audit` when the matching manifest exists. `mash-api-security` probes an
+OpenAPI document with two test accounts (authentication, object access, mass
+assignment, rate limiting, verbose errors, and CORS) and uses that same
+dependency audit when the web-security front has not already recorded it.
+`mash-performance` requests one Lighthouse performance category through the
+chrome-devtools skill and runs a 2-user, 10-second k6 smoke when k6 is on
+`PATH`. A missing tool is `Blocked (needs human verify)` with install
+remediation. A missing manifest is `Skipped`. Production targets are refused.
+Reports describe observed checks and gaps. They do not certify WCAG, ASVS, or
+OWASP compliance. ZAP and k6 stay host tools: the installer and packaging pins
+are unchanged.
 
 ## Tests, release, and CI
 

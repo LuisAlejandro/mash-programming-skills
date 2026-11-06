@@ -30,8 +30,21 @@ Use these strings in the status cell. Do not translate them and do not invent ne
 | npm or pip-audit `high` | `P1` |
 | npm or pip-audit `moderate` | `P2` |
 | npm or pip-audit `low` | `P3` |
+| API probe: 2xx without credentials, another user's object, a persisted privileged field, or a reflected origin with credentials | `P0` |
+| API probe: `Access-Control-Allow-Origin: *`, a reflected origin, or a stack, SQL driver error, or filesystem path in an error body | `P1` |
+| API probe: twenty sequential requests and no `429` | `P2` |
+| Lighthouse vital in the web.dev "poor" band | `P1` |
+| Lighthouse vital in the web.dev "needs improvement" band, or a k6 duration miss with no failed requests | `P2` |
+| k6 `http_req_failed` threshold missed | `P1` |
 
-A hint column may name a WCAG criterion or an OWASP Top 10 category. The hint does not change the status. Leave it blank when the mapping is uncertain.
+A hint column may name a WCAG criterion, an OWASP Top 10 category, or an OWASP API Security category. The hint does not change the status. Leave it blank when the mapping is uncertain.
+
+## Same facts, plainer words
+
+People say "manual" and "not tested". Those are not status cells.
+
+- Manual means a person still has to judge the check. The cell is `Blocked (needs human verify)` until that person confirms `Pass` or `Fail`.
+- Not tested means the check did not run. Use `Skipped` when it does not apply. Use `Blocked (needs human verify)` when a missing tool, a missing test account, or a refusal stopped it.
 
 ## Final status
 

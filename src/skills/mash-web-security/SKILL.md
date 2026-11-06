@@ -33,7 +33,7 @@ Honor the tokens defined by the mash-project-review skill: `target:`, `url:`, `p
 
 `target:prod` and `target:production` are refusals. Stop before ZAP and before any audit.
 
-`front:a11y` does not belong to this skill. Stop and tell the user to invoke the mash-a11y skill, or the mash-project-review skill for both fronts. `front:all` on a direct invocation: run this front only, and name the mash-project-review skill as the orchestrator for both.
+`front:a11y`, `front:api-security`, and `front:performance` do not belong to this skill. Stop and tell the user to invoke that skill, or the mash-project-review skill for every front. `front:all` on a direct invocation: run this front only, and name the mash-project-review skill as the orchestrator.
 
 This skill does not run axe-core and does not run Lighthouse.
 

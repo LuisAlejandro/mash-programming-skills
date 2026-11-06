@@ -13,7 +13,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 SKILLS = ROOT / "src" / "skills"
-KIT = ("mash-project-review", "mash-a11y", "mash-web-security")
+KIT = (
+    "mash-project-review",
+    "mash-a11y",
+    "mash-web-security",
+    "mash-api-security",
+    "mash-performance",
+)
 CLAIM_PHRASES = ("WCAG compliant", "ASVS compliant", "OWASP-safe")
 STATUSES = (
     "Pending",
@@ -33,6 +39,13 @@ def combined(names):
     for name in names:
         parts.extend(path.read_text() for path in skill_tree(name))
     return "\n".join(parts)
+
+
+def kit_markdown():
+    files = []
+    for name in KIT:
+        files.extend(skill_tree(name))
+    return files
 
 
 class ProjectReviewContractTest(unittest.TestCase):
@@ -59,9 +72,7 @@ class ProjectReviewContractTest(unittest.TestCase):
             self.assertIn(f"`{status}`", vocabulary)
 
     def test_compliance_claims_only_appear_as_refusals(self):
-        for path in skill_tree("mash-project-review") + skill_tree("mash-a11y") + skill_tree(
-            "mash-web-security"
-        ):
+        for path in kit_markdown():
             for number, line in enumerate(path.read_text().splitlines(), 1):
                 for phrase in CLAIM_PHRASES:
                     if phrase.lower() in line.lower():
@@ -98,14 +109,14 @@ class ProjectReviewContractTest(unittest.TestCase):
             text = (SKILLS / name / "SKILL.md").read_text()
             self.assertIn("MASH_EVIDENCE", text)
             self.assertIn("END_MASH_EVIDENCE", text)
-        for name in ("mash-a11y", "mash-web-security"):
+        for name in KIT:
+            if name == "mash-project-review":
+                continue
             text = (SKILLS / name / "SKILL.md").read_text()
             self.assertIn("mash-project-review", text)
 
     def test_skills_do_not_instruct_git_stash_or_slash_invocation(self):
-        for path in skill_tree("mash-project-review") + skill_tree("mash-a11y") + skill_tree(
-            "mash-web-security"
-        ):
+        for path in kit_markdown():
             text = path.read_text()
             # A temp path such as ${TMPDIR:-/tmp}/mash-project-review contains the
             # characters "/mash-" without being a slash invocation.
@@ -157,6 +168,50 @@ class ProjectReviewContractTest(unittest.TestCase):
             completed.stdout + completed.stderr,
         )
         self.assertIn("self-check ok", completed.stdout)
+
+    def test_phase2_fronts_share_the_contract(self):
+        orchestrator = (SKILLS / "mash-project-review" / "SKILL.md").read_text()
+        self.assertIn("front:api-security", orchestrator)
+        self.assertIn("front:performance", orchestrator)
+        self.assertIn("mash-api-security", orchestrator)
+        self.assertIn("mash-performance", orchestrator)
+        self.assertIn("front:all", orchestrator)
+        api = (SKILLS / "mash-api-security" / "SKILL.md").read_text()
+        api_phases = (
+            SKILLS / "mash-api-security" / "references" / "phases.md"
+        ).read_text()
+        api_checks = (
+            SKILLS / "mash-api-security" / "references" / "checks.md"
+        ).read_text()
+        self.assertIn("mash-api-contract-reviewer", api)
+        self.assertIn("does not restate that persona", api)
+        self.assertIn("../mash-web-security/references/dependency-audit.md", api_phases)
+        self.assertNotIn("npm audit --json", api_phases)
+        self.assertNotIn("pip-audit -r", api_phases)
+        self.assertIn("MASH_REVIEW_USER_A", api_checks)
+        self.assertIn("https://evil.example", api_checks)
+        self.assertIn("no password list", api.lower() + api_checks.lower())
+        performance = (SKILLS / "mash-performance" / "SKILL.md").read_text()
+        k6 = (SKILLS / "mash-performance" / "references" / "k6-smoke.md").read_text()
+        vitals = (
+            SKILLS / "mash-performance" / "references" / "web-vitals.md"
+        ).read_text()
+        self.assertIn("mash-performance-reviewer", performance)
+        self.assertIn("does not restate that persona", performance)
+        self.assertIn("chrome-devtools", performance)
+        self.assertIn("Do not start a second Lighthouse binary", performance)
+        self.assertIn("https://grafana.com/docs/k6/latest/set-up/install-k6/", k6)
+        self.assertIn("Blocked (needs human verify)", k6)
+        self.assertIn("vus: 2", k6)
+        self.assertIn('duration: "10s"', k6)
+        self.assertIn("perf.lighthouse.lcp", vitals)
+        self.assertIn("perf.lighthouse.inp", vitals)
+        self.assertIn("perf.lighthouse.cls", vitals)
+        safety = (
+            SKILLS / "mash-project-review" / "references" / "safety.md"
+        ).read_text()
+        self.assertIn("no k6", safety)
+        self.assertIn("MASH_REVIEW_USER_A", safety)
 
 
 if __name__ == "__main__":
