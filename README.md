@@ -297,7 +297,7 @@ Mash Programming Skills does not generate repository guidance or scaffolding. If
 project-specific instructions, its owner may create and track `AGENTS.md`.
 `DESIGN.md` is owned by the user or by whichever repository installs a
 design-to-code pipeline. Skills create `.mash/plans/`, `.mash/insights/`,
-`.mash/qa/`, and other working paths only when invoked.
+`.mash/qa/`, `.mash/project-review/`, and other working paths only when invoked.
 
 ## Running workflows concurrently
 
@@ -319,6 +319,24 @@ conflicting work.
 
 Contention fails fast rather than waiting: the blocked run reports which run
 holds the resource and what to do next.
+
+## Project self-review
+
+`mash-project-review` reviews the user's own app on a local origin, or on a
+staging origin the user names, and writes
+`.mash/project-review/<YYYY-MM-DD>-<front>-<slug>.md`. The default invocation
+runs both phase-1 fronts. Invoke the mash-a11y skill or the mash-web-security
+skill to run one front.
+
+`mash-a11y` runs axe-core against HTML captured through the agent-browser
+skill, records a keyboard and screen-reader checklist, and may request one
+Lighthouse accessibility score through the chrome-devtools skill. `mash-web-security`
+runs an OWASP ZAP baseline when ZAP is installed, and runs `npm audit` or
+`pip-audit` when the matching manifest exists. A missing tool is
+`Blocked (needs human verify)` with install remediation. A missing manifest is
+`Skipped`. Production targets are refused. Reports describe observed checks and
+gaps. They do not certify WCAG, ASVS, or OWASP compliance. ZAP stays a host
+tool: the installer and packaging pins are unchanged.
 
 ## Tests, release, and CI
 
