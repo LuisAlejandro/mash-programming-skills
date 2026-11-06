@@ -1,0 +1,9 @@
+{
+  "name": "mash-a11y",
+  "private": true,
+  "description": "Skill-local axe-core runner for the mash-a11y skill. Not the app under review.",
+  "dependencies": {
+    "axe-core": "4.14.0",
+    "jsdom": "26.1.0"
+  }
+}
