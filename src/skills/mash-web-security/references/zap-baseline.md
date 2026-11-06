@@ -36,4 +36,6 @@ Prefer the JSON report. ZAP riskcode `3` is High, `2` is Medium, `1` is Low, `0`
 
 Off-host URLs in the report are out of scope. Do not file them as findings and do not request them.
 
+On an `http://` origin the baseline can print `PASS: Cookie Without Secure Flag` even when `Set-Cookie` has no `Secure` attribute, because that rule expects an HTTPS response. Do not copy that PASS into a matrix `Pass`. Record `Blocked (needs human verify)` for the Secure attribute, quote the redacted `Set-Cookie` line and the baseline PASS line, and say the rule did not observe HTTPS. HttpOnly and SameSite still come from the alerts that are present.
+
 Do not pass a session cookie, an Authorization header, or a ZAP context that includes credentials. Redact the report excerpt before it enters the evidence block.
