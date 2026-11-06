@@ -128,6 +128,14 @@ class ProjectReviewContractTest(unittest.TestCase):
         skill = (SKILLS / "mash-a11y" / "SKILL.md").read_text()
         self.assertIn("Do not shell out to `npx`", skill)
         self.assertIn("chrome-devtools", skill)
+        phases = (SKILLS / "mash-a11y" / "references" / "phases.md").read_text()
+        browser = (SKILLS / "agent-browser" / "SKILL.md").read_text()
+        self.assertIn("agent-browser skills get core", phases)
+        self.assertIn("agent-browser skills get core", browser)
+        self.assertIn("No skill name provided", phases)
+        self.assertIn("a11y --json", phases)
+        self.assertIn("set viewport 390 844", phases)
+        self.assertIn("set viewport 1440 900", phases)
 
     def test_axe_self_check_when_node_and_deps_are_present(self):
         modules = SKILLS / "mash-a11y" / "node_modules" / "axe-core"

@@ -16,14 +16,14 @@ Create or open the report from `../mash-project-review/references/report-templat
 
 ## Phase 1: Prerequisites
 
-1. Invoke the agent-browser skill. Run its version check (`agent-browser --version` must report the pin that skill names) and load its guide with `agent-browser skills get`. A missing binary or a pin mismatch: set `a11y.browser` to `Blocked (needs human verify)` and quote that skill's install remediation. Do not shell out to `npx` as a browser. Do not switch tools.
-2. Resolve the axe runner. The skill directory is the directory that contains this skill's `SKILL.md` (the installed copy or the source checkout). Dependencies install to `node_modules` beside that file, symlinked by the Mash installer to `~/.config/mash/node_modules/mash-a11y/node_modules`.
+1. Invoke the agent-browser skill. Run `agent-browser --version` and stop the browser path if a reported token is not the pin that skill names. Load the version-matched core guide with `agent-browser skills get core`. The bare command `agent-browser skills get` exits with "No skill name provided" and is not a guide load. A missing binary, a pin mismatch, or a failed guide load: set `a11y.browser` to `Blocked (needs human verify)` and quote that skill's install remediation (`npm install -g agent-browser@<pin>` and then `agent-browser install`). Do not shell out to `npx` as a browser. Do not switch tools. Do not guess a command the core guide does not list.
+2. The page scan is `agent-browser a11y --json` from that core guide. The skill-local runner is only the fallback in Phase 3. Resolve it when the guide has no `a11y` command. The skill directory is the directory that contains this skill's `SKILL.md`. Dependencies install to `node_modules` beside that file, symlinked by the Mash installer to `~/.config/mash/node_modules/mash-a11y/node_modules`.
 
 ```bash
 node "<skill-dir>/scripts/run_axe.mjs" --self-check
 ```
 
-If `node` is missing, or `node_modules/axe-core` is missing, or the self-check exits non-zero: set `a11y.axe.scan` to `Blocked (needs human verify)`. Remediation: re-run the Mash Programming Skills installer so the skill dependency is installed, or run `npm install` in the skill directory of a source checkout. Do not `npx` a different axe package, and do not add axe-core to the app under review.
+If `node` is missing, or `node_modules/axe-core` is missing, or the self-check exits non-zero, the fallback runner is `Blocked (needs human verify)`. Remediation: re-run the Mash Programming Skills installer so the skill dependency is installed, or run `npm install` in the skill directory of a source checkout. Do not `npx` a different axe package, and do not add axe-core to the app under review. A failed self-check does not block `agent-browser a11y` when that command is in the loaded guide.
 
 A blocked prerequisite does not skip the manual checklist. Continue to later phases and mark the blocked automated rows. Do not invent a pass.
 
@@ -40,33 +40,40 @@ Deduplicate. Every URL stays on the resolved origin. Drop and report any URL tha
 
 ## Phase 3: axe-core
 
-For each URL, invoke the agent-browser skill. Open a named session. Refuse a profile named `Default` and refuse auto-connect.
+The pinned core guide documents an embedded axe-core audit, `agent-browser a11y --json`. That audit runs in the browser session, so it sees layout, contrast, and the page's scripts. Use it as the scan. Do not shell out to `npx`. Do not fetch the URL with curl and treat the response body as the rendered page.
 
-Set the viewport to 390px wide and capture, then to 1440px wide and capture, using the viewport command the pinned guide documents. If the guide has no viewport command, capture once at the session default and mark `a11y.manual.reflow-390` or `a11y.manual.reflow-1440` (the one not captured) `Blocked (needs human verify)`.
+Open a named session. Refuse a profile named `Default` and refuse auto-connect.
 
-Export `document.documentElement.outerHTML` with the page-evaluation command the pinned guide documents. Save each capture in the temp directory. A guessed flag that the guide does not list is not a capture. If the guide has no evaluation command, mark `a11y.axe.scan` `Blocked (needs human verify)` and stop the automated axe phase. Do not fetch the URL with curl and treat the response body as the rendered page.
+For each URL, and for widths 390 and 1440:
 
-Run the runner on the captured file. `--url` is the absolute page URL, not a `file:` URL.
+1. `agent-browser --session <name> set viewport 390 844` or `agent-browser --session <name> set viewport 1440 900`. `set viewport` is the command in the core guide (`agent-browser skills get core --full`). Setting the viewport can leave the tab on `about:blank`.
+2. `agent-browser --session <name> open <absolute url>` after the viewport change.
+3. `agent-browser --session <name> a11y --json`
+
+If the guide has no viewport command, audit once at the session default and mark the width that was not captured `Blocked (needs human verify)` on `a11y.manual.reflow-390` or `a11y.manual.reflow-1440`.
+
+Parse the JSON object in stdout. Ignore log lines before the first `{`. Read `data.axeVersion`, `data.violations`, and `data.incomplete`.
+
+- No JSON, or the `a11y` command is absent from the loaded guide: use the fallback runner below once. If that also fails, `a11y.axe.scan` is `Blocked (needs human verify)` with the stderr tail.
+- JSON present: `a11y.axe.scan` is `Pass`, meaning the scan finished. Record `data.axeVersion` in metadata.
+- Each object in `data.violations` is a `Fail` row `a11y.axe.<id>`. Severity comes from `references/status-vocabulary.md` in the mash-project-review skill (`critical` → `P0`, `serious` → `P1`, `moderate` → `P2`, `minor` → `P3`). One row per rule id. Name every viewport where it failed.
+- `data.incomplete` is not a pass. One row `a11y.axe.incomplete`, status `Blocked (needs human verify)`, listing those rule ids.
+- Pass counts are a count, not a list of conforming rules. Do not write one Pass row per passing rule.
+- `tags` that start with `wcag` go in the hint column only.
+
+### Fallback runner
+
+Use this only when the loaded core guide has no `a11y` command. Export `document.documentElement.outerHTML` with `agent-browser eval`. The core guide says to prefer `eval --stdin` when the expression contains quotes. Save the HTML in the temp directory. `--url` is the absolute page URL.
 
 ```bash
 node "<skill-dir>/scripts/run_axe.mjs" --html "$HTML" --url "$PAGE_URL"
 ```
 
-Read the JSON between `AXE_JSON` and `END_AXE_JSON`.
+The runner is Mash skill tooling. It is not an app start command. Read the JSON between `AXE_JSON` and `END_AXE_JSON`. Exit 1, or no JSON, blocks `a11y.axe.scan`. Exit 0 or 2 means the fallback scan finished. Map `violations` the same way. The runner disables `color-contrast` because jsdom has no canvas, so a missing contrast violation on this path is not a pass. The manual contrast row is the contrast check. `jsdomUndecided` (`landmark-one-main`, `page-has-heading-one`) is a note on the scan row, not a Fail and not a blocked row.
 
-- The runner is Mash skill tooling. It is not an app start command. Do not install it inside the app.
-- Exit 1, or no JSON: `a11y.axe.scan` is `Blocked (needs human verify)` with the stderr tail.
-- Exit 0 or 2: `a11y.axe.scan` is `Pass`, meaning the scan finished. Record the axe version in metadata.
-- Each object in `violations` is a `Fail` row `a11y.axe.<rule id>`. Severity comes from `references/status-vocabulary.md` in the mash-project-review skill (`critical` → `P0`, `serious` → `P1`, `moderate` → `P2`, `minor` → `P3`). One row per rule id. Name every viewport where it failed.
-- `incomplete` is not a pass. One row `a11y.axe.incomplete`, status `Blocked (needs human verify)`, listing those rule ids.
-- `jsdomUndecided` lists rules jsdom cannot decide even when the element is present (`landmark-one-main`, `page-has-heading-one`). Name them in the `a11y.axe.scan` note. They are not a Fail and they are not a blocked row. A real missing heading is still caught when axe reports it as a violation, and the manual checklist still covers the primary journey.
-- `disabledRules` includes `color-contrast`. jsdom has no canvas, so the runner does not execute that rule and a missing contrast violation is not a pass. The manual contrast row is the contrast check.
-- `passCount` is a count, not a list of conforming rules. Do not write one Pass row per passing rule.
-- WCAG tags on a violation go in the hint column only.
+Paste an evidence block, per the mash-project-review evidence reference, for the scan command and for each Fail. Include the JSON excerpt for that rule. Do not paste the HTML document.
 
-Paste an evidence block, per the mash-project-review evidence reference, for the scan command and for each Fail. Include the runner command and the JSON excerpt for that rule. Do not paste the HTML document.
-
-ponytail: the runner executes axe-core inside jsdom on HTML captured elsewhere. It does not layout, paint, or run the page's scripts, and it leaves `color-contrast` disabled. The upgrade path is a real-browser axe run still captured through the agent-browser skill, if incompletes or the disabled contrast rule hide defects the checklist cannot see.
+ponytail: the embedded `a11y` audit is the scan because jsdom cannot measure contrast. The fallback runner still disables `color-contrast`. Do not add a second browser to get contrast back.
 
 ## Phase 4: Lighthouse accessibility signal
 
@@ -83,7 +90,14 @@ Read `references/manual-checklist.md`.
 - Interactive: ask the person to perform the checks. Record `Pass` or `Fail` only with their confirmation and their note. A decline is `Blocked (needs human verify)`. A reflow row already blocked because the viewport could not be set stays blocked until the person actually checks that width.
 - Non-interactive: every manual row is `Blocked (needs human verify)`, reason "manual check needs a person".
 
-Do not mark a screen-reader row `Pass` because the accessibility tree looked plausible. The person runs VoiceOver, NVDA, or Orca.
+Observe keyboard, focus, and motion with the core guide's `press` and `eval`, then ask the person to confirm:
+
+- `agent-browser --session <name> press Tab`, then `eval` of `document.activeElement.id`. Repeat. Focus that stays on one control is `a11y.manual.no-trap` Fail at `P1`, and `a11y.manual.keyboard-path` Fail when the rest of the journey cannot be reached.
+- `eval` of `getComputedStyle(document.activeElement).outlineStyle`. A value of `none` with no other visible indicator is `a11y.manual.focus-visible` Fail.
+- `eval` of `getComputedStyle(document.querySelector("p")).animationName`. A running animation and no `prefers-reduced-motion` rule is `a11y.manual.reduced-motion` Fail. `none` is `Skipped`, reason "nothing animates".
+- At each width, `eval` of `document.documentElement.scrollWidth` and `clientWidth`. A horizontal overflow that covers the primary action fails the matching reflow row.
+
+Do not mark a screen-reader row `Pass` because the accessibility tree looked plausible. The person runs VoiceOver, NVDA, or Orca. If none of those is available, the row is `Blocked (needs human verify)` and the remediation is to run one of them. The page shows no field error: `a11y.manual.errors-associated` is `Skipped` with that reason.
 
 ## Phase 6: Write the report
 
