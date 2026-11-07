@@ -1,6 +1,13 @@
 # Changelog
 
 
+## 0.6.2 (2026-11-07)
+
+### Changed
+
+* Pin chrome-devtools-mcp 1.12.0. [Luis Alejandro Martínez Faneyth]
+
+
 ## 0.6.1 (2026-11-07)
 
 ### Changed
