@@ -223,15 +223,24 @@ class ManagedArtifactsTest(unittest.TestCase):
         self.assertEqual(
             MODULE.TOOL_PINS,
             {
-                "cua-driver": "0.33.3",
-                "agent-browser": "0.38.2",
+                "cua-driver": "0.38.0",
+                "agent-browser": "0.41.2",
                 "chrome-devtools-mcp": "1.10.1",
             },
         )
-        self.assertFalse(MODULE.binary_install_needed("cua-driver", "cua-driver 0.33.3"))
+        self.assertFalse(MODULE.binary_install_needed("cua-driver", "cua-driver 0.38.0"))
         self.assertTrue(MODULE.binary_install_needed("cua-driver", ""))
         self.assertTrue(MODULE.binary_install_needed("agent-browser", "agent-browser 0.1.0"))
         self.assertFalse(MODULE.binary_install_needed("chrome-devtools-mcp", ""))
+
+    def test_skills_require_the_installer_pins(self):
+        # Each skill stops unless the tool reports its pinned version, so a pin
+        # bumped here but not in the skill leaves the skill refusing to run.
+        root = Path(__file__).resolve().parents[1]
+        for tool in sorted(MODULE.BINARY_TOOLS):
+            with self.subTest(tool=tool):
+                text = (root / "src/skills" / tool / "SKILL.md").read_text()
+                self.assertIn(f"is not `{MODULE.TOOL_PINS[tool]}`", text)
 
     def test_write_manifest_records_mcp_servers(self):
         with tempfile.TemporaryDirectory() as tmp:

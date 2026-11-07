@@ -8,8 +8,8 @@ from pathlib import Path
 
 KINDS = ("skills", "agents", "rules", "npm_skills", "venv_skills")
 TOOL_PINS = {
-    "cua-driver": "0.33.3",
-    "agent-browser": "0.38.2",
+    "cua-driver": "0.38.0",
+    "agent-browser": "0.41.2",
     "chrome-devtools-mcp": "1.10.1",
 }
 BINARY_TOOLS = frozenset({"cua-driver", "agent-browser"})
