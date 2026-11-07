@@ -568,7 +568,7 @@ mash_mcp_catalog_json() {
       "command": "npx",
       "args": [
         "-y",
-        "chrome-devtools-mcp@1.10.1",
+        "chrome-devtools-mcp@1.12.0",
         "--categoryInput=false",
         "--categoryEmulation=false",
         "--categoryNetwork=false",

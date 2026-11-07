@@ -210,7 +210,9 @@ class ManagedArtifactsTest(unittest.TestCase):
         browser_args = servers["agent-browser"]["args"]
         self.assertIn("core,network,debug", browser_args)
         devtools_args = " ".join(servers["chrome-devtools"]["args"])
-        self.assertIn("chrome-devtools-mcp@1.10.1", devtools_args)
+        # Derived, not repeated: the catalog hardcodes the pin that
+        # managed_artifacts.py owns, and nothing else ties the two together.
+        self.assertIn(f"chrome-devtools-mcp@{MODULE.TOOL_PINS['chrome-devtools-mcp']}", devtools_args)
         self.assertIn("memoryDebugging", devtools_args)
         self.assertIn("isolated", devtools_args)
         self.assertNotIn("slim", devtools_args)
@@ -225,7 +227,7 @@ class ManagedArtifactsTest(unittest.TestCase):
             {
                 "cua-driver": "0.38.0",
                 "agent-browser": "0.41.2",
-                "chrome-devtools-mcp": "1.10.1",
+                "chrome-devtools-mcp": "1.12.0",
             },
         )
         self.assertFalse(MODULE.binary_install_needed("cua-driver", "cua-driver 0.38.0"))
