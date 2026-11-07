@@ -1,6 +1,13 @@
 # Changelog
 
 
+## 0.6.1 (2026-11-07)
+
+### Changed
+
+* Pin agent-browser 0.41.2 and CUA Driver 0.38.0. [Luis Alejandro Martínez Faneyth]
+
+
 ## 0.6.0 (2026-11-03)
 
 ### Added
