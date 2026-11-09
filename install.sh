@@ -663,6 +663,14 @@ merge_global_mcp() {
             echo "   ⚠️  gh is not signed in; run \`gh auth login\` for the github MCP server to work"
         fi
     fi
+
+    # Chrome DevTools is no longer an MCP server, but the chrome-devtools skill
+    # still ships with every install and calls this wrapper by name. It is
+    # written here, beside the MCP configuration it replaces, rather than with
+    # the machine tools: MASH_SKIP_MACHINE_TOOLS=1 skips those, and the skill
+    # would then name a command no install had written. Writing ten lines needs
+    # no network; the package itself is still fetched on first use.
+    install_mash_chrome_devtools_wrapper
     python3 - "$MANAGED_ARTIFACTS" "$example" "$CURSOR_HOME/mcp.json" "$OPENCODE_HOME/opencode.json" "$PI_SHARED_MCP" "$PI_HOME/settings.json" "$obsidian_key" "$selected" "$wrapper" "$MASH_CONFIG_DIR/install-manifest.json" <<'PY'
 import importlib.util
 import json
@@ -2258,10 +2266,8 @@ install_automation_tools() {
         fi
     fi
 
-    # Written for every install: the chrome-devtools skill ships unconditionally
-    # and calls this wrapper, and writing ten lines costs nothing. The package
-    # itself is still fetched on first use, by npx inside the wrapper.
-    install_mash_chrome_devtools_wrapper
+    # The wrapper itself is written by merge_global_mcp, which runs even when
+    # machine tools are skipped. Only the reporting below belongs here.
     if ! command -v npx >/dev/null 2>&1; then
         echo "   ⚠️  npx is absent. mash-chrome-devtools stays unresolved until Node is installed."
     elif ! npm view "chrome-devtools-mcp@${chrome_pin}" version >/dev/null 2>&1; then
