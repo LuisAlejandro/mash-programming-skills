@@ -1,6 +1,13 @@
 # Changelog
 
 
+## 0.6.3 (2026-11-09)
+
+### Changed
+
+* Run Chrome DevTools per diagnostic, not per session. [Luis Alejandro Martínez Faneyth]
+
+
 ## 0.6.2 (2026-11-07)
 
 ### Changed
