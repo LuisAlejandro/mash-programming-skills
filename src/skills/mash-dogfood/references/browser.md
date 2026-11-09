@@ -2,7 +2,7 @@
 
 Required read before the first Phase 4 navigation. Drive the page through agent-browser. Open a named session, use fresh refs, and record a screenshot plus console and network evidence.
 
-If agent-browser is missing, mark the journey `Blocked` and give the install remediation. Do not shell out to `npx` as a browser. Do not use Chrome DevTools MCP or CUA Driver for the page. Do not attach to the human's default Chrome profile. Refuse a profile named `Default` and refuse auto-connect.
+If agent-browser is missing, mark the journey `Blocked` and give the install remediation. Do not shell out to `npx` as a browser. Do not use Chrome DevTools or CUA Driver for the page. Do not attach to the human's default Chrome profile. Refuse a profile named `Default` and refuse auto-connect.
 
 ## Session
 

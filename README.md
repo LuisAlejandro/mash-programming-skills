@@ -144,8 +144,16 @@ terminal, every example server is merged.
   when the program is missing. Refusing drops the server, and the installer
   does not install the program. With no terminal, those installs still run
   when the tools are missing.
-- `chrome-devtools` has no installer. It stays an `npx` package. If `npx` is
-  absent, the installer says so and still writes the server when you include it.
+- `chrome-devtools` is not an MCP server at all. A Lighthouse audit or a heap
+  analysis happens a few times a month, so holding a browser and its server in
+  every session paid for a capability almost no session used. The
+  `chrome-devtools` skill runs the same engine through its command line tool
+  instead, as `~/.local/bin/mash-chrome-devtools`: the skill starts a server for
+  one diagnostic and stops it afterwards, leaving nothing resident in between.
+  The wrapper pins the package and fetches it with `npx` on first use, and gives
+  each agent session its own server so one agent's audit cannot discard another
+  agent's pages. It is written for every install; if `npx` is absent, the
+  installer says so and still writes it.
 
 GitHub is the only issue tracker Mash Programming Skills writes to.
 

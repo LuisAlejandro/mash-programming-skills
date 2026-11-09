@@ -136,6 +136,26 @@ def mcp_owned_names(example: Path):
     return set(servers)
 
 
+def mcp_prunable_names(example, manifest=None):
+    """Server names this installer may remove from a harness config.
+
+    What it ships now, plus what a previous install recorded as its own. Without
+    the second half, retiring a server orphans it: it stays in every config that
+    already had it, forever, because the current catalog no longer claims it.
+    Names a user added are in neither set and are never touched.
+    """
+    names = set(mcp_owned_names(example))
+    if manifest is None:
+        return names
+    try:
+        recorded = json.loads(Path(manifest).read_text()).get("mcp_servers")
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return names
+    if isinstance(recorded, list):
+        names.update(name for name in recorded if isinstance(name, str))
+    return names
+
+
 def select_mcp_servers(servers, selected):
     if not isinstance(servers, dict):
         return {}

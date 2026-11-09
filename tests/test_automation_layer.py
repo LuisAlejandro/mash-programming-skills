@@ -55,6 +55,15 @@ class AutomationLayerTest(unittest.TestCase):
         text = skill_text("chrome-devtools")
         self.assertIn("Ordinary page journeys stay on agent-browser", text)
 
+    def test_chrome_devtools_skill_starts_and_stops_its_own_server(self):
+        # Nothing expires the tool's background server, and no harness holds it
+        # open either, so the skill owns both ends of its lifetime.
+        text = skill_text("chrome-devtools")
+        self.assertIn("mash-chrome-devtools start", text)
+        self.assertIn("mash-chrome-devtools stop", text)
+        self.assertIn("--memoryDebugging=true", text)
+        self.assertNotIn("MCP server", text)
+
     def test_dogfood_uses_agent_browser_evidence(self):
         browser = (SKILLS / "mash-dogfood" / "references" / "browser.md").read_text()
         skill = (SKILLS / "mash-dogfood" / "SKILL.md").read_text()
