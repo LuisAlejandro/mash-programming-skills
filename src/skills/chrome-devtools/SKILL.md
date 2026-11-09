@@ -5,7 +5,9 @@ description: Thin loader for one Lighthouse audit or one memory diagnostic throu
 
 # Chrome DevTools
 
-One sequence for Lighthouse, or one sequence for memory. This skill does not call a binary guide. Stop if `mash-chrome-devtools` is missing.
+One sequence for Lighthouse, or one sequence for memory. This skill does not call a binary guide.
+
+Stop if `mash-chrome-devtools` is missing: it is written by this project's `install.sh` (as `~/.local/bin/mash-chrome-devtools`) and shipped inside Mash, so a missing command means the install did not finish. Say that and re-run `install.sh`; do not substitute `npx`, another browser tool, or agent-browser for the diagnostic.
 
 The tool keeps its browser in a background server that nothing expires on its own, so the server is this skill's to start and this skill's to stop. Run the sequence in order and stop the server even when the diagnostic fails:
 

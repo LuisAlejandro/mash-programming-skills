@@ -254,6 +254,24 @@ class ManagedArtifactsTest(unittest.TestCase):
         # One server per agent session, or one agent's audit discards another's.
         self.assertIn("CD4A_INTERNAL_DAEMON_SESSION_ID", wrapper)
 
+    def test_chrome_devtools_wrapper_survives_skipped_machine_tools(self):
+        # The skill ships with every install and calls the wrapper by name, so
+        # writing it with the machine tools would leave MASH_SKIP_MACHINE_TOOLS=1
+        # installs naming a command nothing had written.
+        install = (Path(__file__).parents[1] / "install.sh").read_text()
+        merge = install.split("merge_global_mcp() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn("install_mash_chrome_devtools_wrapper", merge)
+        machine_tools = install.split("install_automation_tools() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn("install_mash_chrome_devtools_wrapper", machine_tools)
+        # What one install writes, uninstall takes back.
+        uninstall = (Path(__file__).parents[1] / "uninstall.sh").read_text()
+        self.assertIn(".local/bin/mash-chrome-devtools", uninstall)
+
+    def test_chrome_devtools_skill_names_its_install_remediation(self):
+        skill = (Path(__file__).parents[1] / "src/skills/chrome-devtools/SKILL.md").read_text()
+        self.assertIn("mash-chrome-devtools", skill)
+        self.assertIn("install.sh", skill)
+
     def test_tool_pins_and_install_selection(self):
         self.assertEqual(
             MODULE.TOOL_PINS,
