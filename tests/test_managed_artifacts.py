@@ -209,17 +209,50 @@ class ManagedArtifactsTest(unittest.TestCase):
         self.assertFalse((root / "src/hindsight-embed.example").exists())
         browser_args = servers["agent-browser"]["args"]
         self.assertIn("core,network,debug", browser_args)
-        devtools_args = " ".join(servers["chrome-devtools"]["args"])
-        # Derived, not repeated: the catalog hardcodes the pin that
-        # managed_artifacts.py owns, and nothing else ties the two together.
-        self.assertIn(f"chrome-devtools-mcp@{MODULE.TOOL_PINS['chrome-devtools-mcp']}", devtools_args)
-        self.assertIn("memoryDebugging", devtools_args)
-        self.assertIn("isolated", devtools_args)
-        self.assertNotIn("slim", devtools_args)
-        self.assertNotIn("autoConnect", devtools_args)
-        self.assertNotIn("auto-connect", devtools_args)
         self.assertEqual(servers["cua-driver"]["command"], "cua-driver")
         self.assertEqual(servers["cua-driver"]["args"], ["mcp"])
+
+    def test_retired_server_is_removed_from_a_config_that_already_had_it(self):
+        # The catalog alone cannot prune what it no longer ships, so an upgrade
+        # would leave the retired server running in every existing install.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            example = root / "catalog.json"
+            example.write_text(json.dumps({"mcpServers": {"context7": {"url": "https://example"}}}))
+            manifest = root / "install-manifest.json"
+            manifest.write_text(json.dumps({"mcp_servers": ["context7", "chrome-devtools"]}))
+            owned = MODULE.mcp_prunable_names(example, manifest)
+            self.assertEqual(owned, {"context7", "chrome-devtools"})
+            existing = {
+                "context7": {"url": "https://old"},
+                "chrome-devtools": {"command": "npx"},
+                "mine": {"command": "keep"},
+            }
+            merged = MODULE.merge_mcp_servers(existing, owned, json.loads(example.read_text())["mcpServers"])
+            self.assertNotIn("chrome-devtools", merged)
+            self.assertEqual(merged["mine"], {"command": "keep"})
+            self.assertEqual(merged["context7"], {"url": "https://example"})
+            # A missing or unreadable manifest is a first install, not an error.
+            self.assertEqual(MODULE.mcp_prunable_names(example, root / "absent.json"), {"context7"})
+            self.assertEqual(MODULE.mcp_prunable_names(example), {"context7"})
+
+    def test_chrome_devtools_runs_per_diagnostic_instead_of_per_session(self):
+        # A session-long MCP server held the tool, its watchdog and a browser for
+        # every session, for a diagnostic that runs a few times a month. The
+        # command line tool is started and stopped around one diagnostic, so the
+        # catalog must not carry it back as a server.
+        install = (Path(__file__).parents[1] / "install.sh").read_text()
+        catalog = install.split("cat <<'MASH_MCP_CATALOG'\n", 1)[1].split("\nMASH_MCP_CATALOG", 1)[0]
+        self.assertNotIn("chrome-devtools", json.loads(catalog)["mcpServers"])
+        wrapper = install.split("install_mash_chrome_devtools_wrapper() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn("${HOME}/.local/bin/mash-chrome-devtools", wrapper)
+        # Derived, not repeated: the wrapper interpolates the pin that
+        # managed_artifacts.py owns, so a bump here reaches it.
+        self.assertIn("pin chrome-devtools-mcp", wrapper)
+        self.assertIn("chrome-devtools-mcp@${pin} chrome-devtools", wrapper)
+        self.assertNotIn(f"chrome-devtools-mcp@{MODULE.TOOL_PINS['chrome-devtools-mcp']}", wrapper)
+        # One server per agent session, or one agent's audit discards another's.
+        self.assertIn("CD4A_INTERNAL_DAEMON_SESSION_ID", wrapper)
 
     def test_tool_pins_and_install_selection(self):
         self.assertEqual(
